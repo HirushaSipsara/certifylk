@@ -1,0 +1,1 @@
+"""Curated deterministic catalogues."""

@@ -1,0 +1,19 @@
+{
+  "steps": [
+    "Purchase chillies and ingredients.",
+    "Wash and prepare ingredients.",
+    "Cook the mixture.",
+    "Fill glass bottles manually.",
+    "Store and distribute."
+  ],
+  "known_gaps": [
+    "Incomplete batch records",
+    "Cooking temperature is not measured",
+    "Incomplete supplier evidence",
+    "Incomplete label information"
+  ],
+  "known_strengths": [
+    "Five production stages can be described",
+    "Handwashing supplies are reported as available"
+  ]
+}

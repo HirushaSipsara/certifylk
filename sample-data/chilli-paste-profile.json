@@ -1,0 +1,17 @@
+{
+  "product_name": "Homemade chilli paste",
+  "food_category": "processed_food",
+  "other_category_text": null,
+  "production_location": "home_kitchen",
+  "production_location_other": null,
+  "production_scale": "small",
+  "worker_range": "1_5",
+  "packaging_type": "glass_bottle",
+  "packaging_type_other": null,
+  "storage_method": "room_temperature",
+  "storage_method_other": null,
+  "shelf_life_range": "one_to_six_months",
+  "existing_certification": "none",
+  "production_record_frequency": "sometimes",
+  "additional_information": "Cooked in small batches and filled manually."
+}
