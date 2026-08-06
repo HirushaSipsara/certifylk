@@ -171,9 +171,9 @@ Important:
 
 ## 6. Give the GitHub role permission to deploy through SSM
 
-Open the `certifylk-github-deploy` role:
+Create a narrow customer-managed policy:
 
-1. Choose **Permissions -> Add permissions -> Create inline policy**.
+1. Open **IAM -> Policies -> Create policy**.
 2. Select the **JSON** editor.
 3. Replace `AWS_ACCOUNT_ID` and `EC2_INSTANCE_ID` below.
 4. If the instance is outside Mumbai, replace every `ap-south-1` value too.
@@ -189,16 +189,10 @@ Open the `certifylk-github-deploy` role:
       "Resource": "arn:aws:ssm:ap-south-1::document/AWS-RunShellScript"
     },
     {
-      "Sid": "SendCommandToTaggedCertifyLKInstance",
+      "Sid": "SendCommandToExactCertifyLKInstance",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
-      "Resource": "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/*",
-      "Condition": {
-        "StringEquals": {
-          "ssm:resourceTag/Project": "CertifyLK",
-          "ssm:resourceTag/Environment": "production"
-        }
-      }
+      "Resource": "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/EC2_INSTANCE_ID"
     },
     {
       "Sid": "ReadAndCancelDeploymentCommand",
@@ -214,8 +208,11 @@ Open the `certifylk-github-deploy` role:
 ```
 
 5. Choose **Next**.
-6. Policy name: `certifylk-deploy-through-ssm`.
+6. Policy name: `certifylk-github-deploy-ssm`.
 7. Create the policy.
+8. Open the `certifylk-github-deploy` role.
+9. Choose **Permissions -> Add permissions -> Attach policies**.
+10. Select `certifylk-github-deploy-ssm` and attach it.
 
 Copy the role ARN from the role summary. It looks like:
 
@@ -517,7 +514,7 @@ Check:
 
 - permission-policy region;
 - AWS account ID;
-- the EC2 instance has both `Project=CertifyLK` and `Environment=production` tags;
+- exact EC2 instance ID and ARN;
 - instance and GitHub role are in the same AWS account.
 
 ### SSM command remains pending or instance is not connected
@@ -609,7 +606,7 @@ Verify the backup hashes using `BACKUP_AND_RESTORE.md`, then copy the backup to 
 - [ ] EC2 appears online in Systems Manager.
 - [ ] GitHub OIDC provider exists in AWS.
 - [ ] `certifylk-github-deploy` trust policy matches the exact repository and `production` environment.
-- [ ] GitHub deployment role can call the approved SSM document only for instances carrying both CertifyLK production tags.
+- [ ] GitHub deployment role can call the approved SSM document only for the exact production instance ARN.
 - [ ] GitHub `production` environment has all four required variables.
 - [ ] GitHub contains no AWS access-key secrets.
 - [ ] EC2 contains `.env.production` with mode `600`.

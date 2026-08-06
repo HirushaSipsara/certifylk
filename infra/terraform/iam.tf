@@ -82,22 +82,10 @@ data "aws_iam_policy_document" "github_deploy" {
   }
 
   statement {
-    sid       = "SendCommandToTaggedCertifyLKInstance"
+    sid       = "SendCommandToExactCertifyLKInstance"
     effect    = "Allow"
     actions   = ["ssm:SendCommand"]
-    resources = ["arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "ssm:resourceTag/Project"
-      values   = ["CertifyLK"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "ssm:resourceTag/Environment"
-      values   = [var.environment]
-    }
+    resources = [aws_instance.app.arn]
   }
 
   statement {
@@ -111,8 +99,21 @@ data "aws_iam_policy_document" "github_deploy" {
   }
 }
 
+# Keep the exact inline policy during the transition to the customer-managed
+# policy so an apply cannot introduce a temporary deployment permission gap.
 resource "aws_iam_role_policy" "github_deploy" {
   name   = "certifylk-deploy-through-ssm"
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_deploy.json
+}
+
+resource "aws_iam_policy" "github_deploy_ssm" {
+  name        = "certifylk-github-deploy-ssm"
+  description = "Allow the CertifyLK GitHub deployment role to run the approved SSM document on the production instance."
+  policy      = data.aws_iam_policy_document.github_deploy.json
+}
+
+resource "aws_iam_role_policy_attachment" "github_deploy_ssm" {
+  role       = aws_iam_role.github_deploy.name
+  policy_arn = aws_iam_policy.github_deploy_ssm.arn
 }

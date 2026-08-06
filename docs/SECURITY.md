@@ -44,7 +44,7 @@ The application still has the locked guest UUID model and no authentication. Pos
 - Keep GitHub Actions pinned to reviewed full commit SHAs.
 - Protect the `production` environment, restrict it to `main`, and require review when supported.
 - Scope the AWS OIDC trust to the exact repository and `production` environment, including immutable repository IDs when GitHub uses them.
-- Scope `ssm:SendCommand` to the exact `AWS-RunShellScript` document and EC2 instances in the intended account/region carrying both `Project=CertifyLK` and `Environment=production` tags.
+- Scope `ssm:SendCommand` with separate statements for the exact `AWS-RunShellScript` document and exact production EC2 instance ARN. Attach the reviewed customer-managed policy to the GitHub deployment role.
 - Never deploy a tag not equal to a successful CI commit SHA.
 
 ## Terraform protections
