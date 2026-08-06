@@ -87,38 +87,59 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Validate deployment variables
+      - name: Normalize and validate deployment variables
+        id: deployment_variables
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
           EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN }}
+        shell: bash
         run: |
-          if [[ ! "$AWS_REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
-            echo "::error::AWS_REGION is invalid or contains whitespace."
+          trim_whitespace() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          aws_region="$(trim_whitespace "$AWS_REGION")"
+          aws_role_arn="$(trim_whitespace "$AWS_ROLE_ARN")"
+          ec2_instance_id="$(trim_whitespace "$EC2_INSTANCE_ID")"
+          production_domain="$(trim_whitespace "$PRODUCTION_DOMAIN")"
+
+          if [[ ! "$aws_region" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
+            echo "::error::AWS_REGION is invalid after whitespace normalization."
             exit 1
           fi
-          if [[ ! "$AWS_ROLE_ARN" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
-            echo "::error::AWS_ROLE_ARN is invalid or contains whitespace."
+          if [[ ! "$aws_role_arn" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
+            echo "::error::AWS_ROLE_ARN is invalid after whitespace normalization."
             exit 1
           fi
-          if [[ ! "$EC2_INSTANCE_ID" =~ ^i-[0-9a-f]{8,17}$ ]]; then
-            echo "::error::EC2_INSTANCE_ID is invalid or contains whitespace."
+          if [[ ! "$ec2_instance_id" =~ ^i-[0-9a-f]{8,17}$ ]]; then
+            echo "::error::EC2_INSTANCE_ID is invalid after whitespace normalization."
             exit 1
           fi
-          if [[ ! "$PRODUCTION_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]]; then
-            echo "::error::PRODUCTION_DOMAIN is invalid or contains whitespace."
+          if [[ ! "$production_domain" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::PRODUCTION_DOMAIN is invalid after whitespace normalization."
             exit 1
           fi
+
+          {
+            printf 'aws_region=%s\n' "$aws_region"
+            printf 'aws_role_arn=%s\n' "$aws_role_arn"
+            printf 'ec2_instance_id=%s\n' "$ec2_instance_id"
+            printf 'production_domain=%s\n' "$production_domain"
+          } >> "$GITHUB_OUTPUT"
       - name: Authenticate to AWS with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: ${{ steps.deployment_variables.outputs.aws_role_arn }}
           role-session-name: certifylk-${{ github.run_id }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ steps.deployment_variables.outputs.aws_region }}
       - name: Deploy through Systems Manager
         env:
-          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          EC2_INSTANCE_ID: ${{ steps.deployment_variables.outputs.ec2_instance_id }}
           IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
           REPOSITORY_PATH: /opt/certifylk/repository
         shell: bash
