@@ -148,7 +148,7 @@ jobs:
             --arg repository "$REPOSITORY_PATH" \
             --arg image_tag "$IMAGE_TAG" \
             '{commands: [
-              "set -Eeuo pipefail",
+              "set -eu",
               ("test -d " + ($repository | @sh) + "/.git"),
               ("runuser -u certifylk -- env HOME=/opt/certifylk git -C " + ($repository | @sh) + " fetch --prune origin"),
               ("runuser -u certifylk -- env HOME=/opt/certifylk git -C " + ($repository | @sh) + " checkout --detach " + ($image_tag | @sh)),
