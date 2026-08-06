@@ -3,6 +3,8 @@
 .env.local
 backend/.env
 frontend/.env.local
+infra/production/.env.production
+infra/production/.env.registry
 
 # Python
 __pycache__/
@@ -25,6 +27,19 @@ frontend/.vitest-cache/
 
 # Local data
 backend/data/uploads/
+infra/production/.deploy/
+infra/production/backups/
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infra/terraform/terraform.tfvars
 *.log
 
 # Editors and OS

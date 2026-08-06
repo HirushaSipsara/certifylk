@@ -48,3 +48,7 @@ Extracted/uploaded content is wrapped and labelled as `UNTRUSTED_EVIDENCE_DATA`.
 Confidence is evidence quality, not readiness and not probability of certification.
 
 Images and PDFs create observations only. They never constitute an official inspection conclusion. Every user-facing result states that CertifyLK does not issue, guarantee, or replace SLS certification.
+
+## Production configuration
+
+`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, and fallback behavior are injected only into the backend container from the protected EC2 environment file. They are absent from the frontend build and runtime environment. Production may deliberately use deterministic mock mode; live mode uses the stable explicit model ID `gemini-3.6-flash`, not a moving `latest` alias. Changing the provider mode never transfers scoring, costing, priority, or certification decisions to AI.

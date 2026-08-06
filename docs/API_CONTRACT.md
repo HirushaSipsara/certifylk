@@ -1,6 +1,6 @@
 # API contract
 
-Base URL: `http://localhost:8000/api/v1`. JSON responses include `X-Request-ID`; clients may supply the same header. UUIDs below are abbreviated examples. Timestamps are RFC 3339 UTC.
+Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `https://<production-domain>/api/v1` through Nginx. JSON responses include `X-Request-ID`; clients may supply the same header. UUIDs below are abbreviated examples. Timestamps are RFC 3339 UTC. Production delivery adds no endpoint or response-shape changes.
 
 ## Shared errors
 

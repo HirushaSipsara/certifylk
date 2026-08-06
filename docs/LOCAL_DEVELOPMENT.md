@@ -125,4 +125,4 @@ Restart FastAPI after changes. Never add these variables to `frontend/.env.local
 - **Gemini failure:** check the backend-only key/model and `ai_runs`; enable fallback for a safe local demo. Logs intentionally do not contain prompts or raw evidence.
 - **Windows lacks Make/bash:** use the direct PowerShell commands; Docker Compose and npm/Python commands are platform independent.
 
-`make db-down` stops local PostgreSQL without deleting its volume. Production deployment and DevOps are outside this stage.
+`make db-down` stops local PostgreSQL without deleting its volume. The production files do not replace or alter this local workflow; see `PRODUCTION_DEPLOYMENT.md` only when operating the separate production stage.

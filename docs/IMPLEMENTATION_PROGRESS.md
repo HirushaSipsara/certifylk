@@ -1,7 +1,7 @@
 # CertifyLK Phase 1 implementation progress
 
 **Last updated:** 2026-08-06  
-**Current status:** Local Phase 1 MVP complete; mock mode and live Gemini mode verified  
+**Current status:** Local Phase 1 MVP complete; production delivery implemented locally and awaiting external AWS/DNS/GitHub provisioning
 **Scope:** Sri Lankan food-manufacturing readiness for SLS-related certification preparation only
 
 CertifyLK remains a readiness-assessment tool. It does not issue, guarantee, or replace SLS certification or an official inspection.
@@ -20,6 +20,13 @@ CertifyLK remains a readiness-assessment tool. It does not issue, guarantee, or 
 | Local file evidence | Complete | Safe generated storage keys, MIME/signature/size validation, unavailable states, and local storage abstraction are implemented. |
 | Frontend experience | Complete | Mobile-first pages, accessibility labels, loading/error states, refresh recovery, sample loading, and reusable result components are implemented. |
 | Automated validation | Passing | Backend, frontend, API integration, browser E2E, optimized build, and dependency audit passed. |
+| Production containers and proxy | Implemented and locally validated | Non-root application images, digest-pinned base/service images, private-network Compose, Nginx HTTPS, persistent PostgreSQL/uploads, and health checks passed an isolated production-stack smoke test. |
+| Release operations | Implemented and locally validated | Explicit migrations/seeding, backup creation and hash verification, persistence across restart, HTTPS health gating, application rollback, and certificate reload scripts are implemented. A real prior-release rollback remains a release-environment check. |
+| GitHub CI/CD | Implemented; not yet run on GitHub | Full-SHA-pinned CI actions, immutable GHCR tags, GitHub OIDC, and SSM deployment workflow are committed as configuration. |
+| Public AWS/HTTPS deployment | Blocked on operator prerequisites | No AWS credentials/profile, EC2 instance ID, GitHub production environment, pushed remote commit, domain, or DNS target was available in this workspace. |
+| Unified AWS/GitHub operator guide | Complete | `AWS_GITHUB_DEPLOYMENT_GUIDE.md` provides the ordered Free Plan safeguards, EC2, IAM, SSM, GitHub OIDC, GHCR, DNS, Certbot, deployment, verification, backup, rollback, troubleshooting, and teardown procedure. |
+| AWS credentials and final deployment guide | Complete | `AWS_CREDENTIALS_AND_FINAL_DEPLOYMENT.md` focuses on OIDC trust, least-privilege IAM, exact GitHub environment variables, EC2-only secrets, GHCR access, and the steps from first push through a verified public deployment. |
+| Terraform production automation | Implemented; live apply pending | `infra/terraform` provisions the AWS network, EC2/EIP, SSM access, GitHub OIDC role, optional Route 53/budget/GitHub variables, and secret-free host bootstrap. A live apply requires the operator's authenticated AWS account, real domain, and optional GitHub token. |
 
 ## Completed user workflow
 
@@ -90,9 +97,21 @@ The final live chilli-paste assessment recorded these successful Gemini operatio
 - Playwright: one complete browser happy path passed.
 - npm audit: zero vulnerabilities after dependency upgrades and safe transitive overrides.
 
-### Live services
+### Production delivery
 
-At the time of this update:
+- Backend and frontend production images built successfully from the repository Dockerfiles.
+- The complete isolated Compose stack reached healthy state with PostgreSQL, upload initialization, Alembic migration, deterministic catalogue seed, FastAPI, Next.js, and Nginx.
+- Only Nginx published host ports; PostgreSQL, FastAPI, and Next.js remained private Compose services.
+- A locally trusted smoke certificate verified the HTTPS health script, landing page, API health, and database readiness routes.
+- The sample endpoint and result endpoint completed through Nginx with readiness 32, two strengths, ten gaps, eleven LKR roadmap actions, and the certification disclaimer.
+- A full stack stop/start retained and returned the same assessment result from the persistent PostgreSQL volume.
+- The backup script produced a PostgreSQL custom-format dump, upload archive, release metadata, completion marker, and passing SHA256 manifest; `pg_restore --list` validated the dump structure.
+- Production Compose interpolation, Bash syntax, GitHub workflow YAML parsing, and actionlint 1.7.12 passed locally.
+- An isolated Python dependency audit reported no known vulnerabilities; Bandit reported no medium-or-higher findings; npm audit reported zero vulnerabilities; the secret scan found no unexpected credential candidates.
+
+### Local development services
+
+The normal local-development stack was previously verified independently of the isolated production smoke stack:
 
 - Frontend: `http://localhost:3000` returned HTTP 200.
 - API: `http://localhost:8000/api/v1/health` returned `ok`.
@@ -143,8 +162,9 @@ The live and mock scores differ because Gemini may choose different approved ada
 - Cost bands and readiness mappings are curated demo interpretations and require domain review before public reliance.
 - The tool does not perform laboratory testing, physical inspection, official application submission, or certification decisions.
 - GNU Make and WSL were unavailable in the managed Windows validation environment; documented direct PowerShell commands were used instead.
+- GitHub-hosted CI, GHCR publishing, AWS OIDC, SSM deployment, Certbot issuance/renewal, and rollback between two real published releases cannot be executed until their external accounts, domain, instance, and repository environment are provisioned.
 
-CI/CD, GitHub Actions, AWS, EC2, ECR, Nginx, HTTPS, production Docker deployment, cloud storage, and other production/DevOps work remain intentionally excluded from Phase 1.
+Production delivery is now implemented as a separate infrastructure stage without altering product behavior. It has not yet been deployed publicly: this workstation has no configured AWS credentials, EC2 target, GitHub production environment, or production domain/DNS. The single-EC2 topology is not highly available, and application-managed cloud storage remains unimplemented; uploads persist on the encrypted EC2 volume and are included in documented backups.
 
 ## Recommended next checks
 
@@ -153,6 +173,7 @@ CI/CD, GitHub Actions, AWS, EC2, ECR, Nginx, HTTPS, production Docker deployment
 3. Rotate the Gemini key if it may have left the workstation, then update only `backend/.env`.
 4. Obtain domain-expert review of seeded requirements, evaluation mappings, recommendations, and LKR cost review dates.
 5. Preserve mock mode for repeatable tests and demonstrations; enable Gemini only for explicit live evaluation.
+6. Provision the documented AWS/GitHub/DNS prerequisites, push the tested commit, run the GitHub workflows, and record the resulting public HTTPS URL and external smoke results here.
 
 ## Current local commands
 

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  Owner[Small Sri Lankan food manufacturer] -->|guided answers and evidence| CertifyLK[CertifyLK local MVP]
+  Owner[Small Sri Lankan food manufacturer] -->|guided answers and evidence| CertifyLK[CertifyLK]
   CertifyLK -->|readiness result and roadmap| Owner
   CertifyLK -->|structured prompts; optional| Gemini[Google Gemini API]
   CertifyLK -.->|readiness only; no submission| SLS[Sri Lanka Standards Institution]
@@ -77,7 +77,62 @@ flowchart LR
   Next --> Fast
 ```
 
-Only PostgreSQL is containerized. This is local development infrastructure, not a production deployment.
+Only PostgreSQL is containerized in local development. These commands and ports remain independent from production.
+
+## Production infrastructure
+
+```mermaid
+flowchart TB
+  User[User browser] -->|HTTPS 443| DNS[Domain / Elastic IP]
+  DNS --> EC2[Ubuntu EC2]
+  LetsEncrypt[Let's Encrypt] -->|HTTP-01 80| EC2
+  EC2 --> Nginx[Nginx TLS proxy]
+  Nginx -->|all UI routes| Next[Next.js standalone]
+  Nginx -->|/api/v1| FastAPI[FastAPI / Uvicorn]
+  FastAPI --> PG[(Persistent PostgreSQL volume)]
+  FastAPI --> Uploads[(Persistent upload volume)]
+  FastAPI -->|optional backend-only HTTPS| Gemini[Gemini API]
+  GitHub[GitHub Actions] -->|OIDC short-lived role| AWS[AWS Systems Manager]
+  AWS -->|tested commit SHA| EC2
+  EC2 --> Backups[(Protected local backup directory)]
+```
+
+Nginx is the only service publishing host ports. `app` and `data` Docker networks are internal. The frontend is built with same-origin `/api/v1`, so the browser never needs an internal hostname and CORS remains restricted to the production HTTPS origin.
+
+### Production release flow
+
+```mermaid
+sequenceDiagram
+  participant Push as Push to main
+  participant CI as GitHub CI
+  participant GHCR as GitHub Container Registry
+  participant SSM as AWS Systems Manager
+  participant Host as EC2 deploy script
+  participant DB as PostgreSQL
+  participant Web as Nginx / apps
+  Push->>CI: exact commit SHA
+  CI->>CI: lint, type, unit, integration, E2E, audit, image build
+  CI->>GHCR: push frontend/backend tagged with tested SHA
+  CI->>SSM: OIDC-authenticated command with SHA
+  SSM->>Host: checkout SHA and deploy
+  Host->>DB: pre-deploy logical backup
+  Host->>DB: explicit Alembic migration and idempotent seed
+  Host->>Web: replace containers with SHA images
+  Host->>Web: public HTTPS health checks
+  alt health fails
+    Host->>Web: restore previous application SHA
+  else health passes
+    Host->>Host: record current and previous release
+  end
+```
+
+Application rollback never deletes volumes and never automatically reverses a database migration. Migrations must be backward-compatible with the preceding image. Database/upload recovery is a separate, operator-approved restore procedure.
+
+### Terraform provisioning boundary
+
+`infra/terraform` provisions the same production topology: VPC, public subnet/route, HTTP/HTTPS security group, encrypted EC2/EBS, Elastic IP, EC2 SSM role, GitHub OIDC deployment role, and optional Route 53 record, budget, and GitHub environment variables. EC2 cloud-init installs host dependencies, clones a public repository, creates the backend environment in mock mode with a host-generated PostgreSQL password, and requests TLS only after DNS resolves to the instance.
+
+Terraform does not deploy product logic and does not receive PostgreSQL, Gemini, GHCR, deploy-key, or TLS private-key secrets. Those remain protected on EC2 so they cannot be retained in Terraform state. GitHub Actions remains responsible for immutable application images, migrations, deployment, and public health gating.
 
 ## Security boundaries
 
@@ -86,4 +141,8 @@ Only PostgreSQL is containerized. This is local development infrastructure, not 
 - Uploaded content is untrusted data. It cannot change prompts, candidate IDs, requirements, costs, or tool behavior.
 - Storage keys are UUID-based and path-confined; raw filenames are metadata only after control-character stripping and length limiting.
 - Correlation IDs are accepted/generated and returned, but logs omit secrets and raw evidence content.
-- CORS is restricted by backend environment configuration. No Phase 1 authentication means possession of a UUID allows local-session retrieval; public deployment needs a later privacy/security design.
+- CORS is restricted by backend environment configuration. No Phase 1 authentication means possession of a UUID allows retrieval; production treats assessment URLs as sensitive bearer links and documents this limitation.
+- Production secrets exist only in protected EC2 files or short-lived OIDC sessions. The Gemini key is injected into FastAPI only; GHCR read credentials are not injected into application containers.
+- Nginx terminates TLS and applies body, connection, and request-rate limits. Database, backend, and frontend ports are not exposed by the production Compose project.
+- Application containers run non-root with read-only root filesystems and dropped capabilities. The narrowly scoped upload initializer is the only one-shot container that runs as root.
+- Persistent PostgreSQL, uploads, TLS files, and backups reside on encrypted host storage. Backups require protected off-host copies for host-loss recovery.

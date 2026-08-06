@@ -1,0 +1,16 @@
+.env
+.env.*
+.git
+.gitignore
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+data
+htmlcov
+tests
+*.egg-info
+*.log
+Dockerfile*
+README.md

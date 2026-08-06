@@ -45,3 +45,16 @@ Playwright runs against local frontend/backend in mock mode. It starts at `/`, l
 8. Inspect separate readiness/completeness, six categories, strengths/gaps/unknowns, roadmap costs/gains/projections, and disclaimer.
 9. Refresh and confirm result recovery.
 10. Load the sample from landing and result pages and confirm the same completed workflow shape.
+
+## CI and production-delivery checks
+
+- CI repeats backend format/lint/type/test and frontend audit/lint/type/component/build gates on every pull request and main push.
+- CI runs the Playwright chilli-paste happy path against real FastAPI, Next.js, PostgreSQL, Alembic, and deterministic mock AI processes.
+- Both production Dockerfiles must build from clean contexts; production Compose must interpolate and validate using the example environment.
+- Deployment is eligible only after successful main-branch push CI and uses the exact tested commit as both GHCR application image tags.
+- Before public release, validate Nginx TLS configuration, Certbot dry-run renewal, private service port isolation, persistent volume names, pre-deploy backup hashes, explicit migration/seed completion, and application rollback without volume deletion.
+- The public smoke check covers `/`, `/api/v1/health`, `/api/v1/ready`, the sample result, one strength, one gap, one LKR range, and the certification disclaimer.
+- Quarterly restore drills verify both PostgreSQL and upload archives on a non-production host.
+- Terraform changes run `terraform fmt -check -recursive` and `terraform validate`; provider selections remain locked in `.terraform.lock.hcl`.
+- Before every Terraform apply, review the plan for the expected single EC2/EBS/EIP topology, exact OIDC subject, instance-scoped SSM permission, and absence of application secrets or unexpected paid services.
+- After apply, verify SSM connectivity, encrypted EBS, IMDSv2, 80/443-only ingress, DNS/EIP alignment, protected host environment ownership, certificate issuance, GitHub environment outputs, and the unchanged public sample workflow.

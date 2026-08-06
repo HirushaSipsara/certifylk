@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+log() {
+  printf '[CertifyLK bootstrap] %s\n' "$*"
+}
+
+log "Installing host packages."
+apt-get update
+apt-get install -y ca-certificates curl git jq certbot openssl
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+. /etc/os-release
+cat >/etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $${UBUNTU_CODENAME:-$VERSION_CODENAME}
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
+
+if ! id -u certifylk >/dev/null 2>&1; then
+  adduser --system --group --home /opt/certifylk --shell /usr/sbin/nologin certifylk
+fi
+usermod -aG docker certifylk
+install -d -o certifylk -g certifylk -m 750 /opt/certifylk/repository
+install -d -o certifylk -g certifylk -m 700 /var/lib/certifylk/releases /var/backups/certifylk
+install -d -o root -g root -m 755 /var/www/certbot
+
+repository_dir=/opt/certifylk/repository
+if [[ "${repository_is_public}" == "true" && ! -d "$repository_dir/.git" ]]; then
+  rmdir "$repository_dir"
+  runuser -u certifylk -- env HOME=/opt/certifylk git clone \
+    "${repository_clone_url}" "$repository_dir"
+fi
+
+if [[ -d "$repository_dir/.git" && ! -f "$repository_dir/infra/production/.env.production" ]]; then
+  log "Creating backend-only production environment in deterministic mock mode."
+  database_password="$(openssl rand -hex 32)"
+  environment_file="$repository_dir/infra/production/.env.production"
+  install -o certifylk -g certifylk -m 600 /dev/null "$environment_file"
+  cat >"$environment_file" <<EOF
+DOMAIN_NAME=${domain_name}
+GHCR_OWNER=${ghcr_owner}
+IMAGE_TAG=0000000000000000000000000000000000000000
+
+POSTGRES_DB=certifylk
+POSTGRES_USER=certifylk
+POSTGRES_PASSWORD=$${database_password}
+DATABASE_URL=postgresql+psycopg://certifylk:$${database_password}@postgres:5432/certifylk
+
+LETSENCRYPT_DIR=/etc/letsencrypt
+CERTBOT_WEBROOT=/var/www/certbot
+RELEASE_STATE_DIR=/var/lib/certifylk/releases
+BACKUP_DIR=/var/backups/certifylk
+BACKUP_RETENTION_DAYS=30
+POSTGRES_VOLUME_NAME=certifylk-production-postgres-data
+UPLOADS_VOLUME_NAME=certifylk-production-uploads
+
+MAX_IMAGE_MB=8
+MAX_PDF_MB=12
+AI_PROVIDER=mock
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.6-flash
+ALLOW_AI_FALLBACK=false
+LOG_LEVEL=INFO
+
+HEALTHCHECK_ATTEMPTS=20
+HEALTHCHECK_DELAY_SECONDS=5
+EOF
+  chown certifylk:certifylk "$environment_file"
+  chmod 600 "$environment_file"
+fi
+
+domain_name='${domain_name}'
+tls_email='${tls_email}'
+metadata_token="$(curl --fail --silent --show-error --request PUT \
+  --header 'X-aws-ec2-metadata-token-ttl-seconds: 21600' \
+  http://169.254.169.254/latest/api/token)"
+
+log "Waiting for DNS to point to this instance before requesting a certificate."
+for attempt in $(seq 1 120); do
+  instance_ip="$(curl --fail --silent --show-error \
+    --header "X-aws-ec2-metadata-token: $metadata_token" \
+    http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+  if [[ -n "$instance_ip" ]] && getent ahostsv4 "$domain_name" | awk '{print $1}' | grep -Fxq "$instance_ip"; then
+    if certbot certonly --standalone --non-interactive --agree-tos \
+      --email "$tls_email" -d "$domain_name"; then
+      log "TLS certificate issued successfully."
+      break
+    fi
+  fi
+  if [[ "$attempt" == "120" ]]; then
+    log "DNS/certificate bootstrap timed out; follow the Terraform README troubleshooting steps."
+    break
+  fi
+  sleep 30
+done
+
+if [[ -x "$repository_dir/infra/production/scripts/reload-nginx-after-renewal.sh" ]]; then
+  install -d -m 755 /etc/letsencrypt/renewal-hooks/deploy
+  install -m 755 \
+    "$repository_dir/infra/production/scripts/reload-nginx-after-renewal.sh" \
+    /etc/letsencrypt/renewal-hooks/deploy/certifylk-nginx
+fi
+
+log "Host bootstrap completed. Application deployment remains health-gated through GitHub Actions."
+

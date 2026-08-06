@@ -1,0 +1,31 @@
+aws_region = "ap-south-1"
+
+domain_name = "app.your-real-domain.lk"
+tls_email   = "your-email@example.org"
+
+github_owner      = "HirushaSipsara"
+github_repository = "certifylk"
+ghcr_owner        = "hirushasipsara"
+
+# Set true only when GITHUB_TOKEN is available in the Terraform process and
+# can administer repository environments/actions variables.
+manage_github_environment = false
+
+# Public repositories are cloned automatically by EC2 cloud-init. Set false
+# for a private repository, then configure its read-only deploy key manually.
+repository_is_public = true
+repository_clone_url = "https://github.com/HirushaSipsara/certifylk.git"
+
+instance_type      = "t3.small"
+root_volume_size_gb = 30
+
+# Set this when the public domain is hosted in Route 53. Otherwise create the
+# A record at the external DNS provider using the elastic_ip output.
+route53_zone_id = null
+
+budget_email      = "your-email@example.org"
+monthly_budget_usd = 25
+
+# If the AWS account already has the GitHub OIDC provider, paste its ARN here.
+existing_github_oidc_provider_arn = null
+

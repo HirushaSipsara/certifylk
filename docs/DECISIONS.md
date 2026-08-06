@@ -28,6 +28,14 @@ Mock AI is the default for reproducible local development and tests. Gemini is o
 
 The sample endpoint creates a new, completed chilli-paste assessment by exercising the same persistence, evaluation, scoring, and roadmap services used by manual completion. It avoids external network calls for a reliable demo.
 
-## D008 — No production/DevOps work
+## D008 — Production/DevOps deferred during local MVP construction
 
-CI/CD, GitHub Actions, AWS, EC2, Nginx, and production Docker deployment remain explicitly deferred until the local product is accepted.
+CI/CD, GitHub Actions, AWS, EC2, Nginx, and production Docker deployment were explicitly deferred until the local product was accepted. This historical constraint protected the local vertical slice and is superseded for infrastructure work by D009; the product exclusions remain unchanged.
+
+## D009 — Single-host, immutable production delivery
+
+After explicit authorization, production delivery uses GitHub Actions, GHCR images tagged by the full tested Git commit SHA, GitHub OIDC to AWS, Systems Manager instead of workflow SSH keys, and one Ubuntu EC2 Docker Compose host. Nginx terminates HTTPS; Next.js, FastAPI, and PostgreSQL are private services. PostgreSQL and uploads use stable named volumes. Alembic and catalogue synchronization are explicit release jobs, a backup precedes deployment, public health gates release recording, and rollback changes application images without automatically downgrading the database. The local development workflow and all deterministic product behavior remain unchanged.
+
+## D010 — Terraform provisions infrastructure without application secrets
+
+Terraform automates the documented AWS network, EC2/EIP, Systems Manager identities, GitHub OIDC deployment identity, and optional Route 53, budget, and GitHub environment variables. It does not accept application secrets because Terraform state and saved plans can retain managed values. The host generates the initial PostgreSQL password at boot; Gemini, private GHCR, repository deploy keys, and TLS private material remain EC2-only. Terraform state is excluded from Git and must be protected as operational data.
