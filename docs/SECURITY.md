@@ -49,7 +49,8 @@ The application still has the locked guest UUID model and no authentication. Pos
 
 ## Terraform protections
 
-- Authenticate Terraform to AWS with temporary SSO/role credentials, not root access keys or credentials committed to files.
+- Never use AWS root access keys. The initial local Terraform run may use a dedicated IAM user's access key through a named AWS CLI profile. Keep it only in the local AWS credentials store, grant only the permissions required for provisioning where practical, enable MFA for console access, and deactivate, delete, or rotate the key when it is no longer needed. Temporary SSO/role credentials remain the preferred long-term option.
+- Do not put AWS access keys in Terraform variables, provider blocks, state, plans, GitHub, workflow YAML, EC2 environment files, or repository files. GitHub deployment uses OIDC and short-lived credentials independently of the local Terraform profile.
 - Terraform manages infrastructure identifiers and optional non-secret GitHub environment variables only. PostgreSQL, Gemini, GHCR, repository deploy keys, and TLS private keys are prohibited Terraform inputs.
 - Treat local/remote Terraform state and saved plans as protected operational data even though this root deliberately excludes application secrets. State, plans, `.terraform/`, and the real `terraform.tfvars` are gitignored.
 - Commit and review `.terraform.lock.hcl`. Run `terraform fmt -check`, `terraform validate`, and a human-reviewed `terraform plan` before apply.

@@ -1,6 +1,10 @@
+# Never put AWS access keys in this file. Authenticate with a named AWS CLI
+# profile and select it with AWS_PROFILE before running Terraform.
 aws_region = "ap-south-1"
 
-domain_name = "app.your-real-domain.lk"
+# If you do not own a domain, register a unique free DuckDNS subdomain first,
+# then use it here. Do not copy this example unless you registered that name.
+domain_name = "certifylk-yourname.duckdns.org"
 tls_email   = "your-email@example.org"
 
 github_owner      = "HirushaSipsara"
@@ -28,4 +32,3 @@ monthly_budget_usd = 25
 
 # If the AWS account already has the GitHub OIDC provider, paste its ARN here.
 existing_github_oidc_provider_arn = null
-

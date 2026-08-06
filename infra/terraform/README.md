@@ -30,29 +30,59 @@ The PostgreSQL password is generated on EC2 at first boot. Gemini and private GH
 
 1. The repository is pushed to GitHub and its CI succeeds.
 2. Terraform 1.10 or newer is installed.
-3. AWS CLI v2 is authenticated to the intended account using temporary credentials, preferably IAM Identity Center/SSO.
-4. A real domain or subdomain is available.
+3. AWS CLI v2 is authenticated to the intended account. This guide uses a dedicated IAM user and named AWS CLI profile for the initial Terraform run.
+4. A real hostname is available. A free DuckDNS subdomain is sufficient for a temporary deployment; purchasing a domain is not required.
 5. For automated GitHub environment variables, a GitHub token with permission to administer the repository environment/actions variables is available only in the current Terraform process.
 
 ## 1. Authenticate locally to AWS
 
-Do not create root access keys and do not put AWS keys in GitHub.
+This is the familiar local flow:
 
-Configure an AWS SSO profile once:
+```text
+IAM user -> access key -> aws configure -> named profile -> Terraform
+```
+
+Never create access keys for the AWS root user. Create or select a dedicated IAM user such as `certifylk-terraform`, enable MFA for its console access when applicable, and create an access key for the **Command Line Interface (CLI)** use case.
+
+The user must have permission to create the resources listed in this document, including VPC, EC2, EBS, Elastic IP, IAM roles/policies, Systems Manager integration, and the optional Route 53 and Budgets resources. For a personal first-time bootstrap, attaching AWS managed `AdministratorAccess` temporarily is the simplest option but is broad. Remove that policy and deactivate or delete the access key after provisioning, or replace it with a reviewed least-privilege provisioning policy.
+
+Configure the credentials in a named local profile:
+
+```powershell
+aws configure --profile certifylk-terraform
+```
+
+Enter the values when prompted:
+
+```text
+AWS Access Key ID:     value from the IAM user
+AWS Secret Access Key: value shown once when the key is created
+Default region name:   ap-south-1
+Default output format: json
+```
+
+AWS CLI saves that named profile under your Windows user profile, outside this repository. Select it for the current PowerShell session and verify the identity before running Terraform:
+
+```powershell
+$env:AWS_PROFILE = "certifylk-terraform"
+aws configure list --profile certifylk-terraform
+aws sts get-caller-identity --profile certifylk-terraform
+```
+
+Confirm that the returned account ID and ARN are the intended IAM user. Terraform's AWS provider automatically uses the selected AWS CLI profile.
+
+Do not put `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` in `terraform.tfvars`, Terraform provider blocks, GitHub variables/secrets, workflow YAML, or any repository file. These credentials are only for the local Terraform run. GitHub Actions uses the separate OIDC role created by Terraform and does not need this IAM user's access key.
+
+### Optional SSO alternative
+
+If you later prefer temporary AWS IAM Identity Center credentials, the equivalent setup is:
 
 ```powershell
 aws configure sso
+aws sso login --profile YOUR_SSO_PROFILE
+$env:AWS_PROFILE = "YOUR_SSO_PROFILE"
+aws sts get-caller-identity --profile YOUR_SSO_PROFILE
 ```
-
-Start the session and select it for Terraform:
-
-```powershell
-aws sso login --profile YOUR_PROFILE
-$env:AWS_PROFILE = "YOUR_PROFILE"
-aws sts get-caller-identity
-```
-
-Confirm the returned account ID before applying.
 
 ## 2. Optionally authenticate Terraform to GitHub
 
@@ -75,6 +105,16 @@ The token is provider authentication and is not declared as a Terraform input or
 
 ## 3. Configure non-secret inputs
 
+### Free temporary hostname when you do not own a domain
+
+Create a free DuckDNS subdomain before running Terraform:
+
+1. Sign in at [DuckDNS](https://www.duckdns.org/).
+2. Register an available, unique name such as `certifylk-yourname`.
+3. Your Terraform hostname will be `certifylk-yourname.duckdns.org`.
+
+Do not use the example name unless you successfully registered it. Do not put the DuckDNS token in Terraform or GitHub; after the Elastic IP is created, update the address manually in the DuckDNS dashboard.
+
 ```powershell
 Set-Location F:\Projects\certifylk\infra\terraform
 Copy-Item terraform.tfvars.example terraform.tfvars
@@ -84,9 +124,15 @@ notepad terraform.tfvars
 At minimum, replace:
 
 ```hcl
-domain_name = "app.your-real-domain.lk"
+domain_name  = "certifylk-yourname.duckdns.org"
 tls_email   = "your-real-email@example.org"
 budget_email = "your-real-email@example.org"
+```
+
+For DuckDNS, keep:
+
+```hcl
+route53_zone_id = null
 ```
 
 When DNS is in Route 53, set its existing public hosted-zone ID:
@@ -166,6 +212,21 @@ Name: the selected subdomain
 Value: terraform output -raw elastic_ip
 TTL: 300
 ```
+
+For the temporary DuckDNS option:
+
+```powershell
+$elasticIp = terraform output -raw elastic_ip
+Write-Output $elasticIp
+```
+
+Open the DuckDNS dashboard, enter that Elastic IP beside your registered subdomain, and choose **update ip**. Verify it before continuing:
+
+```powershell
+Resolve-DnsName certifylk-yourname.duckdns.org
+```
+
+The returned IPv4 address must equal `$elasticIp`. The EC2 bootstrap waits for this match before requesting the HTTPS certificate.
 
 Cloud-init checks that the hostname resolves to its Elastic IP before calling Certbot. This avoids repeated invalid certificate requests while DNS is incomplete.
 
@@ -288,8 +349,11 @@ Stop and review the cause. Back up production data before approving any instance
 ## Official references
 
 - [Terraform AWS getting started](https://developer.hashicorp.com/terraform/tutorials/aws-get-started)
+- [AWS CLI configuration and named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
+- [AWS access-key security guidance](https://docs.aws.amazon.com/IAM/latest/UserGuide/securing_access-keys.html)
+- [AWS root-user security guidance](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html)
+- [DuckDNS free dynamic DNS and update behavior](https://www.duckdns.org/faqs.jsp)
 - [Terraform sensitive data and state](https://developer.hashicorp.com/terraform/language/manage-sensitive-data)
 - [Terraform state guidance](https://developer.hashicorp.com/terraform/language/state)
 - [AWS OIDC federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)
 - [GitHub OIDC with AWS](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
-

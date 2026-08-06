@@ -4,6 +4,26 @@ This guide starts from the current CertifyLK repository and explains exactly how
 
 For the automated alternative that creates the AWS roles, network, EC2, Elastic IP, optional DNS/budget, and GitHub environment variables, use `infra/terraform/README.md`. Keep this document as the credential-flow reference and troubleshooting fallback.
 
+## Local credentials used to run Terraform
+
+The first Terraform run may use the traditional local IAM flow:
+
+```text
+Dedicated IAM user -> IAM access key -> named AWS CLI profile -> Terraform
+```
+
+Configure and verify it from PowerShell:
+
+```powershell
+aws configure --profile certifylk-terraform
+$env:AWS_PROFILE = "certifylk-terraform"
+aws sts get-caller-identity --profile certifylk-terraform
+```
+
+Use an IAM user, never the AWS root user. The access key is stored by AWS CLI in `%UserProfile%\.aws\credentials`, outside the repository. Do not copy it into `terraform.tfvars`, a Terraform provider block, GitHub, or EC2. Follow the exact initialization, plan, and apply sequence in `infra/terraform/README.md`.
+
+This local Terraform identity is separate from GitHub deployment authentication. Terraform creates the GitHub OIDC deployment role; after that, GitHub obtains temporary AWS credentials and does not use the IAM user's access key. Deactivate or delete the bootstrap key when you no longer need to run Terraform, or rotate it according to your operating policy.
+
 ## The most important rule
 
 Do **not** add these long-term credentials to GitHub:
@@ -20,6 +40,7 @@ CertifyLK uses GitHub OpenID Connect (OIDC). GitHub receives short-lived AWS cre
 
 | Value | Storage location | Secret? |
 |---|---|---|
+| Local Terraform IAM access key | Local AWS CLI named profile (`%UserProfile%\.aws\credentials`) only | Yes |
 | `AWS_REGION` | GitHub `production` environment variable | No |
 | `AWS_ROLE_ARN` | GitHub `production` environment variable | No |
 | `EC2_INSTANCE_ID` | GitHub `production` environment variable | No |
