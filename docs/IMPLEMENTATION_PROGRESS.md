@@ -1,76 +1,90 @@
 # CertifyLK Phase 1 implementation progress
 
-**Last updated:** 2026-08-06  
-**Current status:** Local Phase 1 MVP complete; production delivery implemented locally and awaiting external AWS/DNS/GitHub provisioning
-**Scope:** Sri Lankan food-manufacturing readiness for SLS-related certification preparation only
+**Last updated:** 2026-08-06
 
-CertifyLK remains a readiness-assessment tool. It does not issue, guarantee, or replace SLS certification or an official inspection.
+**Current status:** Local MVP complete; production deployment live and test-gated
 
-## Progress summary
+**Public URL:** <https://certifylk.duckdns.org>
 
-| Milestone | Status | Current evidence |
+**Verified release:** `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`
+
+**Production AI mode:** deterministic mock
+
+CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufacturers preparing for SLS-related certification. It does not issue, guarantee, or replace SLS certification or an official inspection.
+
+## Milestone status
+
+| Milestone | Status | Evidence |
 |---|---|---|
-| Canonical product and technical documentation | Complete | All required documents exist under `docs/`; `AGENTS.md` defines scope and engineering rules. |
-| Monorepo and local infrastructure | Complete | Next.js frontend, FastAPI backend, PostgreSQL 16 Compose service, scripts, sample data, and Make targets exist. |
-| Database model and catalogue | Complete | Initial Alembic migration applied; 21 requirements, 35 approved questions, and 12 LKR recommendations seeded. |
-| Four-page guest assessment | Complete | Profile, process, evidence, clarification, and result routes work with UUID-based resume state. |
-| Deterministic readiness engine | Complete | Requirement evaluation, category normalization, readiness, evidence completeness, costs, gains, projections, and ranking are deterministic Python. |
-| Mock AI | Complete | Deterministic provider drives automated tests and the reproducible chilli-paste demo without a key. |
-| Gemini AI | Complete and live-verified | `gemini-3.6-flash` completed all five AI operations with structured validation and no fallback in the final live workflow. |
-| Local file evidence | Complete | Safe generated storage keys, MIME/signature/size validation, unavailable states, and local storage abstraction are implemented. |
-| Frontend experience | Complete | Mobile-first pages, accessibility labels, loading/error states, refresh recovery, sample loading, and reusable result components are implemented. |
-| Automated validation | Passing | Backend, frontend, API integration, browser E2E, optimized build, and dependency audit passed. |
-| Production containers and proxy | Implemented and locally validated | Non-root application images, digest-pinned base/service images, private-network Compose, Nginx HTTPS, persistent PostgreSQL/uploads, and health checks passed an isolated production-stack smoke test. |
-| Release operations | Implemented and locally validated | Explicit migrations/seeding, backup creation and hash verification, persistence across restart, HTTPS health gating, application rollback, and certificate reload scripts are implemented. A real prior-release rollback remains a release-environment check. |
-| GitHub CI/CD | Implemented; not yet run on GitHub | Full-SHA-pinned CI actions, immutable GHCR tags, GitHub OIDC, and SSM deployment workflow are committed as configuration. |
-| Public AWS/HTTPS deployment | Blocked on operator prerequisites | No AWS credentials/profile, EC2 instance ID, GitHub production environment, pushed remote commit, domain, or DNS target was available in this workspace. |
-| Unified AWS/GitHub operator guide | Complete | `AWS_GITHUB_DEPLOYMENT_GUIDE.md` provides the ordered Free Plan safeguards, EC2, IAM, SSM, GitHub OIDC, GHCR, DNS, Certbot, deployment, verification, backup, rollback, troubleshooting, and teardown procedure. |
-| AWS credentials and final deployment guide | Complete | `AWS_CREDENTIALS_AND_FINAL_DEPLOYMENT.md` focuses on OIDC trust, least-privilege IAM, exact GitHub environment variables, EC2-only secrets, GHCR access, and the steps from first push through a verified public deployment. |
-| Terraform production automation | Implemented; live apply pending | `infra/terraform` provisions the AWS network, EC2/EIP, SSM access, GitHub OIDC role, optional Route 53/budget/GitHub variables, and secret-free host bootstrap. A live apply requires the operator's authenticated AWS account, real domain, and optional GitHub token. |
+| Canonical documentation | Complete | Product, architecture, API, data, AI, scoring, test, local-development, security, release, and production runbooks are maintained under `docs/`. |
+| Four-page guest workflow | Complete | Profile, process, evidence, clarification, and result routes persist UUID-based progress and support refresh recovery. |
+| Database and catalogue | Complete | Alembic migration and idempotent seed load 21 requirements, 35 approved questions, and 12 curated LKR recommendations. |
+| Deterministic domain engine | Complete | Requirement evaluation, readiness, evidence completeness, ranking, costs, gains, and projections run exclusively in typed Python. |
+| AI providers | Complete | Deterministic mock mode drives tests and production demo; Gemini completed a separate local structured-output verification. |
+| Upload safety | Complete | Generated storage keys, MIME/signature/size checks, unavailable states, and persistent filesystem storage abstraction are active. |
+| Automated tests | Passing | Backend, frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass in GitHub CI. |
+| Terraform infrastructure | Applied | VPC, subnet, routing, security group, encrypted EC2/EBS, Elastic IP, SSM role, GitHub OIDC role, and AWS budget were created in `ap-south-1`. |
+| HTTPS production | Live | DuckDNS resolves to the Elastic IP; Nginx serves the frontend and API with a valid Let's Encrypt certificate. |
+| GitHub CI/CD | Passing | CI and `Deploy production` succeeded for release `77cd9cb`; deployment used OIDC, SSM, immutable GHCR tags, migration, seed, and public health gates. |
+| Persistence and recovery | Implemented | PostgreSQL and uploads use stable named volumes; deployment performs backups and preserves volumes; rollback and restore runbooks are documented. |
 
-## Completed user workflow
+## Production baseline
 
-1. `/` presents the mission, disclaimer, estimated duration, Start Assessment, and Load Sample Assessment actions.
-2. `/assessment/[assessmentId]/profile` saves the business/product profile and requests two to five approved adaptive questions.
-3. `/assessment/[assessmentId]/process` accepts exactly five slots with at least three completed steps, saves adaptive answers, extracts structured stages, and creates the evidence plan.
-4. `/assessment/[assessmentId]/evidence` supports requested image/PDF uploads or unavailable states, validates files, analyzes supplied evidence, and plans final questions.
-5. `/assessment/[assessmentId]/clarification` accepts three to five approved clarifications and advances the assessment to scoring.
-6. `/assessment/[assessmentId]/result` displays readiness, separate evidence completeness, category scores, strengths, gaps, unknowns, prioritized LKR actions, expected gains, cumulative projections, explanations, and the disclaimer.
+| Item | Verified value |
+|---|---|
+| AWS account | `622215957056` |
+| AWS region | `ap-south-1` |
+| EC2 instance | `i-00e924bf43a9d1fbe` |
+| Elastic IP | `3.108.242.97` |
+| Hostname | `certifylk.duckdns.org` |
+| GitHub deploy role | `arn:aws:iam::622215957056:role/certifylk-github-deploy` |
+| Repository path on EC2 | `/opt/certifylk/repository` |
+| Release source | GitHub `main`, exact tested commit SHA |
+| Production provider | `AI_PROVIDER=mock` |
 
-The assessment UUID is retained in the URL and browser local storage. Saved API state supports refresh recovery without authentication.
+These identifiers are non-secret operational metadata. Passwords, API keys, tokens, `.env.production`, TLS private keys, and Terraform state are intentionally omitted.
 
-## Backend progress
+## Verified workflow
 
-- All required `/api/v1` system, assessment, page-workflow, evidence, completion, and result endpoints are implemented.
-- Pydantic request/response schemas, consistent error envelopes, request IDs, transition validation, and documented `409`, `413`, `415`, and `422` behavior are active.
-- SQLAlchemy models and the first Alembic migration cover all 15 required entities.
-- PostgreSQL catalogue seeding is idempotent.
-- Uploaded files use generated storage keys under the configured local upload directory; raw names are metadata only.
-- The future `S3StorageProvider` boundary exists but contains no AWS calls.
-- Logs and `ai_runs` omit prompts, raw document content, and credentials.
+1. The landing page provides Start Assessment and Load Sample Assessment.
+2. Page 1 saves the product profile and obtains two to five approved adaptive questions.
+3. Page 2 accepts exactly five process slots, requires at least three steps, extracts approved process stages, and builds an evidence plan.
+4. Page 3 accepts safe image/PDF uploads or unavailable states, records structured observations, and selects final approved questions.
+5. Page 4 saves clarifications and invokes deterministic evaluation, scoring, costing, ranking, and projection.
+6. The result separates readiness from evidence completeness and shows strengths, gaps, unknowns, LKR actions, expected gains, cumulative projections, explanations, and the certification disclaimer.
 
-## AI progress
+The production deployment exposes the same workflow as local development. No production-only product behavior was added.
 
-### Mock mode
+## Validation record
 
-- Remains the default in `backend/.env.example`.
-- Requires no API key.
-- Produces repeatable approved questions, process stages, evidence observations, clarification plans, and roadmap explanations.
-- Is forced during automated tests even when the developer's local `.env` enables Gemini, preventing accidental network calls and API charges.
+### GitHub and public production
 
-### Live Gemini mode
+- GitHub CI run for `77cd9cb` completed successfully on 2026-08-06.
+- The dependent `Deploy production` workflow completed successfully for the same SHA.
+- GHCR images were published with the full tested SHA; no floating application tag is used.
+- GitHub authenticated through OIDC; no long-lived AWS key is stored in GitHub.
+- AWS Systems Manager checked out the exact SHA and invoked the Bash deployment script.
+- Alembic migration and deterministic seed completed successfully.
+- PostgreSQL, FastAPI, Next.js, and Nginx reached healthy state.
+- `https://certifylk.duckdns.org/` returned HTTP `200` and rendered CertifyLK.
+- `https://certifylk.duckdns.org/api/v1/health` returned `{"status":"ok","service":"CertifyLK API"}`.
+- `https://certifylk.duckdns.org/api/v1/ready` returned `{"status":"ready","database":"ok"}`.
 
-- Active local configuration: `AI_PROVIDER=gemini` and `GEMINI_MODEL=gemini-3.6-flash`.
-- The API key is stored only in ignored `backend/.env`; the commit-ready `.env.example` contains a blank key.
-- The key is sent with the `x-goog-api-key` request header rather than a URL query parameter.
-- Deprecated sampling parameters were removed for Gemini 3.6 compatibility.
-- Structured responses are validated through Pydantic before use.
-- Adaptive and clarification question IDs are checked against backend-supplied candidates.
-- Approved process tags are supplied in the payload and encoded as an enum in the structured-output schema.
-- Evidence request IDs and requirement IDs are whitelisted before observations are persisted.
-- Gemini is retried once; deterministic mock fallback runs only when enabled and both outcomes are recorded.
+### Local product checks
 
-The final live chilli-paste assessment recorded these successful Gemini operations, all using `gemini-3.6-flash` with `fallback_used=false`:
+- Ruff formatting and linting passed.
+- Mypy passed with no source errors.
+- Pytest passed all 12 backend tests.
+- ESLint and TypeScript strict checks passed.
+- Vitest passed five component tests across four files.
+- Next.js optimized production build passed.
+- Playwright passed the complete deterministic chilli-paste browser flow.
+- npm audit reported zero vulnerabilities after reviewed dependency updates.
+- The deterministic sample produces readiness `32` with separate strengths, gaps, unknowns, catalogue-only costs, and the disclaimer.
+
+### Local Gemini verification
+
+A backend-only Gemini configuration separately completed all five AI operations with structured Pydantic validation and no fallback:
 
 1. `plan_adaptive_questions`
 2. `extract_process`
@@ -78,122 +92,51 @@ The final live chilli-paste assessment recorded these successful Gemini operatio
 4. `plan_clarifications`
 5. `explain_roadmap`
 
-## Verification evidence
+This does not mean Gemini is enabled in production. Production intentionally remains in mock mode until the EC2-only key is configured and the complete public sample is re-verified.
 
-### Backend
+## Deployment issues resolved
 
-- Ruff format check: 51 files formatted correctly.
-- Ruff lint: passed.
-- Mypy: no issues in 46 source files.
-- Pytest: 12 passed.
-- One non-product Starlette/FastAPI test-client deprecation warning remains.
+- The first EC2 bootstrap clone failed while the repository was private. After the repository became public, the host repository and protected environment were recovered without putting a GitHub credential in Terraform.
+- GitHub's immutable OIDC subject format required the numeric owner and repository IDs in the IAM trust policy.
+- The deploy role now has an exact customer-managed SSM policy for `AWS-RunShellScript` and the single production instance, plus invocation status/cancel permissions.
+- Trailing whitespace in GitHub environment variables caused validation and IAM targeting failures. Workflow inputs are now normalized and validated before authentication and deployment.
+- `AWS-RunShellScript` executes its command list with `/bin/sh`; its wrapper now uses portable `set -eu`. The repository deployment script is still invoked explicitly with Bash and retains `set -Eeuo pipefail`.
+- The EC2 `.env.production` file was recovered with a host-generated PostgreSQL password, mock AI mode, `600` permissions, and `certifylk` ownership. Its contents were never printed or committed.
+- The frontend production build now creates an empty `public/` directory when no static assets are present.
 
-### Frontend
+## Current limitations
 
-- TypeScript strict check: passed.
-- ESLint: passed.
-- Vitest: 5 component tests passed across 4 files.
-- Next.js optimized build: passed.
-- Playwright: one complete browser happy path passed.
-- npm audit: zero vulnerabilities after dependency upgrades and safe transitive overrides.
+- The topology is one EC2 host and is not highly available.
+- DuckDNS is a temporary free hostname. A controlled domain can replace it later without changing product behavior.
+- PostgreSQL and uploads persist on the EC2 host; verified off-host backup retention and restore rehearsal remain operational follow-ups.
+- Production currently uses deterministic mock AI. Enabling Gemini requires an EC2-only key and another public workflow verification.
+- A real production photo/PDF Gemini analysis still needs a deliberate manual validation with non-sensitive fixtures.
+- Guest UUID possession grants assessment access; authentication and multi-user privacy controls remain outside Phase 1.
+- Curated requirements, readiness mappings, recommendations, and LKR cost bands require domain-expert review before public reliance.
+- The deployment does not provide laboratory testing, physical inspection, official submission, or certification decisions.
 
-### Production delivery
+## Next operational checks
 
-- Backend and frontend production images built successfully from the repository Dockerfiles.
-- The complete isolated Compose stack reached healthy state with PostgreSQL, upload initialization, Alembic migration, deterministic catalogue seed, FastAPI, Next.js, and Nginx.
-- Only Nginx published host ports; PostgreSQL, FastAPI, and Next.js remained private Compose services.
-- A locally trusted smoke certificate verified the HTTPS health script, landing page, API health, and database readiness routes.
-- The sample endpoint and result endpoint completed through Nginx with readiness 32, two strengths, ten gaps, eleven LKR roadmap actions, and the certification disclaimer.
-- A full stack stop/start retained and returned the same assessment result from the persistent PostgreSQL volume.
-- The backup script produced a PostgreSQL custom-format dump, upload archive, release metadata, completion marker, and passing SHA256 manifest; `pg_restore --list` validated the dump structure.
-- Production Compose interpolation, Bash syntax, GitHub workflow YAML parsing, and actionlint 1.7.12 passed locally.
-- An isolated Python dependency audit reported no known vulnerabilities; Bandit reported no medium-or-higher findings; npm audit reported zero vulnerabilities; the secret scan found no unexpected credential candidates.
+1. Complete the public one-click sample and one upload/unavailable path after each release.
+2. Run `certbot renew --dry-run` and verify the Nginx reload hook.
+3. Export a backup off EC2 and perform a controlled restore rehearsal using `BACKUP_AND_RESTORE.md`.
+4. Configure GitHub branch protection and production approval rules if the current repository plan supports them.
+5. Add Gemini only to the protected EC2 environment when live AI is required; never add it to GitHub or Terraform.
+6. Review AWS spend and budget alerts while the free-trial credits are active.
 
-### Local development services
-
-The normal local-development stack was previously verified independently of the isolated production smoke stack:
-
-- Frontend: `http://localhost:3000` returned HTTP 200.
-- API: `http://localhost:8000/api/v1/health` returned `ok`.
-- Database readiness: `http://localhost:8000/api/v1/ready` returned `ready`.
-- API documentation: `http://localhost:8000/docs`.
-- PostgreSQL uses host port `55432` on this workstation because another local PostgreSQL service already occupies `5432`.
-
-## Demo results
-
-### Deterministic mock sample
-
-The documented chilli-paste fixture produces a reproducible readiness score of 32 in mock mode, with separate strengths, gaps, unknowns, and catalogue-derived LKR actions.
-
-### Live Gemini sample
-
-- Assessment ID: `51916359-b2a2-4b8f-94dd-9de867393450`
-- Result route: `http://localhost:3000/assessment/51916359-b2a2-4b8f-94dd-9de867393450/result`
-- Status: completed
-- Readiness: 20
-- Evidence completeness: 33%
-- Confirmed strengths: 1
-- Possible gaps: 8
-- Unknown requirements: 12
-- Roadmap actions: 12
-- Currency: LKR
-
-The live and mock scores differ because Gemini may choose different approved adaptive/clarification questions and approved process tags. Once those structured inputs are persisted, scoring, costs, priorities, and projections remain deterministic.
-
-## Issues resolved during implementation
-
-- Avoided a conflict with the workstation's existing PostgreSQL instance by running the CertifyLK Compose database on host port `55432`.
-- Upgraded the frontend test toolchain and transitive PostCSS/Sharp packages, reducing the npm audit result to zero vulnerabilities.
-- Configured Vitest's current structured JSX transformation and native config loader for the managed Windows filesystem.
-- Disabled pytest's cache provider because the managed filesystem rejected `.pytest_cache` writes.
-- Moved a mistakenly populated Gemini key out of `.env.example` into ignored `backend/.env` and restored the example safely.
-- Replaced Gemini query-string authentication with a request header to prevent credentials appearing in request URLs or error logs.
-- Removed deprecated Gemini 3.6 sampling parameters.
-- Added the process-tag whitelist to the prompt payload and generated JSON schema after live validation initially rejected invented tags.
-- Forced mock mode in tests so a live developer configuration cannot make network calls.
-
-## Current limitations and boundaries
-
-- The final live workflow analyzed an evidence plan whose sample slots were marked unavailable. Real Gemini multimodal analysis of a user-uploaded photo and PDF still needs a manual live validation fixture.
-- Gemini output can vary while remaining inside the approved schemas and whitelists; the deterministic mock remains the reproducible judging/development path.
-- Gemini usage can incur quota or billing charges depending on the Google AI project.
-- If the current key was previously committed, uploaded, or shared while inside `.env.example`, it should be rotated in Google AI Studio.
-- Guest UUID possession grants local assessment access; authentication/privacy design is deferred.
-- Cost bands and readiness mappings are curated demo interpretations and require domain review before public reliance.
-- The tool does not perform laboratory testing, physical inspection, official application submission, or certification decisions.
-- GNU Make and WSL were unavailable in the managed Windows validation environment; documented direct PowerShell commands were used instead.
-- GitHub-hosted CI, GHCR publishing, AWS OIDC, SSM deployment, Certbot issuance/renewal, and rollback between two real published releases cannot be executed until their external accounts, domain, instance, and repository environment are provisioned.
-
-Production delivery is now implemented as a separate infrastructure stage without altering product behavior. It has not yet been deployed publicly: this workstation has no configured AWS credentials, EC2 target, GitHub production environment, or production domain/DNS. The single-EC2 topology is not highly available, and application-managed cloud storage remains unimplemented; uploads persist on the encrypted EC2 volume and are included in documented backups.
-
-## Recommended next checks
-
-1. Upload one small supported production photo and one PDF through the normal evidence page with Gemini enabled, then confirm the recorded observations use only allowed request and requirement IDs.
-2. Manually inspect Gemini explanations for plain language and non-certifying wording across several products within the locked food-manufacturing scope.
-3. Rotate the Gemini key if it may have left the workstation, then update only `backend/.env`.
-4. Obtain domain-expert review of seeded requirements, evaluation mappings, recommendations, and LKR cost review dates.
-5. Preserve mock mode for repeatable tests and demonstrations; enable Gemini only for explicit live evaluation.
-6. Provision the documented AWS/GitHub/DNS prerequisites, push the tested commit, run the GitHub workflows, and record the resulting public HTTPS URL and external smoke results here.
-
-## Current local commands
-
-Start the existing port-adjusted database from the repository root:
+## Local commands
 
 ```powershell
 $env:CERTIFYLK_POSTGRES_PORT = "55432"
 docker compose -f infra/local/docker-compose.yml up -d
-```
 
-Run migrations and seed:
-
-```powershell
 Push-Location backend
 python -m alembic upgrade head
 Pop-Location
 python scripts/seed_demo_data.py
 ```
 
-Start the Gemini-enabled backend and frontend in separate terminals:
+Run the backend and frontend in separate terminals:
 
 ```powershell
 Set-Location backend
@@ -205,7 +148,7 @@ Set-Location frontend
 npm run dev
 ```
 
-Run deterministic checks:
+Run deterministic validation:
 
 ```powershell
 Push-Location backend

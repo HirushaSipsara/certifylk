@@ -8,6 +8,19 @@ Production runs the existing CertifyLK workflow without changing its routes, sco
 
 This is a single-host Phase 1 deployment. It is recoverable through logical backups and immutable application image tags, but it is not highly available.
 
+## Current Phase 1 environment
+
+| Item | Current value |
+|---|---|
+| Public URL | <https://certifylk.duckdns.org> |
+| AWS region | `ap-south-1` |
+| EC2 instance | `i-00e924bf43a9d1fbe` |
+| Elastic IP | `3.108.242.97` |
+| Verified release | `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d` |
+| AI mode | deterministic mock |
+
+The landing page and both API health endpoints were publicly verified after the GitHub deployment completed. The production environment file and all credentials remain EC2-only.
+
 ## Release invariants
 
 - Application images are `ghcr.io/<owner>/certifylk-{frontend|backend}:<40-character-git-sha>`. No `latest` tag is used.
@@ -60,7 +73,7 @@ The token needs package read access only. It is not passed to application contai
 DNS must already resolve to the EC2 Elastic IP and ports 80/443 must be open. Before Nginx starts for the first time:
 
 ```bash
-DOMAIN=certifylk.example.com
+DOMAIN=certifylk.duckdns.org
 EMAIL=operations@example.com
 sudo install -d -m 755 /var/www/certbot
 sudo certbot certonly --standalone --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN"
@@ -110,6 +123,14 @@ IMAGE_TAG=FULL_TESTED_COMMIT_SHA bash infra/production/scripts/deploy.sh
 ```
 
 Never deploy an untested SHA.
+
+## Host recovery rules
+
+- If public-repository cloning failed during initial cloud-init while the repository was private, make the repository public only when that is acceptable, then clone as the `certifylk` user or rerun the documented bootstrap steps. Do not place a GitHub token in Terraform state.
+- If `.env.production` is missing, recreate it on EC2 from `.env.production.example`, generate the PostgreSQL password on the host, keep production in mock mode until verified, and set ownership/mode to `certifylk:certifylk` and `600`. Never print the file in CI or an SSM log.
+- AWS `AWS-RunShellScript` uses `/bin/sh` for its command wrapper. Use portable `set -eu` there and invoke the repository deployment script explicitly with `bash`.
+- GitHub environment values must not contain trailing spaces. The workflow normalizes and validates them, but operators should correct the stored values as well.
+- Repairing a failed bootstrap does not justify deleting Docker volumes, Terraform state, the EC2 instance, or the Elastic IP. Preserve data and run the focused checks before redeploying.
 
 ## Operations
 

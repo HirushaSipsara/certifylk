@@ -2,6 +2,20 @@
 
 This Terraform root automates the repetitive AWS and GitHub connection work for the existing CertifyLK production Compose deployment.
 
+## Current applied environment
+
+Terraform has been applied successfully for the Phase 1 deployment:
+
+| Output | Verified value |
+|---|---|
+| Public URL | <https://certifylk.duckdns.org> |
+| Region | `ap-south-1` |
+| Elastic IP | `3.108.242.97` |
+| EC2 instance | `i-00e924bf43a9d1fbe` |
+| GitHub role | `arn:aws:iam::622215957056:role/certifylk-github-deploy` |
+
+The initial apply created 15 resources. Subsequent applies updated the GitHub immutable OIDC trust and attached the exact customer-managed Systems Manager deployment policy. The current Terraform plan is clean, and GitHub CI plus production deployment passed for commit `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`.
+
 ## Automated resources
 
 - dedicated VPC, internet gateway, public subnet, and route table;
@@ -265,6 +279,8 @@ sudo stat -c '%a %U:%G %n' /opt/certifylk/repository/infra/production/.env.produ
 
 Expected mode/owner: `600 certifylk:certifylk`.
 
+If cloud-init reports an error because the repository was private when the instance started, changing repository visibility does not automatically rerun the failed clone step. Follow the repository recovery guidance under Troubleshooting, confirm the protected environment file exists, and then deploy through the normal GitHub workflow. Do not destroy the instance just to retry bootstrap.
+
 ## 8. Configure private GHCR only when required
 
 If application packages are private, add the read-only package token directly on EC2:
@@ -353,6 +369,28 @@ Confirm the domain resolves to `elastic_ip`, security-group port 80 is open, and
 ### Repository is private
 
 Cloud-init intentionally does not accept a GitHub private key or token through Terraform. Configure the read-only EC2 deploy key, clone, and create `.env.production` using the focused deployment guide.
+
+If the first clone failed and the repository was subsequently made public, connect through Session Manager and clone as the service user into the expected path. Preserve the Terraform-created directories and ownership:
+
+```bash
+sudo test ! -e /opt/certifylk/repository/.git
+sudo -H -u certifylk git clone https://github.com/HirushaSipsara/certifylk.git /opt/certifylk/repository
+sudo chown -R certifylk:certifylk /opt/certifylk
+```
+
+Then create `.env.production` on the host using `docs/PRODUCTION_DEPLOYMENT.md`. Generate its PostgreSQL password on EC2, set mock AI mode for the first public verification, and protect it with mode `600`; never print the file or copy its secret through Terraform.
+
+### GitHub environment variable validation fails
+
+Remove leading/trailing spaces from `AWS_REGION`, `AWS_ROLE_ARN`, `EC2_INSTANCE_ID`, and `PRODUCTION_DOMAIN`. The current workflow normalizes them defensively and validates the normalized outputs before AWS authentication.
+
+### SSM reports `Illegal option -o pipefail`
+
+`AWS-RunShellScript` executes its command list with `/bin/sh`. The workflow wrapper must use portable `set -eu`. It should invoke `infra/production/scripts/deploy.sh` explicitly with `bash`; do not remove Bash strict mode from that script.
+
+### `.env.production` is missing
+
+Recreate it only on EC2 from `infra/production/.env.production.example`. Generate a new URL-safe PostgreSQL password on the host, use it consistently in `POSTGRES_PASSWORD` and `DATABASE_URL`, start in mock mode, and set `600 certifylk:certifylk`. Do not use Terraform, GitHub variables, workflow logs, or SSM command parameters to transport the secret.
 
 ### Terraform proposes replacing EC2
 

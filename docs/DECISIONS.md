@@ -39,3 +39,19 @@ After explicit authorization, production delivery uses GitHub Actions, GHCR imag
 ## D010 — Terraform provisions infrastructure without application secrets
 
 Terraform automates the documented AWS network, EC2/EIP, Systems Manager identities, GitHub OIDC deployment identity, and optional Route 53, budget, and GitHub environment variables. It does not accept application secrets because Terraform state and saved plans can retain managed values. The host generates the initial PostgreSQL password at boot; Gemini, private GHCR, repository deploy keys, and TLS private material remain EC2-only. Terraform state is excluded from Git and must be protected as operational data.
+
+## D011 — Temporary DuckDNS hostname
+
+The Phase 1 public deployment uses `certifylk.duckdns.org` pointing to the Terraform-managed Elastic IP. This avoids purchasing a domain during the AWS trial while still supporting Let's Encrypt HTTPS. DuckDNS is temporary operational infrastructure, not a product dependency; a controlled domain may replace it later by updating DNS, certificate, Nginx, GitHub environment, and EC2 environment values together.
+
+## D012 — Immutable GitHub OIDC identity
+
+The AWS trust policy uses GitHub's immutable owner and repository IDs in the exact production-environment subject: `repo:HirushaSipsara@127508250/certifylk@1324306736:environment:production`. Wildcard repository or branch trust is rejected. A repository transfer or replacement requires reviewing the new IDs and applying a trust-policy change before deployment.
+
+## D013 — Exact SSM authorization and portable command boundary
+
+GitHub's deploy role receives a customer-managed policy that allows `ssm:SendCommand` only with `AWS-RunShellScript` and the single production EC2 instance. Invocation status and cancellation remain separately authorized. Because Systems Manager executes the command list through `/bin/sh`, the wrapper uses portable `set -eu`; the repository's deployment script is explicitly invoked with Bash and may use Bash strict mode. GitHub environment identifiers are normalized and validated before AWS authentication.
+
+## D014 — Production demonstration remains mock-first
+
+The first public deployment intentionally uses deterministic mock AI even though Gemini was verified locally. A Gemini key may be added only to the protected EC2 environment after the mock public workflow passes. Scoring, costing, priority, expected gain, and certification wording remain deterministic and provider-independent.

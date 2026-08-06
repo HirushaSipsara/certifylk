@@ -32,10 +32,13 @@ Use `make test` for all automated tests and `make check` for formatting, linting
 - `backend/`: FastAPI application, Alembic migration, and pytest suite.
 - `infra/local/`: local PostgreSQL Compose service only.
 - `infra/production/`: HTTPS Nginx, private application/data services, persistent volumes, and release operations for one EC2 host.
+- `infra/terraform/`: repeatable AWS, EC2, IAM/OIDC, SSM, networking, Elastic IP, and budget provisioning.
 - `.github/workflows/`: test-gated CI and commit-SHA production deployment through AWS Systems Manager.
 - `scripts/`: seed, reset, and local health-check helpers.
 - `sample-data/`: deterministic chilli-paste demo inputs.
 
 ## Production delivery
 
-Production delivery is a separate infrastructure stage; it does not change Phase 1 product scope. The lowest-manual-work path is [Terraform automation](infra/terraform/README.md). To understand or finish the credentials connection manually, use [AWS credentials and final deployment](docs/AWS_CREDENTIALS_AND_FINAL_DEPLOYMENT.md). The full operator reference is [AWS and GitHub deployment guide](docs/AWS_GITHUB_DEPLOYMENT_GUIDE.md). The repository contains the deployment workflow, but an actual public URL still requires access to the operator's AWS account, GitHub repository, domain/DNS, TLS email, and backend-only production secrets.
+Production delivery is a separate infrastructure stage; it does not change Phase 1 product scope. The verified Phase 1 deployment is available at <https://certifylk.duckdns.org> and currently uses deterministic mock AI. Pushes to `main` are test-gated, published as full-commit-SHA GHCR images, and deployed to EC2 through GitHub OIDC and AWS Systems Manager.
+
+Use [Terraform automation](infra/terraform/README.md) for infrastructure, [Production deployment](docs/PRODUCTION_DEPLOYMENT.md) for routine operations, and [AWS credentials and final deployment](docs/AWS_CREDENTIALS_AND_FINAL_DEPLOYMENT.md) for credential boundaries and first-time recovery. Never commit the EC2 production environment, PostgreSQL password, Gemini key, registry token, Terraform state, or AWS access keys.

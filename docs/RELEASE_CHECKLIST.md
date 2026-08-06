@@ -18,6 +18,8 @@
 - [ ] `main` protection requires all CI jobs.
 - [ ] The `production` environment is restricted to `main` and has the intended approval rule.
 - [ ] AWS OIDC trust matches the exact repository/environment subject.
+- [ ] The trust subject uses the immutable GitHub owner/repository IDs, not only mutable names.
+- [ ] The deploy role has the exact managed SSM policy for `AWS-RunShellScript` and the intended EC2 instance.
 - [ ] The EC2 instance is online in Systems Manager.
 - [ ] DNS resolves to the production Elastic IP.
 - [ ] Certificate is valid and `certbot renew --dry-run` passes.
@@ -25,6 +27,7 @@
 - [ ] `.env.production` has no example placeholders and is mode `600`.
 - [ ] Gemini mode has a valid backend-only key, or deterministic mock mode is an intentional release decision.
 - [ ] GHCR packages are public or the EC2 read-only registry token works.
+- [ ] `AWS_REGION`, `AWS_ROLE_ARN`, `EC2_INSTANCE_ID`, and `PRODUCTION_DOMAIN` contain no surrounding or trailing whitespace.
 
 ## Deployment
 
@@ -33,6 +36,7 @@
 - [ ] Confirm frontend/backend GHCR images use that full SHA and no floating application tag.
 - [ ] Approve the protected GitHub production deployment when prompted.
 - [ ] Confirm the SSM deployment command succeeds.
+- [ ] Confirm the SSM `/bin/sh` wrapper uses portable `set -eu` and invokes `deploy.sh` explicitly with Bash.
 - [ ] Confirm a pre-deployment backup directory contains `COMPLETE` and valid SHA256 hashes.
 - [ ] Confirm Alembic and deterministic catalogue synchronization completed.
 - [ ] Confirm the recorded production current release equals the tested SHA.
@@ -54,3 +58,17 @@
 - [ ] Do not run an Alembic downgrade automatically.
 - [ ] Follow `BACKUP_AND_RESTORE.md` only when a data/schema restore is explicitly approved.
 - [ ] Record the failed SHA, symptoms, rollback/restore choice, and final health status.
+
+## Verified baseline release
+
+The following baseline was completed on 2026-08-06 and is not a substitute for repeating the checklist on future releases:
+
+- Commit: `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`
+- CI: successful
+- GitHub `Deploy production`: successful
+- URL: <https://certifylk.duckdns.org>
+- Landing page: HTTP `200`
+- API health: `ok`
+- Database readiness: `ready`
+- Deployment path: GitHub OIDC to AWS Systems Manager
+- AI mode: deterministic mock
