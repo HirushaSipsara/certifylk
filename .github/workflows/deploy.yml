@@ -94,10 +94,22 @@ jobs:
           EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN }}
         run: |
-          test -n "$AWS_REGION"
-          test -n "$AWS_ROLE_ARN"
-          test -n "$EC2_INSTANCE_ID"
-          test -n "$PRODUCTION_DOMAIN"
+          if [[ ! "$AWS_REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
+            echo "::error::AWS_REGION is invalid or contains whitespace."
+            exit 1
+          fi
+          if [[ ! "$AWS_ROLE_ARN" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
+            echo "::error::AWS_ROLE_ARN is invalid or contains whitespace."
+            exit 1
+          fi
+          if [[ ! "$EC2_INSTANCE_ID" =~ ^i-[0-9a-f]{8,17}$ ]]; then
+            echo "::error::EC2_INSTANCE_ID is invalid or contains whitespace."
+            exit 1
+          fi
+          if [[ ! "$PRODUCTION_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::PRODUCTION_DOMAIN is invalid or contains whitespace."
+            exit 1
+          fi
       - name: Authenticate to AWS with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
