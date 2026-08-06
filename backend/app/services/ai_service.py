@@ -2,8 +2,9 @@ import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,6 +17,13 @@ from app.schemas.ai import EvidenceAnalysisOutput, QuestionPlanOutput
 
 OutputT = TypeVar("OutputT", bound=BaseModel)
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+@dataclass(frozen=True)
+class AIExecutionResult(Generic[OutputT]):
+    output: OutputT
+    provider: str
+    fallback_used: bool
 
 
 def sanitize_model_output(value: str, max_length: int = 1000) -> str:
@@ -47,21 +55,21 @@ def log_ai_run(
     success: bool,
     fallback_used: bool,
     error_message: str | None,
-) -> None:
-    db.add(
-        AIRun(
-            assessment_id=assessment_id,
-            operation=operation,
-            provider=provider.name,
-            model=provider.model,
-            latency_ms=latency_ms,
-            success=success,
-            fallback_used=fallback_used,
-            error_message=sanitize_model_output(error_message or "", 500) or None,
-            created_at=datetime.now(timezone.utc),
-        )
+) -> AIRun:
+    run = AIRun(
+        assessment_id=assessment_id,
+        operation=operation,
+        provider=provider.name,
+        model=provider.model,
+        latency_ms=latency_ms,
+        success=success,
+        fallback_used=fallback_used,
+        error_message=sanitize_model_output(error_message or "", 500) or None,
+        created_at=datetime.now(timezone.utc),
     )
+    db.add(run)
     db.flush()
+    return run
 
 
 async def run_with_validation(
@@ -71,7 +79,7 @@ async def run_with_validation(
     call: Callable[[AIProvider], Awaitable[OutputT]],
     validate: Callable[[OutputT], None] | None = None,
     settings: Settings | None = None,
-) -> OutputT:
+) -> AIExecutionResult[OutputT]:
     config = settings or get_settings()
     primary = get_ai_provider(config)
     attempts = 2 if primary.name == "gemini" else 1
@@ -82,7 +90,7 @@ async def run_with_validation(
             output = await call(primary)
             if validate:
                 validate(output)
-            log_ai_run(
+            run = log_ai_run(
                 db,
                 assessment_id=assessment_id,
                 operation=operation,
@@ -92,7 +100,11 @@ async def run_with_validation(
                 fallback_used=False,
                 error_message=None,
             )
-            return output
+            return AIExecutionResult(
+                output=output,
+                provider=run.provider,
+                fallback_used=run.fallback_used,
+            )
         except Exception as exc:  # provider/network/schema boundary
             last_error = exc
             log_ai_run(
@@ -112,7 +124,7 @@ async def run_with_validation(
         output = await call(fallback)
         if validate:
             validate(output)
-        log_ai_run(
+        run = log_ai_run(
             db,
             assessment_id=assessment_id,
             operation=operation,
@@ -122,7 +134,11 @@ async def run_with_validation(
             fallback_used=True,
             error_message=None,
         )
-        return output
+        return AIExecutionResult(
+            output=output,
+            provider=run.provider,
+            fallback_used=run.fallback_used,
+        )
 
     raise AppError(
         "ai_provider_error",

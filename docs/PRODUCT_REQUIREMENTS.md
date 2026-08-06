@@ -15,8 +15,8 @@ AI is necessary for tasks that are variable in wording or media: classifying a u
 ## Four-page journey
 
 1. **Product profile** — the guest creates an assessment and supplies product, location, scale, workforce, packaging, storage, shelf life, existing certification, record frequency, and optional context. The system validates and saves it, then selects two to five approved process questions.
-2. **Manufacturing process** — the user enters exactly five ordered slots, at least three non-empty, and answers the adaptive questions. AI extracts structured stages; deterministic rules and approved types create an evidence plan.
-3. **Evidence** — the user uploads up to five requested JPEG/PNG/WebP photos and up to two requested PDFs, or marks each request unavailable. AI returns structured observations with confidence. The system selects three to five approved clarification questions.
+2. **Manufacturing process** — the user enters exactly five ordered slots, at least three non-empty, and answers the adaptive questions. AI extracts structured stages; a lightweight review identifies the confirmed provider/fallback path before deterministic rules and approved types create an evidence plan.
+3. **Evidence** — the user uploads up to five requested JPEG/PNG/WebP photos and up to two requested PDFs, or marks each request unavailable. AI returns structured observations with confidence. A review state distinguishes supports, concern, and unclear using text and icons, labels confidence without changing it, and shows confirmed provider/fallback metadata before the system selects three to five approved clarification questions.
 4. **Clarification** — the user answers the remaining MCQs. The deterministic engine evaluates requirements, scores readiness and evidence completeness, maps gaps/unknowns to catalogue recommendations, calculates LKR costs and projected gains, and asks AI only for simple explanations.
 
 The landing page exposes one primary `Start Assessment` action plus a sample option. Refresh recovery uses the assessment UUID in both URL and local storage.
@@ -41,6 +41,7 @@ No pass probability is shown.
 - 100% of displayed costs originate from the seeded catalogue.
 - Automated tests cover scoring normalization, AI validation, file rules, ranking, the API flow, key UI behavior, and the local happy path.
 - Loading, retry/fallback, validation, and unsupported/oversized upload paths are visible and safe.
+- Gemini and fallback labels are displayed only when confirmed by exact-request backend metadata; internal retries are not simulated.
 - AI keys exist only in backend environment configuration.
 
 ## Limitations and disclaimer

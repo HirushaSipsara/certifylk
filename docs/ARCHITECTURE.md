@@ -41,14 +41,16 @@ flowchart TB
 ### Page 2
 
 1. `PUT /process` requires the profile state, exactly five slots and at least three non-empty steps; it stores process/adaptive answers.
-2. `POST /process-analysis` invokes `AIProvider.extract_process`, validates structured stages/tags, and stores the analysis.
-3. `POST /evidence-plan` applies approved evidence types and limits (five photos, two PDFs), stores requests, advances to `evidence_pending`, and opens `/evidence`.
+2. `POST /process-analysis` invokes `AIProvider.extract_process`, validates structured stages/tags, stores the analysis, and returns exact-run provider/fallback metadata.
+3. The frontend shows a lightweight process-review state and confirmed provider label before the user continues.
+4. `POST /evidence-plan` applies approved evidence types and limits (five photos, two PDFs), stores requests, advances to `evidence_pending`, and opens `/evidence`.
 
 ### Page 3
 
 1. Multipart upload validates the request slot, MIME, extension, size, safe storage key, and slot count before storing metadata and bytes. Alternatively, `PUT /unavailable` closes a request without a file.
-2. `POST /evidence-analysis` opens only stored files, sends sanitized evidence context to AI, validates observations/confidence, and persists them. Missing slots become unknown evidence, not gaps.
-3. `POST /clarification-plan` builds high-priority candidates, enforces a three-to-five supplied-ID whitelist, persists them, advances to `clarification_pending`, and opens `/clarification`.
+2. `POST /evidence-analysis` opens only stored files, sends sanitized evidence context to AI, validates and persists observations/confidence, and returns exact-run provider/fallback metadata. Missing slots become unknown evidence, not gaps.
+3. The frontend pauses in a lightweight evidence-review state showing accessible polarity, unchanged confidence, and confirmed provider/fallback status.
+4. `POST /clarification-plan` runs only when the user continues, builds high-priority candidates, enforces a three-to-five supplied-ID whitelist, persists them, advances to `clarification_pending`, and opens `/clarification`.
 
 ### Page 4 and result
 
@@ -58,7 +60,7 @@ flowchart TB
 
 ## AI adapter pattern
 
-`AIProvider` is a protocol with five operations. `AIService` selects Mock or Gemini from backend settings, times calls, validates typed output, sanitizes free text, enforces supplied question/evidence whitelists, records `ai_runs`, retries Gemini once on invalid/transient output, and falls back only when explicitly allowed. Mock is deterministic and exercises the same schemas. AI never changes scores, prices, or requirement rules.
+`AIProvider` is a protocol with five operations. `AIService` selects Mock or Gemini from backend settings, times calls, validates typed output, sanitizes free text, enforces supplied question/evidence whitelists, records `ai_runs`, retries Gemini once on invalid/transient output, and falls back only when explicitly allowed. `run_with_validation` returns a typed execution result containing the validated output plus provider/fallback metadata from the exact successful run. Mock is deterministic and exercises the same schemas. AI never changes scores, prices, or requirement rules.
 
 ## Storage provider pattern
 

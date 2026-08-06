@@ -104,6 +104,8 @@ As the AI assessment engine, I want to inspect images and PDFs and return struct
 
 **Given** supported stored files, **when** analysis runs, **then** validated observations reference requests/requirements and include confidence from 0 to 1.
 
+**Given** evidence observations are returned, **when** the review state renders, **then** supports, concern, and unclear use visible text plus distinct icons, and confidence is labelled Clear, Plausible, or Unclear using the documented bands.
+
 ### D5 Safe file rejection
 
 As the system, I want to reject unsupported or oversized files safely.
@@ -206,17 +208,29 @@ As a user, I want loading indicators during AI analysis.
 
 **Given** an analysis request is pending, **when** the UI waits, **then** a labelled blocking loading overlay prevents duplicate submission.
 
+**Given** an analysis remains pending beyond the normal threshold, **when** the threshold is reached, **then** the UI says it is taking longer than expected without claiming a retry occurred.
+
 ### G2 Retry
 
 As a user, I want a retry option when AI processing fails.
 
 **Given** a retryable API error, **when** it is displayed, **then** the user can submit that operation again without losing saved data.
 
+Internal Gemini retries are not separately visible to the browser and are never simulated in the UI.
+
 ### G3 Deterministic fallback
 
 As the system, I want a deterministic fallback when the AI provider is unavailable.
 
 **Given** Gemini fails and fallback is enabled, **when** the single retry is exhausted, **then** Mock AI completes the operation and the run is logged.
+
+**Given** fallback completed an analysis, **when** its response is shown, **then** the UI displays “Completed using fallback analysis” only because `fallback_used=true` was returned for that exact request.
+
+### G7 AI execution transparency
+
+As a user, I want to know which analysis provider completed the current operation so that AI behavior is transparent.
+
+**Given** a process or evidence analysis response, **when** its review state renders, **then** Gemini is named only when `provider=gemini`, fallback is named only when confirmed, Mock is named only in development/test or enabled QA display mode, and missing metadata is handled safely.
 
 ### G4 Pydantic validation
 

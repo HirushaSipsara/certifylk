@@ -1,6 +1,8 @@
 # API contract
 
-Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `https://<production-domain>/api/v1` through Nginx. JSON responses include `X-Request-ID`; clients may supply the same header. UUIDs below are abbreviated examples. Timestamps are RFC 3339 UTC. Production delivery adds no endpoint or response-shape changes.
+Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `https://<production-domain>/api/v1` through Nginx. JSON responses include `X-Request-ID`; clients may supply the same header. UUIDs below are abbreviated examples. Timestamps are RFC 3339 UTC. Production and local deployments use the same response shapes.
+
+Process-analysis and evidence-analysis responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
 
 ## Shared errors
 
@@ -127,7 +129,7 @@ Exactly five strings are required; at least three must contain text. Every answe
 No body. Requires `process_complete`. `200`:
 
 ```json
-{"stages":[{"position":1,"name":"Ingredient receiving","tags":["receiving","supplier_control"],"confidence":0.92}],"uncertainties":["Cooking endpoint measurement is unclear"]}
+{"stages":[{"position":1,"name":"Ingredient receiving","tags":["receiving","supplier_control"],"confidence":0.92}],"uncertainties":["Cooking endpoint measurement is unclear"],"provider":"gemini","fallback_used":false}
 ```
 
 ### `POST /assessments/{assessment_id}/evidence-plan`
@@ -169,9 +171,13 @@ No body. All slots must be uploaded or unavailable. `200`:
 ```json
 {
   "status":"evidence_complete",
+  "provider":"mock",
+  "fallback_used":true,
   "observations":[{"id":"28f89fd5-7c4b-4dc3-a926-341ccb039506","evidence_request_id":"...","requirement_id":"HYG_HANDWASH","polarity":"supports","text":"A dedicated handwashing area is visible.","confidence":0.86}]
 }
 ```
+
+Each observation retains its validated polarity (`supports`, `concern`, or `unclear`) and confidence value. The UI presents `>=0.80` as Clear, `>=0.50` as Plausible, and lower values as Unclear without changing the stored number.
 
 Returns `409` while requests remain unresolved; `502` for AI failure without fallback.
 

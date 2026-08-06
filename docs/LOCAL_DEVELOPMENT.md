@@ -115,6 +115,14 @@ ALLOW_AI_FALLBACK=true
 
 Restart FastAPI after changes. Never add these variables to `frontend/.env.local` or prefix a secret with `NEXT_PUBLIC_`.
 
+Mock provider labels are visible automatically in development and tests. To exercise that label in a production-mode QA build, set this non-secret frontend flag before building:
+
+```env
+NEXT_PUBLIC_SHOW_MOCK_AI_STATUS=true
+```
+
+Normal production builds may leave it false. Gemini and confirmed fallback labels are driven only by API response metadata; this flag never selects an AI provider.
+
 ## Troubleshooting
 
 - **Port 5432 in use:** set `CERTIFYLK_POSTGRES_PORT=55432` before `docker compose up` and change the port in backend `DATABASE_URL` to the same value. The Compose default remains 5432.

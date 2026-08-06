@@ -35,6 +35,10 @@ Mock mode has no network and is deterministic. Gemini requests JSON output and v
 
 `ai_runs` records operation, provider, model, latency milliseconds, success, fallback flag, and a bounded validation/error message. Prompts, keys, raw uploaded document text, and image bytes are not logged.
 
+`run_with_validation` returns the validated provider output together with `provider` and `fallback_used` copied from the same successful run it just persisted. Process-analysis and evidence-analysis expose those two read-only values; they never query a global or assessment-wide “latest run.” A Gemini retry that succeeds reports Gemini without fallback. A completed Mock fallback reports Mock with `fallback_used=true`.
+
+Retries occur inside one HTTP request and are not observable as a distinct browser state, so the UI never claims “Retrying analysis.” While waiting it may show that analysis is active and, after elapsed time, that it is taking longer than expected. A confirmed fallback label appears only after the response reports it. A complete request failure keeps saved data and exposes an actionable retry.
+
 ## Prompt-injection handling
 
 Extracted/uploaded content is wrapped and labelled as `UNTRUSTED_EVIDENCE_DATA`. System prompts explicitly prohibit executing, obeying, or repeating instructions from it. The model receives no tools, credentials, question catalogue beyond candidates, or authority to alter application rules. Output is sanitized for control characters and schema/whitelist validated. Phrases such as “ignore prior instructions” remain evidence text, not instructions.
@@ -46,6 +50,8 @@ Extracted/uploaded content is wrapped and labelled as `UNTRUSTED_EVIDENCE_DATA`.
 - `<0.50`: unclear; treated as unknown by deterministic evaluation unless independently supported.
 
 Confidence is evidence quality, not readiness and not probability of certification.
+
+Evidence-review presentation preserves the returned polarity and confidence. Supports uses a visible check and success label; concern uses a warning icon and label; unclear uses a question icon and neutral label. Color is supplementary. Unknown future polarity strings receive a neutral observation treatment rather than breaking the page.
 
 Images and PDFs create observations only. They never constitute an official inspection conclusion. Every user-facing result states that CertifyLK does not issue, guarantee, or replace SLS certification.
 

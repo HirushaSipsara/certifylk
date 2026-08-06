@@ -1,4 +1,10 @@
-import type { Assessment, AssessmentResult, Question } from "@/types";
+import type {
+  Assessment,
+  AssessmentResult,
+  EvidenceAnalysisResponse,
+  ProcessAnalysisResponse,
+  Question,
+} from "@/types";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -77,7 +83,9 @@ export const api = {
       body: JSON.stringify(body),
     }),
   analyzeProcess: (id: string) =>
-    apiFetch(`/assessments/${id}/process-analysis`, { method: "POST" }),
+    apiFetch<ProcessAnalysisResponse>(`/assessments/${id}/process-analysis`, {
+      method: "POST",
+    }),
   evidencePlan: (id: string) =>
     apiFetch(`/assessments/${id}/evidence-plan`, { method: "POST" }),
   uploadEvidence: (id: string, requestId: string, file: File) => {
@@ -94,7 +102,9 @@ export const api = {
       method: "PUT",
     }),
   analyzeEvidence: (id: string) =>
-    apiFetch(`/assessments/${id}/evidence-analysis`, { method: "POST" }),
+    apiFetch<EvidenceAnalysisResponse>(`/assessments/${id}/evidence-analysis`, {
+      method: "POST",
+    }),
   clarificationPlan: (id: string) =>
     apiFetch<{ questions: Question[] }>(
       `/assessments/${id}/clarification-plan`,

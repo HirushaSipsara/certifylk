@@ -93,7 +93,12 @@ class ProcessStageResponse(BaseModel):
     confidence: float
 
 
-class ProcessAnalysisResponse(BaseModel):
+class AIExecutionMetadataResponse(BaseModel):
+    provider: Literal["gemini", "mock"]
+    fallback_used: bool
+
+
+class ProcessAnalysisResponse(AIExecutionMetadataResponse):
     stages: list[ProcessStageResponse]
     uncertainties: list[str]
 
@@ -167,7 +172,7 @@ class ObservationResponse(BaseModel):
     confidence: float
 
 
-class EvidenceAnalysisResponse(StatusResponse):
+class EvidenceAnalysisResponse(StatusResponse, AIExecutionMetadataResponse):
     observations: list[ObservationResponse]
 
 

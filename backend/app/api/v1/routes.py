@@ -151,8 +151,12 @@ def save_process_route(
 )
 async def process_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     assessment = get_assessment(db, assessment_id)
-    output = await extract_structured_process(db, assessment)
-    return output.model_dump()
+    execution = await extract_structured_process(db, assessment)
+    return {
+        **execution.output.model_dump(),
+        "provider": execution.provider,
+        "fallback_used": execution.fallback_used,
+    }
 
 
 @router.post(
@@ -236,9 +240,11 @@ def evidence_unavailable_route(
 )
 async def evidence_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     assessment = get_assessment(db, assessment_id)
-    observations = await analyze_uploaded_evidence(db, assessment, get_storage_provider())
+    analysis = await analyze_uploaded_evidence(db, assessment, get_storage_provider())
     return {
         "status": assessment.status,
+        "provider": analysis.execution.provider,
+        "fallback_used": analysis.execution.fallback_used,
         "observations": [
             ObservationResponse(
                 id=item.id,
@@ -248,7 +254,7 @@ async def evidence_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str,
                 text=item.text,
                 confidence=float(item.confidence),
             )
-            for item in observations
+            for item in analysis.observations
         ],
     }
 

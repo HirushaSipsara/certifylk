@@ -21,6 +21,7 @@ CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufact
 | Database and catalogue | Complete | Alembic migration and idempotent seed load 21 requirements, 35 approved questions, and 12 curated LKR recommendations. |
 | Deterministic domain engine | Complete | Requirement evaluation, readiness, evidence completeness, ranking, costs, gains, and projections run exclusively in typed Python. |
 | AI providers | Complete | Deterministic mock mode drives tests and production demo; Gemini completed a separate local structured-output verification. |
+| AI transparency and evidence review | Complete | Process/evidence responses expose exact-run provider/fallback metadata; review states show accessible polarity icons/text, documented confidence bands, truthful long-running/error states, and confirmed fallback only. |
 | Upload safety | Complete | Generated storage keys, MIME/signature/size checks, unavailable states, and persistent filesystem storage abstraction are active. |
 | Automated tests | Passing | Backend, frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass in GitHub CI. |
 | Terraform infrastructure | Applied | VPC, subnet, routing, security group, encrypted EC2/EBS, Elastic IP, SSM role, GitHub OIDC role, and AWS budget were created in `ap-south-1`. |
@@ -74,11 +75,11 @@ The production deployment exposes the same workflow as local development. No pro
 
 - Ruff formatting and linting passed.
 - Mypy passed with no source errors.
-- Pytest passed all 12 backend tests.
+- Pytest passed all 14 backend tests, including exact-run metadata, confirmed fallback, and test-only concern persistence/evaluation coverage.
 - ESLint and TypeScript strict checks passed.
-- Vitest passed five component tests across four files.
+- Vitest passed eight component tests across five files, including provider/fallback labels, all three evidence polarities, confidence bands, and unknown-polarity defense.
 - Next.js optimized production build passed.
-- Playwright passed the complete deterministic chilli-paste browser flow.
+- Playwright passed both the complete deterministic chilli-paste browser flow and a manual synthetic evidence-analysis flow showing the actual Mock provider, Unclear polarity, question icon, and `45%` Unclear confidence.
 - npm audit reported zero vulnerabilities after reviewed dependency updates.
 - The deterministic sample produces readiness `32` with separate strengths, gaps, unknowns, catalogue-only costs, and the disclaimer.
 
@@ -103,6 +104,8 @@ This does not mean Gemini is enabled in production. Production intentionally rem
 - `AWS-RunShellScript` executes its command list with `/bin/sh`; its wrapper now uses portable `set -eu`. The repository deployment script is still invoked explicitly with Bash and retains `set -Eeuo pipefail`.
 - The EC2 `.env.production` file was recovered with a host-generated PostgreSQL password, mock AI mode, `600` permissions, and `certifylk` ownership. Its contents were never printed or committed.
 - The frontend production build now creates an empty `public/` directory when no static assets are present.
+- AI execution metadata now comes directly from the exact successful `ai_runs` record returned by the call boundary; no latest-run query or persistence change was introduced.
+- Process and evidence pages now pause for lightweight review, preserve missing-metadata compatibility, and never claim an internal retry is visible.
 
 ## Current limitations
 

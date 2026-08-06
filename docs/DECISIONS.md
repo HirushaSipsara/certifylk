@@ -55,3 +55,7 @@ GitHub's deploy role receives a customer-managed policy that allows `ssm:SendCom
 ## D014 — Production demonstration remains mock-first
 
 The first public deployment intentionally uses deterministic mock AI even though Gemini was verified locally. A Gemini key may be added only to the protected EC2 environment after the mock public workflow passes. Scoring, costing, priority, expected gain, and certification wording remain deterministic and provider-independent.
+
+## D015 — Exact-run AI transparency without new persistence
+
+Process-analysis and evidence-analysis responses include provider and fallback status from the same successful `ai_runs` record created inside `run_with_validation`; no latest-run query or schema field is added. The frontend pauses in lightweight review states to show confirmed metadata and accessible evidence polarity/confidence. Internal retries remain unobservable during the single HTTP request and are not simulated. Response-only metadata is deliberately absent after an older response or browser refresh unless the operation is run again.

@@ -34,6 +34,35 @@ export interface EvidenceRequest {
   display_order: number;
 }
 
+export interface AIExecutionMetadata {
+  provider?: "gemini" | "mock";
+  fallback_used?: boolean;
+}
+
+export interface ProcessAnalysisResponse extends AIExecutionMetadata {
+  stages: Array<{
+    position: number;
+    name: string;
+    tags: string[];
+    confidence: number;
+  }>;
+  uncertainties: string[];
+}
+
+export interface EvidenceObservation {
+  id: string;
+  evidence_request_id: string;
+  requirement_id: string;
+  polarity: string;
+  text: string;
+  confidence: number;
+}
+
+export interface EvidenceAnalysisResponse extends AIExecutionMetadata {
+  status: AssessmentStatus;
+  observations: EvidenceObservation[];
+}
+
 export interface Assessment {
   id: string;
   status: AssessmentStatus;

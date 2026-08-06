@@ -156,7 +156,8 @@ async def generate_result(db: Session, assessment: Assessment) -> AssessmentResu
             if set(returned) != expected_ids or len(returned) != len(expected_ids):
                 raise ValueError("Roadmap explanations must match supplied recommendation IDs")
 
-        output = await run_with_validation(db, assessment.id, "explain_roadmap", call, validate)
+        execution = await run_with_validation(db, assessment.id, "explain_roadmap", call, validate)
+        output = execution.output
         explanations = {item.recommendation_id: item.explanation for item in output.explanations}
 
     db.execute(

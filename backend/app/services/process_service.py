@@ -14,7 +14,7 @@ from app.models.enums import (
 )
 from app.schemas.ai import ProcessExtractionOutput
 from app.schemas.assessment import ProcessInput
-from app.services.ai_service import run_with_validation
+from app.services.ai_service import AIExecutionResult, run_with_validation
 from app.services.assessment_service import update_assessment_progress, validate_page_transition
 from app.services.question_service import get_answer_map, validate_and_save_assigned_answers
 
@@ -50,7 +50,7 @@ def derive_process_tags(stages: list[dict[str, object]]) -> list[str]:
 
 async def extract_structured_process(
     db: Session, assessment: Assessment
-) -> ProcessExtractionOutput:
+) -> AIExecutionResult[ProcessExtractionOutput]:
     validate_page_transition(assessment, {AssessmentStatus.PROCESS_COMPLETE}, "Process analysis")
     steps = list(
         db.scalars(
@@ -64,7 +64,8 @@ async def extract_structured_process(
     async def call(provider: AIProvider) -> ProcessExtractionOutput:
         return await provider.extract_process([step.text for step in steps], answers)
 
-    output = await run_with_validation(db, assessment.id, "extract_process", call)
+    execution = await run_with_validation(db, assessment.id, "extract_process", call)
+    output = execution.output
     step_by_position = {step.position: step for step in steps}
     for stage in output.stages:
         step = step_by_position[stage.position]
@@ -73,7 +74,7 @@ async def extract_structured_process(
         step.confidence = Decimal(str(stage.confidence))
     assessment.process_analysis = output.model_dump()
     db.commit()
-    return output
+    return execution
 
 
 def build_evidence_plan(db: Session, assessment: Assessment) -> list[EvidenceRequest]:

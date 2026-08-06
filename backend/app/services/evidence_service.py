@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
@@ -25,6 +26,7 @@ from app.models.enums import (
 )
 from app.schemas.ai import EvidenceAnalysisOutput, EvidenceInput, QuestionPlanOutput
 from app.services.ai_service import (
+    AIExecutionResult,
     run_with_validation,
     validate_evidence_output,
     validate_question_plan,
@@ -37,6 +39,12 @@ from app.services.storage_service import (
     validate_upload,
 )
 from app.storage import StorageProvider
+
+
+@dataclass(frozen=True)
+class PersistedEvidenceAnalysis:
+    observations: list[EvidenceObservation]
+    execution: AIExecutionResult[EvidenceAnalysisOutput]
 
 
 def get_evidence_request(
@@ -111,7 +119,7 @@ async def analyze_uploaded_evidence(
     db: Session,
     assessment: Assessment,
     storage: StorageProvider,
-) -> list[EvidenceObservation]:
+) -> PersistedEvidenceAnalysis:
     validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence analysis")
     requests = list(
         db.scalars(
@@ -153,20 +161,21 @@ async def analyze_uploaded_evidence(
     async def call(provider: AIProvider) -> EvidenceAnalysisOutput:
         return await provider.analyze_evidence(evidence_inputs, allowed_requirements)
 
-    output = await run_with_validation(
+    execution = await run_with_validation(
         db,
         assessment.id,
         "analyze_evidence",
         call,
         lambda result: validate_evidence_output(result, request_ids, allowed_requirements),
     )
+    output = execution.output
     observations = merge_evidence_observations(db, assessment.id, output, file_by_request)
     for request in requests:
         if request.status == EvidenceRequestStatus.UPLOADED:
             request.status = EvidenceRequestStatus.ANALYZED
     update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_COMPLETE)
     db.commit()
-    return observations
+    return PersistedEvidenceAnalysis(observations=observations, execution=execution)
 
 
 def merge_evidence_observations(
@@ -235,13 +244,14 @@ async def plan_final_clarifications(db: Session, assessment: Assessment) -> list
     async def call(provider: AIProvider) -> QuestionPlanOutput:
         return await provider.plan_clarifications(context, candidate_ids)
 
-    output = await run_with_validation(
+    execution = await run_with_validation(
         db,
         assessment.id,
         "plan_clarifications",
         call,
         lambda result: validate_question_plan(result, candidate_ids, 3, 5),
     )
+    output = execution.output
     db.execute(
         delete(AssessmentQuestion)
         .where(AssessmentQuestion.assessment_id == assessment.id)

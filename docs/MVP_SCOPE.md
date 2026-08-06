@@ -5,7 +5,7 @@
 - Sri Lankan food-manufacturing readiness for SLS-related preparation.
 - Guest assessments addressed by UUID, four guided pages, refresh recovery, and one-click chilli-paste sample.
 - Profile/adaptive questions, five process slots, relevant evidence requests, final clarifications, and a structured result.
-- PostgreSQL persistence, local filesystem uploads, mock/Gemini AI adapters, deterministic scoring/roadmap/costing, responsive UI, API errors, and loading states.
+- PostgreSQL persistence, local filesystem uploads, mock/Gemini AI adapters, exact-run AI provider/fallback transparency, accessible evidence-observation review, deterministic scoring/roadmap/costing, responsive UI, API errors, and truthful loading states.
 - Local Compose database, Alembic, seed data, tests, run scripts, and documentation.
 - A separately authorized production delivery layer for the unchanged MVP: CI, immutable Docker images, single-host EC2 Compose, Nginx/HTTPS, persistent volumes, backup, and rollback.
 

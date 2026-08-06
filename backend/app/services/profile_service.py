@@ -82,13 +82,14 @@ async def plan_adaptive_questions(db: Session, assessment: Assessment) -> list[Q
             build_profile_summary(assessment), candidate_ids
         )
 
-    output = await run_with_validation(
+    execution = await run_with_validation(
         db,
         assessment.id,
         "plan_adaptive_questions",
         call,
         lambda result: validate_question_plan(result, candidate_ids, 2, 5),
     )
+    output = execution.output
     selected_by_id = {item.id: item for item in candidates}
     db.execute(
         delete(AssessmentQuestion)

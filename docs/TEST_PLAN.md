@@ -5,16 +5,16 @@
 - Assert category weights total 100 and requirement weights total each category.
 - Verify confirmed/partial/gap/unknown multipliers, distinct gap/unknown presentation, and safe not-applicable normalization.
 - Verify raw Decimal storage, display rounding, completeness, non-duplicated gains, capped projections, catalogue-only costs, and stable roadmap ranking.
-- Reject AI question/evidence IDs outside supplied candidates, validate malformed output/fallback, and treat prompt-injection phrases as untrusted data.
+- Reject AI question/evidence IDs outside supplied candidates, validate malformed output/fallback, tie execution metadata to the exact successful AI run, and treat prompt-injection phrases as untrusted data.
 - Validate generated storage keys, traversal protection, supported MIME/extensions, image/PDF limits, and file cleanup on persistence failure.
 
 ## API integration tests
 
-Against a test database: create and retrieve an assessment; save profile and plan adaptive questions; save five steps/answers and analyze; generate an evidence plan; upload a small fixture or mark every request unavailable; analyze; plan and answer clarifications; complete; retrieve the result; assert gap/strength/cost/disclaimer. Attempting process before profile must return 409. Validation, 404, 413, and 415 envelopes and correlation IDs are checked.
+Against a test database: create and retrieve an assessment; save profile and plan adaptive questions; save five steps/answers and analyze; generate an evidence plan; upload a small fixture or mark every request unavailable; analyze; plan and answer clarifications; complete; retrieve the result; assert gap/strength/cost/disclaimer. A test-only injected provider returns a schema-valid concern observation to prove the endpoint metadata matches its exact `ai_runs` row, concern persists without polarity conversion, and the existing requirement engine treats a clear concern as a gap. The test also asserts the chilli-paste score remains `32.0000` raw and `32` displayed. Attempting process before profile must return 409. Validation, 404, 413, and 415 envelopes and correlation IDs are checked.
 
 ## Frontend component tests
 
-Vitest, Testing Library, and jsdom cover conditional profile Other input, exactly five process controls and the three-step rule, evidence “I do not have this” behavior, result sections/cost/disclaimer, loading/duplicate prevention, and API validation display.
+Vitest, Testing Library, and jsdom cover conditional profile Other input, exactly five process controls and the three-step rule, evidence “I do not have this” behavior, provider/fallback labels, accessible polarity icons and text, confidence bands, defensive unknown polarity, result sections/cost/disclaimer, loading/duplicate prevention, and API validation display.
 
 ## Local end-to-end happy path
 
