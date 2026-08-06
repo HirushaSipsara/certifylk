@@ -20,7 +20,7 @@ CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufact
 | Four-page guest workflow | Complete | Profile, process, evidence, clarification, and result routes persist UUID-based progress and support refresh recovery. |
 | Database and catalogue | Complete | Alembic migration and idempotent seed load 21 requirements, 35 approved questions, and 12 curated LKR recommendations. |
 | Deterministic domain engine | Complete | Requirement evaluation, readiness, evidence completeness, ranking, costs, gains, and projections run exclusively in typed Python. |
-| AI providers | Complete | Deterministic mock mode drives tests and production demo; Gemini completed a separate local structured-output verification. |
+| AI providers | Complete | Deterministic mock mode drives tests and production demo; the integrated Gemini adapter includes bounded requests, structured-output validation, exact evidence binding, safe errors, retry/fallback, and a backend-only connectivity script. |
 | AI transparency and evidence review | Complete | Process/evidence responses expose exact-run provider/fallback metadata; review states show accessible polarity icons/text, documented confidence bands, truthful long-running/error states, and confirmed fallback only. |
 | Upload safety | Complete | Generated storage keys, MIME/signature/size checks, unavailable states, and persistent filesystem storage abstraction are active. |
 | Automated tests | Passing | Backend, frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass in GitHub CI. |

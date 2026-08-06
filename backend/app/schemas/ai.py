@@ -1,7 +1,21 @@
+import re
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def clean_model_text(value: str) -> str:
+    return CONTROL_CHARACTERS.sub("", value).strip()
+
+
+def require_clean_model_text(value: str) -> str:
+    cleaned = clean_model_text(value)
+    if not cleaned:
+        raise ValueError("Model text must not be empty")
+    return cleaned
 
 ProcessTag = Literal[
     "receiving",
@@ -34,17 +48,32 @@ class QuestionPlanOutput(BaseModel):
     question_ids: list[str]
     reason: str = Field(max_length=500)
 
+    @field_validator("reason")
+    @classmethod
+    def sanitize_reason(cls, value: str) -> str:
+        return require_clean_model_text(value)
+
 
 class ProcessStageOutput(BaseModel):
     position: int = Field(ge=1, le=5)
     name: str = Field(min_length=1, max_length=200)
-    tags: list[ProcessTag]
+    tags: list[ProcessTag] = Field(min_length=1, max_length=4)
     confidence: float = Field(ge=0, le=1)
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, value: str) -> str:
+        return require_clean_model_text(value)
 
 
 class ProcessExtractionOutput(BaseModel):
     stages: list[ProcessStageOutput] = Field(min_length=3, max_length=5)
     uncertainties: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("uncertainties")
+    @classmethod
+    def sanitize_uncertainties(cls, values: list[str]) -> list[str]:
+        return [clean_model_text(value)[:500] for value in values if clean_model_text(value)]
 
 
 class EvidenceInput(BaseModel):
@@ -63,6 +92,11 @@ class EvidenceObservationOutput(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
     confidence: float = Field(ge=0, le=1)
 
+    @field_validator("text")
+    @classmethod
+    def sanitize_text(cls, value: str) -> str:
+        return require_clean_model_text(value)
+
 
 class EvidenceAnalysisOutput(BaseModel):
     observations: list[EvidenceObservationOutput] = Field(default_factory=list, max_length=30)
@@ -78,6 +112,11 @@ class RoadmapExplanationInput(BaseModel):
 class RoadmapExplanationOutput(BaseModel):
     recommendation_id: str
     explanation: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("explanation")
+    @classmethod
+    def sanitize_explanation(cls, value: str) -> str:
+        return require_clean_model_text(value)
 
 
 class RoadmapExplanationsOutput(BaseModel):

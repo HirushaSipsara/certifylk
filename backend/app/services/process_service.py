@@ -14,7 +14,7 @@ from app.models.enums import (
 )
 from app.schemas.ai import ProcessExtractionOutput
 from app.schemas.assessment import ProcessInput
-from app.services.ai_service import AIExecutionResult, run_with_validation
+from app.services.ai_service import AIExecutionResult, run_with_validation, validate_process_output
 from app.services.assessment_service import update_assessment_progress, validate_page_transition
 from app.services.question_service import get_answer_map, validate_and_save_assigned_answers
 
@@ -64,7 +64,14 @@ async def extract_structured_process(
     async def call(provider: AIProvider) -> ProcessExtractionOutput:
         return await provider.extract_process([step.text for step in steps], answers)
 
-    execution = await run_with_validation(db, assessment.id, "extract_process", call)
+    submitted_steps = [step.text for step in steps]
+    execution = await run_with_validation(
+        db,
+        assessment.id,
+        "extract_process",
+        call,
+        lambda result: validate_process_output(result, submitted_steps),
+    )
     output = execution.output
     step_by_position = {step.position: step for step in steps}
     for stage in output.stages:

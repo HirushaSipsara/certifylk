@@ -13,7 +13,7 @@ from app.ai import AIProvider, GeminiAIProvider, MockAIProvider
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.models import AIRun
-from app.schemas.ai import EvidenceAnalysisOutput, QuestionPlanOutput
+from app.schemas.ai import EvidenceAnalysisOutput, ProcessExtractionOutput, QuestionPlanOutput
 
 OutputT = TypeVar("OutputT", bound=BaseModel)
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
@@ -41,7 +41,13 @@ def wrap_untrusted_evidence_data(value: str, max_length: int = 2000) -> str:
 def get_ai_provider(settings: Settings | None = None) -> AIProvider:
     config = settings or get_settings()
     if config.ai_provider == "gemini":
-        return GeminiAIProvider(config.gemini_api_key, config.gemini_model)
+        return GeminiAIProvider(
+            config.gemini_api_key,
+            config.gemini_model,
+            timeout=config.gemini_timeout_seconds,
+            temperature=config.gemini_temperature,
+            max_output_tokens=config.gemini_max_output_tokens,
+        )
     return MockAIProvider()
 
 
@@ -159,13 +165,29 @@ def validate_question_plan(
         raise ValueError(f"Unknown question IDs: {sorted(unknown)}")
 
 
+def validate_process_output(output: ProcessExtractionOutput, submitted_steps: list[str]) -> None:
+    expected_positions = {
+        position for position, text in enumerate(submitted_steps, start=1) if text.strip()
+    }
+    returned_positions = [stage.position for stage in output.stages]
+    if len(returned_positions) != len(set(returned_positions)):
+        raise ValueError("Duplicate process-stage positions are not allowed")
+    if set(returned_positions) != expected_positions:
+        raise ValueError("Process stages must map every non-empty submitted step exactly once")
+
+
 def validate_evidence_output(
     output: EvidenceAnalysisOutput,
-    request_ids: set[uuid.UUID],
-    allowed_requirement_ids: set[str],
+    request_requirements: dict[uuid.UUID, set[str]],
 ) -> None:
+    seen_pairs: set[tuple[uuid.UUID, str]] = set()
     for observation in output.observations:
-        if observation.evidence_request_id not in request_ids:
+        allowed_for_request = request_requirements.get(observation.evidence_request_id)
+        if allowed_for_request is None:
             raise ValueError("AI returned an unknown evidence request ID")
-        if observation.requirement_id not in allowed_requirement_ids:
-            raise ValueError("AI returned an unknown requirement ID")
+        if observation.requirement_id not in allowed_for_request:
+            raise ValueError("AI returned a requirement ID not linked to that evidence request")
+        pair = (observation.evidence_request_id, observation.requirement_id)
+        if pair in seen_pairs:
+            raise ValueError("Duplicate evidence observations are not allowed")
+        seen_pairs.add(pair)

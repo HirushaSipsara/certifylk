@@ -153,10 +153,14 @@ async def analyze_uploaded_evidence(
                 data_base64=base64.b64encode(data).decode("ascii"),
             )
         )
-    allowed_requirements = {
-        requirement_id for request in requests for requirement_id in request.requirement_ids
+    request_requirements = {
+        item.request_id: set(item.requirement_ids) for item in evidence_inputs
     }
-    request_ids = {request.id for request in requests}
+    allowed_requirements = {
+        requirement_id
+        for requirement_ids in request_requirements.values()
+        for requirement_id in requirement_ids
+    }
 
     async def call(provider: AIProvider) -> EvidenceAnalysisOutput:
         return await provider.analyze_evidence(evidence_inputs, allowed_requirements)
@@ -166,7 +170,7 @@ async def analyze_uploaded_evidence(
         assessment.id,
         "analyze_evidence",
         call,
-        lambda result: validate_evidence_output(result, request_ids, allowed_requirements),
+        lambda result: validate_evidence_output(result, request_requirements),
     )
     output = execution.output
     observations = merge_evidence_observations(db, assessment.id, output, file_by_request)
