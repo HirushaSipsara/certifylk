@@ -9,7 +9,9 @@ tls_email   = "your-email@example.org"
 
 github_owner      = "HirushaSipsara"
 github_repository = "certifylk"
-ghcr_owner        = "hirushasipsara"
+github_owner_id      = "127508250"
+github_repository_id = "1324306736"
+ghcr_owner            = "hirushasipsara"
 
 # Set true only when GITHUB_TOKEN is available in the Terraform process and
 # can administer repository environments/actions variables.

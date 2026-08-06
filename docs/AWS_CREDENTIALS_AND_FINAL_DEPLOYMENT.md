@@ -153,7 +153,7 @@ Replace `AWS_ACCOUNT_ID` with the actual 12-digit ID:
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:HirushaSipsara/certifylk:environment:production"
+          "token.actions.githubusercontent.com:sub": "repo:HirushaSipsara@127508250/certifylk@1324306736:environment:production"
         }
       }
     }
@@ -499,7 +499,7 @@ Check:
 - `AWS_ROLE_ARN` contains the correct AWS account ID and role name;
 - the provider URL is exactly `https://token.actions.githubusercontent.com`;
 - audience is exactly `sts.amazonaws.com`;
-- trust-policy subject is exactly `repo:HirushaSipsara/certifylk:environment:production`;
+- trust-policy subject is exactly `repo:HirushaSipsara@127508250/certifylk@1324306736:environment:production`;
 - GitHub environment is exactly `production`.
 
 ### `AccessDeniedException` for `ssm:SendCommand`

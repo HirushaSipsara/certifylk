@@ -47,6 +47,28 @@ variable "github_repository" {
   default     = "certifylk"
 }
 
+variable "github_owner_id" {
+  description = "Immutable numeric GitHub owner ID included in this repository's OIDC subject."
+  type        = string
+  default     = "127508250"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_owner_id))
+    error_message = "github_owner_id must contain only digits."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric GitHub repository ID included in this repository's OIDC subject."
+  type        = string
+  default     = "1324306736"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "github_repository_id must contain only digits."
+  }
+}
+
 variable "ghcr_owner" {
   description = "Lowercase GHCR image owner."
   type        = string
@@ -141,4 +163,3 @@ variable "monthly_budget_usd" {
     error_message = "monthly_budget_usd must be greater than zero."
   }
 }
-

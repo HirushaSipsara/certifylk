@@ -425,7 +425,7 @@ Edit its trust policy after replacing `AWS_ACCOUNT_ID` if required:
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:HirushaSipsara/certifylk:environment:production"
+          "token.actions.githubusercontent.com:sub": "repo:HirushaSipsara@127508250/certifylk@1324306736:environment:production"
         }
       }
     }

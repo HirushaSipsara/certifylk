@@ -149,6 +149,14 @@ If the AWS account already has the GitHub OIDC provider, set:
 existing_github_oidc_provider_arn = "arn:aws:iam::AWS_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
 ```
 
+This repository uses GitHub's immutable OIDC subject format. The owner and repository IDs are non-secret identifiers configured as `github_owner_id` and `github_repository_id`, producing this exact trusted subject:
+
+```text
+repo:HirushaSipsara@127508250/certifylk@1324306736:environment:production
+```
+
+If the repository is transferred or this Terraform root is reused, obtain the new immutable IDs from the GitHub repository API or the rejected subject in AWS CloudTrail and update both variables before applying.
+
 For a private repository set:
 
 ```hcl
@@ -329,6 +337,10 @@ Do not use destroy for a temporary pause. Stop the EC2 instance instead, remembe
 ### OIDC provider already exists
 
 Set `existing_github_oidc_provider_arn` to its exact ARN and apply again. Do not create a duplicate provider.
+
+### `Not authorized to perform sts:AssumeRoleWithWebIdentity`
+
+Inspect the rejected event in AWS CloudTrail and compare its full principal subject with the IAM role trust policy. New GitHub repositories use immutable owner and repository IDs in the `repo` segment. Confirm `github_owner_id`, `github_repository_id`, and `github_environment`, then run `terraform plan` and `terraform apply` to update the role in place. Do not weaken the subject to a wildcard.
 
 ### Terraform cannot configure GitHub
 
