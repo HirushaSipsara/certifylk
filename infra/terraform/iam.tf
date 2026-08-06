@@ -75,13 +75,29 @@ resource "aws_iam_role" "github_deploy" {
 
 data "aws_iam_policy_document" "github_deploy" {
   statement {
-    sid     = "SendCommandToCertifyLKOnly"
-    effect  = "Allow"
-    actions = ["ssm:SendCommand"]
-    resources = [
-      "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
-      aws_instance.app.arn,
-    ]
+    sid       = "UseApprovedRunShellDocument"
+    effect    = "Allow"
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+  }
+
+  statement {
+    sid       = "SendCommandToTaggedCertifyLKInstance"
+    effect    = "Allow"
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Project"
+      values   = ["CertifyLK"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Environment"
+      values   = [var.environment]
+    }
   }
 
   statement {

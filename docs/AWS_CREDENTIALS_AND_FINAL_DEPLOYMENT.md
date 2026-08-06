@@ -183,13 +183,22 @@ Open the `certifylk-github-deploy` role:
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "SendCommandToCertifyLKOnly",
+      "Sid": "UseApprovedRunShellDocument",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
-      "Resource": [
-        "arn:aws:ssm:ap-south-1::document/AWS-RunShellScript",
-        "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/EC2_INSTANCE_ID"
-      ]
+      "Resource": "arn:aws:ssm:ap-south-1::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "SendCommandToTaggedCertifyLKInstance",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/Project": "CertifyLK",
+          "ssm:resourceTag/Environment": "production"
+        }
+      }
     },
     {
       "Sid": "ReadAndCancelDeploymentCommand",
@@ -508,7 +517,7 @@ Check:
 
 - permission-policy region;
 - AWS account ID;
-- exact EC2 instance ID;
+- the EC2 instance has both `Project=CertifyLK` and `Environment=production` tags;
 - instance and GitHub role are in the same AWS account.
 
 ### SSM command remains pending or instance is not connected
@@ -600,7 +609,7 @@ Verify the backup hashes using `BACKUP_AND_RESTORE.md`, then copy the backup to 
 - [ ] EC2 appears online in Systems Manager.
 - [ ] GitHub OIDC provider exists in AWS.
 - [ ] `certifylk-github-deploy` trust policy matches the exact repository and `production` environment.
-- [ ] GitHub deployment role can call SSM only for the intended instance.
+- [ ] GitHub deployment role can call the approved SSM document only for instances carrying both CertifyLK production tags.
 - [ ] GitHub `production` environment has all four required variables.
 - [ ] GitHub contains no AWS access-key secrets.
 - [ ] EC2 contains `.env.production` with mode `600`.

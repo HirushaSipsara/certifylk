@@ -435,20 +435,29 @@ Edit its trust policy after replacing `AWS_ACCOUNT_ID` if required:
 
 The subject is case-sensitive. It is restricted to this repository's `production` environment rather than all repository workflows.
 
-Create and attach an inline permissions policy after replacing the region, account ID, and instance ID:
+Create and attach an inline permissions policy after replacing the region and account ID. The target EC2 instance must carry both `Project=CertifyLK` and `Environment=production` tags:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "SendCommandToCertifyLKOnly",
+      "Sid": "UseApprovedRunShellDocument",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
-      "Resource": [
-        "arn:aws:ssm:ap-south-1::document/AWS-RunShellScript",
-        "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/EC2_INSTANCE_ID"
-      ]
+      "Resource": "arn:aws:ssm:ap-south-1::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "SendCommandToTaggedCertifyLKInstance",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:ap-south-1:AWS_ACCOUNT_ID:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/Project": "CertifyLK",
+          "ssm:resourceTag/Environment": "production"
+        }
+      }
     },
     {
       "Sid": "ReadAndCancelDeploymentCommand",
@@ -704,7 +713,7 @@ Use `BACKUP_AND_RESTORE.md` only when a data/schema restore is explicitly approv
 - Confirm the instance role includes `AmazonSSMManagedInstanceCore`.
 - Confirm SSM Agent is running.
 - Confirm outbound HTTPS access.
-- Confirm the GitHub IAM policy references the exact region and instance ID.
+- Confirm the GitHub IAM policy references the exact region/account and the instance has both required CertifyLK production tags.
 
 ### GHCR reports unauthorized
 
@@ -772,7 +781,7 @@ Do not delete the GitHub repository merely to stop AWS charges.
 - [ ] `.env.production` is complete, ignored, backend-only, and mode `600`.
 - [ ] Private GHCR token is read-only and mode `600`, or packages are public.
 - [ ] OIDC trust is restricted to `HirushaSipsara/certifylk:environment:production`.
-- [ ] SSM permissions reference only the intended instance and command document.
+- [ ] SSM permissions reference only the approved document and correctly tagged CertifyLK production instances.
 - [ ] GitHub environment variables are complete and contain no application secrets.
 - [ ] CI passes before deployment.
 - [ ] Images use the exact tested 40-character SHA.

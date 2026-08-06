@@ -88,20 +88,29 @@ Create a role named `certifylk-github-deploy`. Its trust policy must match the e
 
 Newer repositories may use immutable owner/repository IDs in `sub`. Inspect GitHub’s OIDC subject format for this repository and use that exact value. Never use a repository-wide wildcard.
 
-Attach this narrow permissions policy after replacing region, account, and instance ID:
+Attach this narrow permissions policy after replacing region and account ID. The target EC2 instance must carry both `Project=CertifyLK` and `Environment=production` tags:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "SendCommandToCertifyLKOnly",
+      "Sid": "UseApprovedRunShellDocument",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
-      "Resource": [
-        "arn:aws:ssm:AWS_REGION::document/AWS-RunShellScript",
-        "arn:aws:ec2:AWS_REGION:AWS_ACCOUNT_ID:instance/EC2_INSTANCE_ID"
-      ]
+      "Resource": "arn:aws:ssm:AWS_REGION::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "SendCommandToTaggedCertifyLKInstance",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:AWS_REGION:AWS_ACCOUNT_ID:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/Project": "CertifyLK",
+          "ssm:resourceTag/Environment": "production"
+        }
+      }
     },
     {
       "Sid": "ReadAndCancelOwnCommand",
