@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import type { ApplicabilityResult, SchemeDecision } from "@/types";
 
@@ -118,7 +118,6 @@ function DecisionCard({
 
 export default function CertificatesPage() {
   const params = useParams<{ sessionId: string }>();
-  const router = useRouter();
   const assessmentId = params.sessionId;
 
   const [result, setResult] = useState<ApplicabilityResult | null>(null);

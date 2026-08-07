@@ -69,6 +69,7 @@ def test_api_applicable_schemes_route(client: TestClient, db: Session) -> None:
 
     # Link profile by fetching and attaching in DB
     import uuid
+
     ass_uuid = uuid.UUID(ass_id)
     assessment = db.get(Assessment, ass_uuid)
     assert assessment is not None

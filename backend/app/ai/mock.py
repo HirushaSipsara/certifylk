@@ -128,13 +128,10 @@ class MockAIProvider:
         recommended_id: str | None = None
 
         market: list[str] = business_profile.get("market", [])
-        targets_formal_market = any(
-            m in market for m in ("supermarket", "export", "institutional")
-        )
+        targets_formal_market = any(m in market for m in ("supermarket", "export", "institutional"))
 
         for scheme in schemes:
             sid = scheme["id"]
-            tier = scheme.get("mandatory_tier", "optional")
 
             if sid == "CAA_FOOD_REG":
                 decisions.append(

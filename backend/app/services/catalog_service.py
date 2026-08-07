@@ -27,6 +27,7 @@ def list_categories(db: Session) -> list[Category]:
 def get_category(db: Session, category_id: str) -> Category | None:
     """Return a single category by UUID string or None."""
     import uuid as _uuid
+
     try:
         cid = _uuid.UUID(category_id)
     except ValueError:
@@ -37,6 +38,7 @@ def get_category(db: Session, category_id: str) -> Category | None:
 def list_products(db: Session, category_id: str) -> list[Product]:
     """Return all enabled products for a category ordered by display_order."""
     import uuid as _uuid
+
     try:
         cid = _uuid.UUID(category_id)
     except ValueError:
@@ -79,6 +81,7 @@ def list_schemes_for_product(
 ) -> list[CertificationScheme]:
     """Return all active schemes for a product (including product-agnostic ones)."""
     import uuid as _uuid
+
     stmt = select(CertificationScheme).where(CertificationScheme.active.is_(True))
     if track is not None:
         stmt = stmt.where(CertificationScheme.track == track)
@@ -86,8 +89,7 @@ def list_schemes_for_product(
         try:
             pid = _uuid.UUID(product_id)
             stmt = stmt.where(
-                (CertificationScheme.product_id == pid)
-                | CertificationScheme.product_id.is_(None)
+                (CertificationScheme.product_id == pid) | CertificationScheme.product_id.is_(None)
             )
         except ValueError:
             pass

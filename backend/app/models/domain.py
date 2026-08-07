@@ -66,7 +66,10 @@ class Assessment(TimestampMixin, Base):
         Uuid, ForeignKey("business_profiles.id", ondelete="SET NULL"), nullable=True, index=True
     )
     scheme_id: Mapped[str | None] = mapped_column(
-        String(64), ForeignKey("certification_schemes.id", ondelete="SET NULL"), nullable=True, index=True
+        String(64),
+        ForeignKey("certification_schemes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     product_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True
@@ -457,9 +460,7 @@ class SchemeRequirement(Base):
     """A requirement clause tied to a specific certification scheme."""
 
     __tablename__ = "scheme_requirements"
-    __table_args__ = (
-        Index("ix_scheme_req_scheme_order", "scheme_id", "display_order"),
-    )
+    __table_args__ = (Index("ix_scheme_req_scheme_order", "scheme_id", "display_order"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     scheme_id: Mapped[str] = mapped_column(
@@ -490,9 +491,7 @@ class SchemeCostItem(Base):
     )
     action_ref: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    cost_type: Mapped[CostType] = mapped_column(
-        enum_type(CostType, "cost_type"), nullable=False
-    )
+    cost_type: Mapped[CostType] = mapped_column(enum_type(CostType, "cost_type"), nullable=False)
     one_time_min: Mapped[int] = mapped_column(Integer, nullable=False)
     one_time_max: Mapped[int] = mapped_column(Integer, nullable=False)
     recurring_min: Mapped[int] = mapped_column(Integer, nullable=False)

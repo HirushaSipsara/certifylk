@@ -5,7 +5,6 @@ The AI receives deterministic, DB-sourced scheme facts and reasons over them.
 All outputs are whitelisted against the supplied scheme IDs before persistence.
 """
 
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -134,6 +133,7 @@ async def run_applicability_agent(
     product_dict: dict[str, Any] = {}
     if assessment.product_id:
         from app.models import Product
+
         product = db.get(Product, assessment.product_id)
         if product:
             product_dict = {"id": str(product.id), "name": product.name, "slug": product.slug}

@@ -443,9 +443,7 @@ def scheme_requirements_route(scheme_id: str, db: Db) -> list[dict[str, object]]
     status_code=status.HTTP_201_CREATED,
     summary="Create a business profile and optionally link to an assessment",
 )
-async def create_business_profile_route(
-    payload: BusinessProfileInput, db: Db
-) -> dict[str, object]:
+async def create_business_profile_route(payload: BusinessProfileInput, db: Db) -> dict[str, object]:
     from app.services.catalog_service import get_product_by_slug
 
     profile = create_business_profile(
@@ -513,9 +511,7 @@ async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str
         )
 
     any_unverified = (
-        has_unverified_requirements(db, assessment.scheme_id)
-        if assessment.scheme_id
-        else False
+        has_unverified_requirements(db, assessment.scheme_id) if assessment.scheme_id else False
     )
 
     db.commit()
@@ -524,8 +520,12 @@ async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str
         "overall_reasoning": decision.overall_reasoning,
         "recommended_path_scheme_id": decision.recommended_path_scheme_id,
         "decisions": decision_responses,
-        "provider": assessment.profile_data.get("applicability_decision", {}).get("provider", "mock"),
-        "fallback_used": assessment.profile_data.get("applicability_decision", {}).get("fallback_used", False),
+        "provider": assessment.profile_data.get("applicability_decision", {}).get(
+            "provider", "mock"
+        ),
+        "fallback_used": assessment.profile_data.get("applicability_decision", {}).get(
+            "fallback_used", False
+        ),
         "has_unverified_content": any_unverified,
     }
 
@@ -535,7 +535,9 @@ async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str
     response_model=list[SchemeRequirementResponse],
     summary="List scheme requirements for this assessment (based on linked scheme)",
 )
-def assessment_scheme_requirements_route(assessment_id: uuid.UUID, db: Db) -> list[dict[str, object]]:
+def assessment_scheme_requirements_route(
+    assessment_id: uuid.UUID, db: Db
+) -> list[dict[str, object]]:
     assessment = get_assessment(db, assessment_id)
     if not assessment.scheme_id:
         return []
