@@ -6,6 +6,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.ai.prompts import (
     ADAPTIVE_QUESTION_TASK,
+    APPLICABILITY_TASK,
     CLARIFICATION_TASK,
     EVIDENCE_TASK,
     PROCESS_EXTRACTION_TASK,
@@ -14,6 +15,7 @@ from app.ai.prompts import (
 )
 from app.schemas.ai import (
     APPROVED_PROCESS_TAGS,
+    ApplicabilityDecisionOutput,
     EvidenceAnalysisOutput,
     EvidenceInput,
     ProcessExtractionOutput,
@@ -186,4 +188,21 @@ class GeminiAIProvider:
             ROADMAP_EXPLANATION_TASK,
             {"roadmap_items": [item.model_dump() for item in items]},
             RoadmapExplanationsOutput,
+        )
+
+    async def plan_applicable_schemes(
+        self,
+        business_profile: dict[str, Any],
+        product: dict[str, Any],
+        schemes: list[dict[str, Any]],
+    ) -> ApplicabilityDecisionOutput:
+        """Ask Gemini to reason over scheme applicability rules against the business profile."""
+        return await self._generate(
+            APPLICABILITY_TASK,
+            {
+                "business_profile": business_profile,
+                "product": product,
+                "certification_schemes": schemes,
+            },
+            ApplicabilityDecisionOutput,
         )

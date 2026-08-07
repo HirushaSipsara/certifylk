@@ -185,3 +185,97 @@ class SampleResponse(BaseModel):
     status: AssessmentStatus
     current_page: str
     result_url: str
+
+
+# ── New certification knowledge base schemas ───────────────────────────────────
+
+
+class BusinessProfileInput(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    business_type: str = Field(min_length=1, max_length=40)
+    years_operating: int | None = Field(default=None, ge=0, le=200)
+    scale: str = Field(min_length=1, max_length=40)
+    market: list[str] = Field(min_length=1, max_length=10)
+    existing_certifications: list[str] = Field(default_factory=list, max_length=20)
+    has_food_licence: str = Field(min_length=1, max_length=20)
+    monthly_volume_range: str | None = Field(default=None, max_length=40)
+    additional_info: str = Field(default="", max_length=2000)
+    # Optional: link to an assessment already created
+    assessment_id: uuid.UUID | None = Field(default=None)
+    # Optional: product slug to link this profile to a product
+    product_slug: str | None = Field(default=None, max_length=80)
+
+
+class BusinessProfileResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    business_type: str
+    scale: str
+    market: list[str]
+    has_food_licence: str
+
+
+class CategoryResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    description: str
+    display_order: int
+
+
+class ProductResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    description: str
+    category_id: uuid.UUID
+    display_order: int
+
+
+class SchemeChipResponse(BaseModel):
+    id: str
+    name: str
+    short_code: str
+    track: str
+    mandatory_tier: str
+    summary: str
+    typical_timeline_days: int | None
+    body_name: str
+    active: bool
+
+
+class SchemeRequirementResponse(BaseModel):
+    id: str
+    scheme_id: str
+    category_label: str
+    title: str
+    description: str
+    weight: float
+    safety_critical: bool
+    source_document: str
+    clause_reference: str
+    source_url: str
+    content_verified: bool
+    display_order: int
+
+
+class SchemeDecisionResponse(BaseModel):
+    scheme_id: str
+    tier: str
+    confidence: float
+    reasoning: str
+    source_reference: str
+    scheme_name: str
+    body_name: str
+    typical_timeline_days: int | None
+    summary: str
+
+
+class ApplicabilityResponse(BaseModel):
+    assessment_id: uuid.UUID
+    overall_reasoning: str
+    recommended_path_scheme_id: str | None
+    decisions: list[SchemeDecisionResponse]
+    provider: str
+    fallback_used: bool
+    has_unverified_content: bool

@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from app.schemas.ai import (
+    ApplicabilityDecisionOutput,
     EvidenceAnalysisOutput,
     EvidenceInput,
     EvidenceObservationOutput,
@@ -12,6 +13,7 @@ from app.schemas.ai import (
     RoadmapExplanationInput,
     RoadmapExplanationOutput,
     RoadmapExplanationsOutput,
+    SchemeDecision,
 )
 
 
@@ -112,4 +114,110 @@ class MockAIProvider:
                 )
                 for item in items
             ]
+        )
+
+    async def plan_applicable_schemes(
+        self,
+        business_profile: dict[str, Any],
+        product: dict[str, Any],
+        schemes: list[dict[str, Any]],
+    ) -> ApplicabilityDecisionOutput:
+        """Deterministic mock: CAA is always mandatory, SLS Mark is market_required."""
+        supplied_ids = {s["id"] for s in schemes}
+        decisions: list[SchemeDecision] = []
+        recommended_id: str | None = None
+
+        market: list[str] = business_profile.get("market", [])
+        targets_formal_market = any(
+            m in market for m in ("supermarket", "export", "institutional")
+        )
+
+        for scheme in schemes:
+            sid = scheme["id"]
+            tier = scheme.get("mandatory_tier", "optional")
+
+            if sid == "CAA_FOOD_REG":
+                decisions.append(
+                    SchemeDecision(
+                        scheme_id=sid,
+                        tier="mandatory",
+                        confidence=0.99,
+                        reasoning=(
+                            "Registration under the Food Act No. 26 of 1980 is legally required "
+                            "for all food manufacturers selling in Sri Lanka, regardless of scale or market."
+                        ),
+                        source_reference="applicability_rule.mandatory_note — Food Act No. 26 of 1980",
+                    )
+                )
+                if recommended_id is None:
+                    recommended_id = sid
+
+            elif sid == "SLS_MARK_CORDIAL":
+                if targets_formal_market:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="market_required",
+                            confidence=0.92,
+                            reasoning=(
+                                "Your target market includes supermarkets or export channels that "
+                                "routinely require the SLS Mark as a supplier qualification criterion."
+                            ),
+                            source_reference=(
+                                "applicability_rule.mandatory_note — Required by most supermarket "
+                                "chains and all government institutional buyers."
+                            ),
+                        )
+                    )
+                    # SLS Mark becomes recommended path if the business targets formal markets
+                    recommended_id = sid
+                else:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="recommended",
+                            confidence=0.75,
+                            reasoning=(
+                                "The SLS Mark is not yet required by your current markets, "
+                                "but obtaining it will open access to supermarket and institutional buyers."
+                            ),
+                            source_reference="applicability_rule.mandatory_note — SLS Mark broadens market access.",
+                        )
+                    )
+            elif sid in supplied_ids:
+                # Any other supplied scheme — mark as optional with low confidence
+                decisions.append(
+                    SchemeDecision(
+                        scheme_id=sid,
+                        tier="optional",
+                        confidence=0.50,
+                        reasoning=(
+                            f"This scheme ({scheme.get('name', sid)}) may become relevant "
+                            "as your business scales or diversifies markets."
+                        ),
+                        source_reference="applicability_rule — optional for current profile",
+                    )
+                )
+
+        if not decisions:
+            # Fallback — should not happen in normal flow
+            decisions.append(
+                SchemeDecision(
+                    scheme_id=schemes[0]["id"] if schemes else "UNKNOWN",
+                    tier="optional",
+                    confidence=0.30,
+                    reasoning="Insufficient information to determine applicability. Please refine your profile.",
+                    source_reference="applicability_rule — indeterminate",
+                )
+            )
+
+        return ApplicabilityDecisionOutput(
+            decisions=decisions,
+            overall_reasoning=(
+                "Based on the submitted business profile and product, two certification "
+                "actions are identified. CAA registration is legally required and should be "
+                "completed first. The SLS Mark is the recommended next step to unlock "
+                "supermarket and institutional market access."
+            ),
+            recommended_path_scheme_id=recommended_id,
         )

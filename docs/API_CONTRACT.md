@@ -211,24 +211,148 @@ No body. Requires `ready_to_score`. Performs deterministic evaluation/scoring/ro
 
 Calling this endpoint for an already completed assessment is idempotent and returns the stored summary. Returns `409` if incomplete.
 
-### `GET /assessments/{assessment_id}/result`
+Returns `409` when the assessment is not completed and `404` when no assessment/result exists.
 
-Requires a completed result. `200` (abridged):
+## Certification Knowledge Base & Applicability
+
+### `GET /categories`
+
+List enabled product categories. `200`:
+
+```json
+[
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Food Products",
+    "slug": "food_products",
+    "description": "Manufactured food and beverage products for sale in Sri Lanka.",
+    "display_order": 1
+  }
+]
+```
+
+### `GET /categories/{category_id}/products`
+
+List enabled products for a category. `200`:
+
+```json
+[
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "name": "Fresh Fruit Cordial",
+    "slug": "fresh_fruit_cordial",
+    "description": "A sweetened, dilutable fruit drink concentrate made from fresh fruit juice, sugar, water, and permitted preservatives.",
+    "category_id": "11111111-1111-1111-1111-111111111111",
+    "display_order": 1
+  }
+]
+```
+
+### `GET /schemes`
+
+List certification schemes, optionally filtered by `?track=product_quality` or `?track=process_management`. `200`:
+
+```json
+[
+  {
+    "id": "SLS_MARK_CORDIAL",
+    "name": "SLS Mark — Fresh Fruit Cordial",
+    "short_code": "SLS_MARK",
+    "track": "product_quality",
+    "mandatory_tier": "market_required",
+    "summary": "The SLS Mark certifies that your product consistently meets the Sri Lanka Standard for Fresh Fruit Cordial (SLS 187).",
+    "typical_timeline_days": 365,
+    "body_name": "Sri Lanka Standards Institution",
+    "active": true
+  }
+]
+```
+
+### `GET /schemes/{scheme_id}/requirements`
+
+List clauses/requirements for a certification scheme. `200`:
+
+```json
+[
+  {
+    "id": "SLS_HYG_HANDWASH",
+    "scheme_id": "SLS_MARK_CORDIAL",
+    "category_label": "Hygiene & Sanitation",
+    "title": "Handwashing facilities and supplies",
+    "description": "Suitable handwashing facilities with soap and hygienic drying must be accessible to all production staff at all times.",
+    "weight": 6.0,
+    "safety_critical": true,
+    "source_document": "SLS 187 / GMP Guidelines (SLSI)",
+    "clause_reference": "Clause 4.2.1 — Personal Hygiene",
+    "source_url": "",
+    "content_verified": false,
+    "display_order": 1
+  }
+]
+```
+
+### `POST /business-profiles`
+
+Create a screening business profile. `201`:
 
 ```json
 {
-  "assessment_id":"149692e0-b9fd-4b83-b4c5-246f921b1715",
-  "overall_score_raw":"47.5000",
-  "overall_score":48,
-  "evidence_completeness":55,
-  "category_scores":[{"category":"hygiene_sanitation","label":"Hygiene and sanitation","score_raw":"12.5000","score":63,"weight":20}],
-  "strengths":[{"requirement_id":"HYG_SURFACE","title":"Cleanable production surfaces","status":"confirmed","evidence_references":["profile.production_location"]}],
-  "gaps":[{"requirement_id":"DOC_BATCH","title":"Batch production records","status":"gap","evidence_references":["answer.DOC_BATCH_01"]}],
-  "unknowns":[{"requirement_id":"PROC_TEMP","title":"Measured cooking endpoint","status":"unknown","evidence_references":["process.3"]}],
-  "roadmap":[{"recommendation_id":"REC_BATCH_RECORD","title":"Create batch-production record","priority":2,"one_time_cost":{"min":0,"max":1500,"currency":"LKR"},"recurring_cost":{"min":0,"max":300,"currency":"LKR"},"expected_gain":4.0,"projected_score":52,"explanation":"Record each batch so ingredients, cooking and output can be traced."}],
-  "cost_summary":{"one_time_min":0,"one_time_max":25000,"recurring_min":0,"recurring_max":5000,"currency":"LKR"},
-  "disclaimer":"CertifyLK is a readiness-assessment tool and does not issue, guarantee, or replace SLS certification."
+  "id": "d5bffaac-988d-4977-9770-870fa53295f7",
+  "name": "Lanka Cordial Works",
+  "business_type": "limited_company",
+  "scale": "small",
+  "market": ["supermarket", "export"],
+  "has_food_licence": "yes"
 }
 ```
 
-Returns `409` when the assessment is not completed and `404` when no assessment/result exists.
+### `POST /assessments/{assessment_id}/applicable-schemes`
+
+Runs the Applicability Reasoning Agent on the assessment's business profile and product. Returns ranked scheme decisions with AI reasoning and source citations. `200`:
+
+```json
+{
+  "assessment_id": "60609be3-b36a-4455-95d9-31898586ee9f",
+  "overall_reasoning": "Based on the submitted business profile...",
+  "recommended_path_scheme_id": "SLS_MARK_CORDIAL",
+  "decisions": [
+    {
+      "scheme_id": "CAA_FOOD_REG",
+      "tier": "mandatory",
+      "confidence": 0.99,
+      "reasoning": "Registration under the Food Act No. 26 of 1980 is legally required...",
+      "source_reference": "applicability_rule.mandatory_note — Food Act No. 26 of 1980",
+      "scheme_name": "CAA Food Business Registration",
+      "body_name": "Consumer Affairs Authority",
+      "typical_timeline_days": 60,
+      "summary": "Mandatory registration under the Consumer Affairs Authority Act..."
+    }
+  ],
+  "provider": "mock",
+  "fallback_used": false,
+  "has_unverified_content": true
+}
+```
+
+### `GET /assessments/{assessment_id}/scheme-requirements`
+
+Returns requirements for the scheme linked to an assessment. `200`:
+
+```json
+[
+  {
+    "id": "SLS_HYG_HANDWASH",
+    "scheme_id": "SLS_MARK_CORDIAL",
+    "category_label": "Hygiene & Sanitation",
+    "title": "Handwashing facilities and supplies",
+    "description": "Suitable handwashing facilities...",
+    "weight": 6.0,
+    "safety_critical": true,
+    "source_document": "SLS 187 / GMP Guidelines (SLSI)",
+    "clause_reference": "Clause 4.2.1 — Personal Hygiene",
+    "source_url": "",
+    "content_verified": false,
+    "display_order": 1
+  }
+]
+```

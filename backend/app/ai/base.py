@@ -1,6 +1,7 @@
 from typing import Any, Protocol
 
 from app.schemas.ai import (
+    ApplicabilityDecisionOutput,
     EvidenceAnalysisOutput,
     EvidenceInput,
     ProcessExtractionOutput,
@@ -33,3 +34,10 @@ class AIProvider(Protocol):
     async def explain_roadmap(
         self, items: list[RoadmapExplanationInput]
     ) -> RoadmapExplanationsOutput: ...
+
+    async def plan_applicable_schemes(
+        self,
+        business_profile: dict[str, Any],
+        product: dict[str, Any],
+        schemes: list[dict[str, Any]],
+    ) -> ApplicabilityDecisionOutput: ...

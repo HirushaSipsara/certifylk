@@ -63,3 +63,25 @@ class RequirementCategory(StrEnum):
     RAW_MATERIAL_SUPPLIER = "raw_material_supplier"
     PACKAGING_LABELLING = "packaging_labelling"
     STORAGE_TRACEABILITY = "storage_traceability"
+
+
+# ── New enums for certification knowledge base ────────────────────────────────
+
+
+class CertificationTrack(StrEnum):
+    PRODUCT_QUALITY = "product_quality"
+    PROCESS_MANAGEMENT = "process_management"
+
+
+class MandatoryTier(StrEnum):
+    MANDATORY = "mandatory"
+    MARKET_REQUIRED = "market_required"
+    RECOMMENDED = "recommended"
+    OPTIONAL = "optional"
+
+
+class CostType(StrEnum):
+    CERTIFYING_BODY_FEE = "certifying_body_fee"
+    LAB_TESTING_FEE = "lab_testing_fee"
+    BUSINESS_CAPEX = "business_capex"
+    BUSINESS_OPEX = "business_opex"

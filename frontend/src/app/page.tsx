@@ -1,31 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 import { DisclaimerCard } from "@/components/DisclaimerCard";
 import { ErrorAlert } from "@/components/ErrorAlert";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { api, rememberAssessment } from "@/lib/api";
+import type { SchemeChip } from "@/types";
 
 export default function LandingPage() {
   const router = useRouter();
   const [busy, setBusy] = useState<"start" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [schemes, setSchemes] = useState<SchemeChip[]>([]);
 
-  async function startAssessment() {
-    if (busy) return;
-    setBusy("start");
-    setError(null);
-    try {
-      const assessment = await api.createAssessment();
-      rememberAssessment(assessment.id);
-      router.push(`/assessment/${assessment.id}/profile`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not start the assessment.");
-      setBusy(null);
-    }
-  }
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listSchemes()
+      .then((data) => {
+        if (!cancelled) setSchemes(data);
+      })
+      .catch(() => {
+        // Fallback gracefully if API is unseeded or down initially
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function loadSample() {
     if (busy) return;
@@ -41,62 +45,187 @@ export default function LandingPage() {
     }
   }
 
+  const productQualitySchemes = schemes.filter(
+    (s) => s.track === "product_quality" || !s.track
+  );
+  const processManagementSchemes = schemes.filter(
+    (s) => s.track === "process_management"
+  );
+
   return (
-    <main className="min-h-screen overflow-hidden bg-sand">
+    <main className="min-h-screen bg-sand">
       {busy ? (
         <LoadingOverlay
-          message={busy === "sample" ? "Building the chilli-paste sample…" : "Starting your assessment…"}
+          message={
+            busy === "sample"
+              ? "Building the chilli-paste sample…"
+              : "Starting your assessment…"
+          }
         />
       ) : null}
-      <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:px-10">
-        <section>
-          <span className="inline-flex rounded-full bg-lime px-4 py-2 text-sm font-bold text-ink">
-            Built for small Sri Lankan food businesses
+
+      <div className="mx-auto max-w-6xl px-5 py-12 lg:px-10">
+        {/* Header Hero */}
+        <div className="max-w-3xl">
+          <span className="inline-flex rounded-full bg-lime px-4 py-1.5 text-sm font-bold text-ink">
+            Sri Lanka Food Manufacturing Certification Readiness
           </span>
-          <h1 className="mt-6 text-5xl font-bold tracking-tight text-ink sm:text-7xl">
+          <h1 className="mt-6 text-5xl font-bold tracking-tight text-ink sm:text-6xl">
             Certify<span className="text-leaf">LK</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-xl leading-8 text-slate-700">
-            Understand your preparation readiness for SLS-related food certification and get a prioritized, cost-aware action roadmap.
+          <p className="mt-4 text-xl leading-relaxed text-slate-700">
+            Determine your preparation readiness for SLS-related product standards and certification schemes with an explainable, cost-aware roadmap.
           </p>
-          <p className="mt-4 text-sm font-semibold text-slate-500">About 10–15 minutes · No account required</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => void startAssessment()}
-              disabled={Boolean(busy)}
-              className="rounded-2xl bg-leaf px-7 py-4 text-lg font-bold text-white shadow-card hover:bg-ink disabled:opacity-50"
-            >
-              Start Assessment
-            </button>
+        </div>
+
+        {error ? (
+          <div className="mt-6">
+            <ErrorAlert message={error} />
+          </div>
+        ) : null}
+
+        {/* Two Tracks Grid */}
+        <div className="mt-12 grid gap-8 md:grid-cols-2">
+          {/* Track 1: Product Quality Certification */}
+          <div className="flex flex-col justify-between rounded-3xl border-2 border-leaf bg-white p-8 shadow-card">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase text-leaf">
+                  Track 1 · Active Pilot
+                </span>
+                <span className="text-2xl">🏅</span>
+              </div>
+              <h2 className="mt-4 text-2xl font-bold text-ink">
+                Product Quality Certification
+              </h2>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                Specific Sri Lanka Standard (SLS) product standards and mandatory food business registrations (CAA).
+              </p>
+
+              {/* Live Scheme Chips */}
+              <div className="mt-6 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Available Standards & Schemes
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {productQualitySchemes.length > 0 ? (
+                    productQualitySchemes.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-900"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {s.name}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        SLS Mark — Fresh Fruit Cordial (SLS 187)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        CAA Food Registration
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <Link
+                href="/product-quality/select"
+                className="block w-full text-center rounded-2xl bg-leaf px-6 py-4 text-base font-bold text-white shadow-card hover:bg-ink transition-colors"
+              >
+                Start Product Readiness Check →
+              </Link>
+            </div>
+          </div>
+
+          {/* Track 2: Process Management Certification */}
+          <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50/70 p-8">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold uppercase text-slate-600">
+                  Track 2 · Coming Soon
+                </span>
+                <span className="text-2xl">🏭</span>
+              </div>
+              <h2 className="mt-4 text-2xl font-bold text-slate-800">
+                Process & System Certification
+              </h2>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                Management system standards for food safety, hygiene, and export market access (GMP, HACCP, ISO 22000).
+              </p>
+
+              {/* Scheme Chips */}
+              <div className="mt-6 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Planned Schemes
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {processManagementSchemes.length > 0 ? (
+                    processManagementSchemes.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                        {s.name}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                        ISO 22000 Food Safety Management
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                        SLS GMP Certification
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                        HACCP Systems
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-200/60">
+              <button
+                type="button"
+                disabled
+                className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-6 py-4 text-base font-semibold text-slate-400 cursor-not-allowed"
+              >
+                Track 2 Coming Soon
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary options & Disclaimer */}
+        <div className="mt-12 grid gap-8 lg:grid-cols-[1fr_0.8fr] items-start">
+          <div className="rounded-3xl bg-white p-8 border border-emerald-100 shadow-sm">
+            <h3 className="text-lg font-bold text-ink mb-2">Explore Sample Assessment</h3>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              Want to see a completed assessment and sample readiness report first? View the sample report generated for a small chilli-paste manufacturer.
+            </p>
             <button
               type="button"
               onClick={() => void loadSample()}
               disabled={Boolean(busy)}
-              className="rounded-2xl border-2 border-leaf px-7 py-4 font-bold text-leaf hover:bg-emerald-50 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-2xl border-2 border-leaf px-6 py-3 font-bold text-leaf hover:bg-emerald-50 disabled:opacity-50 text-sm"
             >
-              Load Sample Assessment
+              Load Sample Report →
             </button>
           </div>
-          {error ? <div className="mt-5"><ErrorAlert message={error} /></div> : null}
-        </section>
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-card sm:p-8">
-          <h2 className="text-2xl font-bold text-ink">A clear four-step check</h2>
-          <ol className="mt-6 space-y-5">
-            {[
-              ["01", "Tell us about your product"],
-              ["02", "Describe five production steps"],
-              ["03", "Add relevant evidence—or mark it unavailable"],
-              ["04", "Answer final clarifications and view your roadmap"],
-            ].map(([number, label]) => (
-              <li key={number} className="flex items-center gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 font-bold text-leaf">{number}</span>
-                <span className="font-semibold text-slate-700">{label}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-7"><DisclaimerCard /></div>
-        </section>
+
+          <div>
+            <DisclaimerCard />
+          </div>
+        </div>
       </div>
     </main>
   );

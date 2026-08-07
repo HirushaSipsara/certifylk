@@ -4,7 +4,14 @@ PostgreSQL is the source of truth. Assessment-owned rows use UUID primary keys a
 
 ## Entities
 
-- **assessments** — UUID, status enum, current page, sample flag, structured profile/process-analysis JSON, timestamps. Statuses: `draft_profile`, `profile_complete`, `process_complete`, `evidence_pending`, `evidence_complete`, `clarification_pending`, `ready_to_score`, `completed`, `failed`.
+- **assessments** — UUID, status enum, current page, sample flag, structured profile/process-analysis JSON, nullable `business_profile_id` FK, `scheme_id` FK, `product_id` FK, timestamps. Statuses: `draft_profile`, `profile_complete`, `process_complete`, `evidence_pending`, `evidence_complete`, `clarification_pending`, `ready_to_score`, `completed`, `failed`.
+- **business_profiles** — UUID, business name, business type, scale, market JSON list, existing certifications JSON list, food licence status, volume range, timestamps.
+- **categories** — UUID, unique name, unique slug, description, enabled flag, display order.
+- **products** — UUID, category UUID FK, name, unique slug, description, enabled flag, display order.
+- **certification_bodies** — stable string ID (e.g. SLSI, CAA, ISO), name, unique short code, website URL, description.
+- **certification_schemes** — stable string ID (e.g. SLS_MARK_CORDIAL), scheme name, short code, track enum (`product_quality`/`process_management`), certification body ID FK, product UUID FK (nullable), mandatory tier enum (`mandatory`, `market_required`, `recommended`, `optional`), applicability rule JSON, category weights JSON, summary, typical timeline days, active flag, display order.
+- **scheme_requirements** — stable string ID, scheme ID FK, category label, title, description, weight decimal, safety critical flag, source document, clause reference, source URL, content verified flag, evaluation rule JSON, active flag, display order.
+- **scheme_cost_items** — stable string ID, scheme ID FK, action ref, title, cost type enum (`certifying_body_fee`, `lab_testing_fee`, `business_capex`, `business_opex`), one-time min/max integer LKR, recurring min/max integer LKR, currency, source note, effective/reviewed dates.
 - **assessment_answers** — UUID, assessment UUID, page (`profile`, `adaptive`, `clarification`), stable question/field key, value JSON, timestamp. Unique per assessment/page/key.
 - **process_steps** — UUID, assessment UUID, position 1–5, text, normalized stage/tags/confidence, timestamps. Unique position per assessment.
 - **question_bank** — stable ID, category, text, options JSON, allows Other, product/process tags JSON, affected requirement IDs JSON, priority, eligible page, active flag.
@@ -26,12 +33,19 @@ All JSON fields are bounded application structures validated at service boundari
 
 ## Indexes
 
-Indexes cover `assessments.status`, assessment foreign keys on all owned tables, `(assessment_id, created_at)` for events, question IDs, requirement IDs, evidence status, AI operation/created time, and unique composite business keys described above.
+Indexes cover `assessments.status`, `assessments.business_profile_id`, `assessments.scheme_id`, `assessments.product_id`, assessment foreign keys on all owned tables, `(assessment_id, created_at)` for events, question IDs, requirement IDs, evidence status, AI operation/created time, `categories.slug`, `products.slug`, `scheme_requirements.(scheme_id, display_order)`, and unique composite business keys described above.
 
 ## Relationships
 
 ```mermaid
 erDiagram
+  CATEGORY ||--o{ PRODUCT : contains
+  PRODUCT ||--o{ CERTIFICATION_SCHEME : targets
+  CERTIFICATION_BODY ||--o{ CERTIFICATION_SCHEME : issues
+  CERTIFICATION_SCHEME ||--o{ SCHEME_REQUIREMENT : defines
+  CERTIFICATION_SCHEME ||--o{ SCHEME_COST_ITEM : prices
+  BUSINESS_PROFILE ||--o{ ASSESSMENT : screens
+  CERTIFICATION_SCHEME ||--o{ ASSESSMENT : guides
   ASSESSMENT ||--o{ ASSESSMENT_ANSWER : has
   ASSESSMENT ||--|{ PROCESS_STEP : has
   ASSESSMENT ||--o{ ASSESSMENT_QUESTION : assigns

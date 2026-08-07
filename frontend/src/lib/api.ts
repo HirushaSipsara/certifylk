@@ -1,9 +1,15 @@
 import type {
+  ApplicabilityResult,
   Assessment,
   AssessmentResult,
+  BusinessProfileInput,
+  Category,
   EvidenceAnalysisResponse,
   ProcessAnalysisResponse,
+  Product,
   Question,
+  SchemeChip,
+  SchemeRequirement,
 } from "@/types";
 
 const API_BASE =
@@ -61,6 +67,7 @@ export async function apiFetch<T>(
 }
 
 export const api = {
+  // ── Legacy assessment flow ──────────────────────────────────────────────────
   createAssessment: () =>
     apiFetch<{ id: string }>("/assessments", { method: "POST" }),
   loadSample: () =>
@@ -119,6 +126,29 @@ export const api = {
     apiFetch(`/assessments/${id}/complete`, { method: "POST" }),
   getResult: (id: string) =>
     apiFetch<AssessmentResult>(`/assessments/${id}/result`),
+
+  // ── Certification knowledge base ────────────────────────────────────────────
+  listCategories: () => apiFetch<Category[]>("/categories"),
+  listProducts: (categoryId: string) =>
+    apiFetch<Product[]>(`/categories/${categoryId}/products`),
+  listSchemes: (track?: string) =>
+    apiFetch<SchemeChip[]>(`/schemes${track ? `?track=${track}` : ""}`),
+  createBusinessProfile: (payload: BusinessProfileInput) =>
+    apiFetch<{ id: string; name: string }>("/business-profiles", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  runApplicabilityAgent: (assessmentId: string) =>
+    apiFetch<ApplicabilityResult>(
+      `/assessments/${assessmentId}/applicable-schemes`,
+      { method: "POST" },
+    ),
+  getAssessmentSchemeRequirements: (assessmentId: string) =>
+    apiFetch<SchemeRequirement[]>(
+      `/assessments/${assessmentId}/scheme-requirements`,
+    ),
+  getSchemeRequirements: (schemeId: string) =>
+    apiFetch<SchemeRequirement[]>(`/schemes/${schemeId}/requirements`),
 };
 
 export function rememberAssessment(id: string): void {

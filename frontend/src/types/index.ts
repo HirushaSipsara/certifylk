@@ -125,3 +125,85 @@ export interface AssessmentResult {
   };
   disclaimer: string;
 }
+
+// ── Certification knowledge base types ────────────────────────────────────────
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  display_order: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category_id: string;
+  display_order: number;
+}
+
+export interface SchemeChip {
+  id: string;
+  name: string;
+  short_code: string;
+  track: "product_quality" | "process_management";
+  mandatory_tier: "mandatory" | "market_required" | "recommended" | "optional";
+  summary: string;
+  typical_timeline_days: number | null;
+  body_name: string;
+  active: boolean;
+}
+
+export interface SchemeRequirement {
+  id: string;
+  scheme_id: string;
+  category_label: string;
+  title: string;
+  description: string;
+  weight: number;
+  safety_critical: boolean;
+  source_document: string;
+  clause_reference: string;
+  source_url: string;
+  content_verified: boolean;
+  display_order: number;
+}
+
+export interface BusinessProfileInput {
+  name: string;
+  business_type: string;
+  years_operating?: number | null;
+  scale: string;
+  market: string[];
+  existing_certifications: string[];
+  has_food_licence: string;
+  monthly_volume_range?: string | null;
+  additional_info?: string;
+  assessment_id?: string | null;
+  product_slug?: string | null;
+}
+
+export interface SchemeDecision {
+  scheme_id: string;
+  tier: string;
+  confidence: number;
+  reasoning: string;
+  source_reference: string;
+  scheme_name: string;
+  body_name: string;
+  typical_timeline_days: number | null;
+  summary: string;
+}
+
+export interface ApplicabilityResult {
+  assessment_id: string;
+  overall_reasoning: string;
+  recommended_path_scheme_id: string | null;
+  decisions: SchemeDecision[];
+  provider: string;
+  fallback_used: boolean;
+  has_unverified_content: boolean;
+}

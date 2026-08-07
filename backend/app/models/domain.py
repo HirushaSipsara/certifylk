@@ -24,8 +24,11 @@ from app.db.base import Base, TimestampMixin
 from app.models.enums import (
     AssessmentPage,
     AssessmentStatus,
+    CertificationTrack,
+    CostType,
     EvidenceKind,
     EvidenceRequestStatus,
+    MandatoryTier,
     ObservationPolarity,
     QuestionPage,
     RequirementCategory,
@@ -58,6 +61,16 @@ class Assessment(TimestampMixin, Base):
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     profile_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     process_analysis: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    # New-flow nullable FKs (NULL for legacy assessments)
+    business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("business_profiles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    scheme_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("certification_schemes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
 
 class AssessmentAnswer(Base):
@@ -343,3 +356,148 @@ class AIRun(Base):
     fallback_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     error_message: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+# ── Certification knowledge base ──────────────────────────────────────────────
+
+
+class BusinessProfile(Base):
+    """Screening business profile collected before the applicability decision."""
+
+    __tablename__ = "business_profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    business_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    years_operating: Mapped[int | None] = mapped_column(Integer)
+    scale: Mapped[str] = mapped_column(String(40), nullable=False)
+    market: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    existing_certifications: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    has_food_licence: Mapped[str] = mapped_column(String(20), nullable=False)
+    monthly_volume_range: Mapped[str | None] = mapped_column(String(40))
+    additional_info: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Category(Base):
+    """Top-level product/industry category (e.g. Food Products)."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    description: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Product(Base):
+    """Specific manufactured product within a category (e.g. Fresh Fruit Cordial)."""
+
+    __tablename__ = "products"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    description: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    category: Mapped["Category"] = relationship(lazy="joined")
+
+
+class CertificationBody(Base):
+    """Issuing / accrediting body (e.g. SLSI, CAA)."""
+
+    __tablename__ = "certification_bodies"
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)  # e.g. "SLSI"
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    short_code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    website_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    description: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+
+
+class CertificationScheme(Base):
+    """A specific certification scheme (e.g. SLS Mark for Fresh Fruit Cordial)."""
+
+    __tablename__ = "certification_schemes"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # e.g. "SLS_MARK_CORDIAL"
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    short_code: Mapped[str] = mapped_column(String(30), nullable=False)
+    track: Mapped[CertificationTrack] = mapped_column(
+        enum_type(CertificationTrack, "certification_track"), nullable=False, index=True
+    )
+    body_id: Mapped[str] = mapped_column(
+        ForeignKey("certification_bodies.id"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    mandatory_tier: Mapped[MandatoryTier] = mapped_column(
+        enum_type(MandatoryTier, "mandatory_tier"), nullable=False
+    )
+    # JSON: {"market": ["export"], "scale": ["small","industrial"]}
+    applicability_rule: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    # JSON: {"category_label": weight, ...}
+    category_weights: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    summary: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    typical_timeline_days: Mapped[int | None] = mapped_column(Integer)
+    source_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    body: Mapped[CertificationBody] = relationship(lazy="joined")
+
+
+class SchemeRequirement(Base):
+    """A requirement clause tied to a specific certification scheme."""
+
+    __tablename__ = "scheme_requirements"
+    __table_args__ = (
+        Index("ix_scheme_req_scheme_order", "scheme_id", "display_order"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scheme_id: Mapped[str] = mapped_column(
+        ForeignKey("certification_schemes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category_label: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    weight: Mapped[Decimal] = mapped_column(Numeric(6, 3), nullable=False)
+    safety_critical: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_document: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    clause_reference: Mapped[str] = mapped_column(String(100), default="", nullable=False)
+    source_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    content_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    evaluation_rule: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class SchemeCostItem(Base):
+    """Cost estimate tied to a certification scheme and an action reference."""
+
+    __tablename__ = "scheme_cost_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scheme_id: Mapped[str] = mapped_column(
+        ForeignKey("certification_schemes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    action_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    cost_type: Mapped[CostType] = mapped_column(
+        enum_type(CostType, "cost_type"), nullable=False
+    )
+    one_time_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    one_time_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    recurring_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    recurring_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="LKR", nullable=False)
+    source_note: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    last_reviewed: Mapped[date] = mapped_column(Date, nullable=False)

@@ -16,6 +16,10 @@ CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufact
 
 | Milestone | Status | Evidence |
 |---|---|---|
+| Certificate-Specific System Redesign | Complete | Re-architected domain from generic quiz to database-backed `Category → Product → CertificationScheme → SchemeRequirement → SchemeCostItem` relational knowledge base. |
+| Applicability Reasoning Agent | Complete | Added Applicability Reasoning Agent with structured Pydantic schema, Gemini + deterministic Mock providers, and whitelist verification. |
+| SLS Mark Pilot Seed | Complete | Seeded pilot data for Fresh Fruit Cordial (SLS 187, 21 requirement clauses with clause references, 8 LKR cost items). |
+| Guided Wizard & Hub UI | Complete | Built 3-step product-quality wizard (`/product-quality/select`, `/business-profile`, `/certificates`), Assessment Hub (`/hub`), and Requirements browser (`/requirements`). |
 | Canonical documentation | Complete | Product, architecture, API, data, AI, scoring, test, local-development, security, release, and production runbooks are maintained under `docs/`. |
 | Four-page guest workflow | Complete | Profile, process, evidence, clarification, and result routes persist UUID-based progress and support refresh recovery. |
 | Database and catalogue | Complete | Alembic migration and idempotent seed load 21 requirements, 35 approved questions, and 12 curated LKR recommendations. |
@@ -23,7 +27,7 @@ CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufact
 | AI providers | Complete | Deterministic mock mode drives tests and production demo; the integrated Gemini adapter includes bounded requests, structured-output validation, exact evidence binding, safe errors, retry/fallback, and a backend-only connectivity script. |
 | AI transparency and evidence review | Complete | Process/evidence responses expose exact-run provider/fallback metadata; review states show accessible polarity icons/text, documented confidence bands, truthful long-running/error states, and confirmed fallback only. |
 | Upload safety | Complete | Generated storage keys, MIME/signature/size checks, unavailable states, and persistent filesystem storage abstraction are active. |
-| Automated tests | Passing | Backend, frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass in GitHub CI. |
+| Automated tests | Passing | Backend (26 passing tests), frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass. |
 | Terraform infrastructure | Applied | VPC, subnet, routing, security group, encrypted EC2/EBS, Elastic IP, SSM role, GitHub OIDC role, and AWS budget were created in `ap-south-1`. |
 | HTTPS production | Live | DuckDNS resolves to the Elastic IP; Nginx serves the frontend and API with a valid Let's Encrypt certificate. |
 | GitHub CI/CD | Passing | CI and `Deploy production` succeeded for release `77cd9cb`; deployment used OIDC, SSM, immutable GHCR tags, migration, seed, and public health gates. |

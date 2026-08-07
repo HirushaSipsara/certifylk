@@ -122,3 +122,47 @@ class RoadmapExplanationOutput(BaseModel):
 
 class RoadmapExplanationsOutput(BaseModel):
     explanations: list[RoadmapExplanationOutput]
+
+
+# ── Applicability Reasoning Agent ─────────────────────────────────────────────
+
+
+class SchemeDecision(BaseModel):
+    """AI decision about whether a specific certification scheme applies."""
+
+    scheme_id: str = Field(min_length=1, max_length=64)
+    tier: Literal["mandatory", "market_required", "recommended", "optional"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str = Field(min_length=1, max_length=500)
+    source_reference: str = Field(min_length=1, max_length=200)
+
+    @field_validator("scheme_id")
+    @classmethod
+    def sanitize_scheme_id(cls, value: str) -> str:
+        cleaned = clean_model_text(value)
+        if not cleaned:
+            raise ValueError("scheme_id must not be empty")
+        return cleaned
+
+    @field_validator("reasoning")
+    @classmethod
+    def sanitize_reasoning(cls, value: str) -> str:
+        return require_clean_model_text(value)
+
+    @field_validator("source_reference")
+    @classmethod
+    def sanitize_source_reference(cls, value: str) -> str:
+        return require_clean_model_text(value)
+
+
+class ApplicabilityDecisionOutput(BaseModel):
+    """Ranked list of certification scheme decisions from the Applicability Reasoning Agent."""
+
+    decisions: list[SchemeDecision] = Field(min_length=1, max_length=10)
+    overall_reasoning: str = Field(min_length=1, max_length=1000)
+    recommended_path_scheme_id: str | None = Field(default=None, max_length=64)
+
+    @field_validator("overall_reasoning")
+    @classmethod
+    def sanitize_overall_reasoning(cls, value: str) -> str:
+        return require_clean_model_text(value)

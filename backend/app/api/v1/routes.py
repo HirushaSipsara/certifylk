@@ -1,15 +1,20 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.models.enums import CertificationTrack
 from app.schemas.assessment import (
+    ApplicabilityResponse,
     AssessmentCreatedResponse,
     AssessmentSummaryResponse,
+    BusinessProfileInput,
+    BusinessProfileResponse,
+    CategoryResponse,
     ClarificationInput,
     ClarificationPlanResponse,
     EvidenceAnalysisResponse,
@@ -17,20 +22,31 @@ from app.schemas.assessment import (
     ObservationResponse,
     ProcessAnalysisResponse,
     ProcessInput,
+    ProductResponse,
     ProfileInput,
     ProfileSavedResponse,
     QuestionPlanResponse,
     SampleResponse,
+    SchemeChipResponse,
+    SchemeRequirementResponse,
     StatusResponse,
     UnavailableResponse,
     UploadResponse,
 )
 from app.schemas.result import CompletionResponse, ResultResponse
+from app.services.applicability_service import create_business_profile, run_applicability_agent
 from app.services.assessment_service import (
     assessment_state,
     create_assessment,
     get_assessment,
     load_sample_assessment,
+)
+from app.services.catalog_service import (
+    get_scheme_requirements,
+    has_unverified_requirements,
+    list_categories,
+    list_products,
+    list_schemes,
 )
 from app.services.clarification_service import save_clarification_answers
 from app.services.evidence_service import (
@@ -319,3 +335,225 @@ def result_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     assessment = get_assessment(db, assessment_id)
     result = get_result(db, assessment)
     return serialize_result(db, assessment, result)
+
+
+# ── Certification knowledge base routes ───────────────────────────────────────
+
+
+@router.get(
+    "/categories",
+    response_model=list[CategoryResponse],
+    summary="List enabled food product categories",
+)
+def list_categories_route(db: Db) -> list[dict[str, object]]:
+    return [
+        {
+            "id": cat.id,
+            "name": cat.name,
+            "slug": cat.slug,
+            "description": cat.description,
+            "display_order": cat.display_order,
+        }
+        for cat in list_categories(db)
+    ]
+
+
+@router.get(
+    "/categories/{category_id}/products",
+    response_model=list[ProductResponse],
+    summary="List enabled products for a category",
+)
+def list_products_route(category_id: str, db: Db) -> list[dict[str, object]]:
+    return [
+        {
+            "id": prod.id,
+            "name": prod.name,
+            "slug": prod.slug,
+            "description": prod.description,
+            "category_id": prod.category_id,
+            "display_order": prod.display_order,
+        }
+        for prod in list_products(db, category_id)
+    ]
+
+
+@router.get(
+    "/schemes",
+    response_model=list[SchemeChipResponse],
+    summary="List certification schemes, optionally filtered by track",
+)
+def list_schemes_route(
+    db: Db,
+    track: str | None = Query(default=None, description="product_quality or process_management"),
+) -> list[dict[str, object]]:
+    track_enum = None
+    if track:
+        try:
+            track_enum = CertificationTrack(track)
+        except ValueError:
+            pass
+    schemes = list_schemes(db, track_enum)
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "short_code": s.short_code,
+            "track": s.track.value if hasattr(s.track, "value") else str(s.track),
+            "mandatory_tier": s.mandatory_tier.value
+            if hasattr(s.mandatory_tier, "value")
+            else str(s.mandatory_tier),
+            "summary": s.summary,
+            "typical_timeline_days": s.typical_timeline_days,
+            "body_name": s.body.name if s.body else "",
+            "active": s.active,
+        }
+        for s in schemes
+    ]
+
+
+@router.get(
+    "/schemes/{scheme_id}/requirements",
+    response_model=list[SchemeRequirementResponse],
+    summary="List requirements for a specific certification scheme",
+)
+def scheme_requirements_route(scheme_id: str, db: Db) -> list[dict[str, object]]:
+    reqs = get_scheme_requirements(db, scheme_id)
+    return [
+        {
+            "id": r.id,
+            "scheme_id": r.scheme_id,
+            "category_label": r.category_label,
+            "title": r.title,
+            "description": r.description,
+            "weight": float(r.weight),
+            "safety_critical": r.safety_critical,
+            "source_document": r.source_document,
+            "clause_reference": r.clause_reference,
+            "source_url": r.source_url,
+            "content_verified": r.content_verified,
+            "display_order": r.display_order,
+        }
+        for r in reqs
+    ]
+
+
+@router.post(
+    "/business-profiles",
+    response_model=BusinessProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a business profile and optionally link to an assessment",
+)
+async def create_business_profile_route(
+    payload: BusinessProfileInput, db: Db
+) -> dict[str, object]:
+    from app.services.catalog_service import get_product_by_slug
+
+    profile = create_business_profile(
+        db,
+        name=payload.name,
+        business_type=payload.business_type,
+        years_operating=payload.years_operating,
+        scale=payload.scale,
+        market=payload.market,
+        existing_certifications=payload.existing_certifications,
+        has_food_licence=payload.has_food_licence,
+        monthly_volume_range=payload.monthly_volume_range,
+        additional_info=payload.additional_info,
+    )
+
+    # Optionally link to an existing assessment
+    if payload.assessment_id:
+        assessment = get_assessment(db, payload.assessment_id)
+        assessment.business_profile_id = profile.id
+        # Link product if a slug was supplied
+        if payload.product_slug:
+            product = get_product_by_slug(db, payload.product_slug)
+            if product:
+                assessment.product_id = product.id
+        db.flush()
+
+    db.commit()
+    return {
+        "id": profile.id,
+        "name": profile.name,
+        "business_type": profile.business_type,
+        "scale": profile.scale,
+        "market": profile.market,
+        "has_food_licence": profile.has_food_licence,
+    }
+
+
+@router.post(
+    "/assessments/{assessment_id}/applicable-schemes",
+    response_model=ApplicabilityResponse,
+    summary="Run the Applicability Reasoning Agent for this assessment",
+)
+async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
+    assessment = get_assessment(db, assessment_id)
+    decision = await run_applicability_agent(db, assessment)
+
+    # Build enriched response with scheme metadata
+    from app.services.catalog_service import get_scheme
+
+    decision_responses = []
+    for d in decision.decisions:
+        scheme = get_scheme(db, d.scheme_id)
+        decision_responses.append(
+            {
+                "scheme_id": d.scheme_id,
+                "tier": d.tier,
+                "confidence": d.confidence,
+                "reasoning": d.reasoning,
+                "source_reference": d.source_reference,
+                "scheme_name": scheme.name if scheme else d.scheme_id,
+                "body_name": scheme.body.name if scheme and scheme.body else "",
+                "typical_timeline_days": scheme.typical_timeline_days if scheme else None,
+                "summary": scheme.summary if scheme else "",
+            }
+        )
+
+    any_unverified = (
+        has_unverified_requirements(db, assessment.scheme_id)
+        if assessment.scheme_id
+        else False
+    )
+
+    db.commit()
+    return {
+        "assessment_id": assessment.id,
+        "overall_reasoning": decision.overall_reasoning,
+        "recommended_path_scheme_id": decision.recommended_path_scheme_id,
+        "decisions": decision_responses,
+        "provider": assessment.profile_data.get("applicability_decision", {}).get("provider", "mock"),
+        "fallback_used": assessment.profile_data.get("applicability_decision", {}).get("fallback_used", False),
+        "has_unverified_content": any_unverified,
+    }
+
+
+@router.get(
+    "/assessments/{assessment_id}/scheme-requirements",
+    response_model=list[SchemeRequirementResponse],
+    summary="List scheme requirements for this assessment (based on linked scheme)",
+)
+def assessment_scheme_requirements_route(assessment_id: uuid.UUID, db: Db) -> list[dict[str, object]]:
+    assessment = get_assessment(db, assessment_id)
+    if not assessment.scheme_id:
+        return []
+    reqs = get_scheme_requirements(db, assessment.scheme_id)
+    return [
+        {
+            "id": r.id,
+            "scheme_id": r.scheme_id,
+            "category_label": r.category_label,
+            "title": r.title,
+            "description": r.description,
+            "weight": float(r.weight),
+            "safety_critical": r.safety_critical,
+            "source_document": r.source_document,
+            "clause_reference": r.clause_reference,
+            "source_url": r.source_url,
+            "content_verified": r.content_verified,
+            "display_order": r.display_order,
+        }
+        for r in reqs
+    ]

@@ -11,9 +11,12 @@ def display_round(value: Decimal) -> int:
 
 def calculate_category_scores(
     evaluations: list[EvaluatedRequirement],
+    category_weights: dict[str, int] | None = None,
 ) -> list[dict[str, object]]:
+    weights = category_weights if category_weights is not None else CATEGORY_WEIGHTS
+    labels = {k: CATEGORY_LABELS.get(k, k) for k in weights}
     scores: list[dict[str, object]] = []
-    for category, category_weight in CATEGORY_WEIGHTS.items():
+    for category, category_weight in weights.items():
         category_items = [item for item in evaluations if item.category == category]
         applicable = [
             item for item in category_items if item.status != RequirementStatus.NOT_APPLICABLE
@@ -27,7 +30,7 @@ def calculate_category_scores(
         scores.append(
             {
                 "category": category,
-                "label": CATEGORY_LABELS[category],
+                "label": labels.get(category, category),
                 "score_raw": normalized_points.quantize(Decimal("0.0001")),
                 "score": display_round(percentage),
                 "weight": category_weight,
