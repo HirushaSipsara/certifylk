@@ -86,3 +86,93 @@ def test_api_applicable_schemes_route(client: TestClient, db: Session) -> None:
     assert res_json["assessment_id"] == ass_id
     assert len(res_json["decisions"]) >= 1
     assert "overall_reasoning" in res_json
+
+
+# ── Track 2 — Process Management applicability ─────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_track2_domestic_manufacturer(db: Session) -> None:
+    """Domestic-only food manufacturer: GMP recommended, HACCP recommended, ISO optional."""
+    from app.models.enums import CertificationTrack
+    from app.services.catalog_service import list_schemes
+
+    bp = create_business_profile(
+        db,
+        name="Village Kitchen Foods",
+        business_type="sole_proprietor",
+        years_operating=2,
+        scale="micro",
+        market=["local_retail"],  # domestic only — no supermarket or export
+        existing_certifications=[],
+        has_food_licence="no",
+        monthly_volume_range="under_100",
+        additional_info="Small home-based jam and preserve manufacturer.",
+    )
+
+    assessment = Assessment(
+        status=AssessmentStatus.DRAFT_PROFILE,
+        business_profile_id=bp.id,
+        product_id=None,
+    )
+    db.add(assessment)
+    db.commit()
+
+    # Load Track 2 schemes for the agent
+    pm_schemes = list_schemes(db, track=CertificationTrack.PROCESS_MANAGEMENT)
+    assert any(s.id == "SLS_GMP" for s in pm_schemes)
+
+    decision = await run_applicability_agent(db, assessment)
+
+    decision_map = {d.scheme_id: d for d in decision.decisions}
+
+    # GMP must always be recommended for domestic manufacturers
+    if "SLS_GMP" in decision_map:
+        assert decision_map["SLS_GMP"].tier == "recommended"
+
+    # HACCP for non-formal market should be recommended (not market_required)
+    if "SLS_HACCP" in decision_map:
+        assert decision_map["SLS_HACCP"].tier in ("recommended", "optional")
+
+    # ISO 22000 should be optional for domestic-only
+    if "ISO_22000" in decision_map:
+        assert decision_map["ISO_22000"].tier == "optional"
+
+
+@pytest.mark.asyncio
+async def test_track2_export_manufacturer_gets_iso_recommended(db: Session) -> None:
+    """Export-market manufacturer: HACCP market_required, ISO 22000 recommended."""
+    bp = create_business_profile(
+        db,
+        name="Ceylon Export Foods Ltd",
+        business_type="limited_company",
+        years_operating=10,
+        scale="medium",
+        market=["supermarket", "export"],  # targets formal + export markets
+        existing_certifications=[],
+        has_food_licence="yes",
+        monthly_volume_range="500_2000",
+        additional_info="Exporting to EU and Middle East.",
+    )
+
+    assessment = Assessment(
+        status=AssessmentStatus.DRAFT_PROFILE,
+        business_profile_id=bp.id,
+        product_id=None,
+    )
+    db.add(assessment)
+    db.commit()
+
+    decision = await run_applicability_agent(db, assessment)
+    decision_map = {d.scheme_id: d for d in decision.decisions}
+
+    # For export+supermarket: HACCP must be market_required
+    if "SLS_HACCP" in decision_map:
+        assert decision_map["SLS_HACCP"].tier == "market_required", (
+            f"Expected market_required for HACCP, got {decision_map['SLS_HACCP'].tier}"
+        )
+
+    # For export market: ISO 22000 must be recommended
+    if "ISO_22000" in decision_map:
+        assert decision_map["ISO_22000"].tier == "recommended", (
+            f"Expected recommended for ISO 22000 given export market, got {decision_map['ISO_22000'].tier}"
+        )

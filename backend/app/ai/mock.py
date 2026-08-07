@@ -122,17 +122,24 @@ class MockAIProvider:
         product: dict[str, Any],
         schemes: list[dict[str, Any]],
     ) -> ApplicabilityDecisionOutput:
-        """Deterministic mock: CAA is always mandatory, SLS Mark is market_required."""
+        """Deterministic mock: handles both Track 1 (product quality) and Track 2 (process management)."""
         supplied_ids = {s["id"] for s in schemes}
         decisions: list[SchemeDecision] = []
         recommended_id: str | None = None
 
         market: list[str] = business_profile.get("market", [])
         targets_formal_market = any(m in market for m in ("supermarket", "export", "institutional"))
+        targets_export = "export" in market
+
+        # Determine track context from supplied scheme IDs
+        is_process_track = any(
+            sid in supplied_ids for sid in ("SLS_GMP", "SLS_HACCP", "ISO_22000")
+        )
 
         for scheme in schemes:
             sid = scheme["id"]
 
+            # ── Track 1 — Product Quality schemes ──────────────────────────────
             if sid == "CAA_FOOD_REG":
                 decisions.append(
                     SchemeDecision(
@@ -166,7 +173,6 @@ class MockAIProvider:
                             ),
                         )
                     )
-                    # SLS Mark becomes recommended path if the business targets formal markets
                     recommended_id = sid
                 else:
                     decisions.append(
@@ -181,6 +187,93 @@ class MockAIProvider:
                             source_reference="applicability_rule.mandatory_note — SLS Mark broadens market access.",
                         )
                     )
+
+            # ── Track 2 — Process Management schemes ───────────────────────────
+            elif sid == "SLS_GMP":
+                # GMP is recommended for every food manufacturer as the baseline
+                decisions.append(
+                    SchemeDecision(
+                        scheme_id=sid,
+                        tier="recommended",
+                        confidence=0.95,
+                        reasoning=(
+                            "GMP Certification is the essential baseline for any food manufacturing operation. "
+                            "It demonstrates systematic control of your premises, personnel, equipment, and "
+                            "processes, and is required by most supermarket chains alongside product marks."
+                        ),
+                        source_reference="applicability_rule.note — Recommended for all food manufacturers.",
+                    )
+                )
+                if recommended_id is None or (is_process_track and recommended_id != "SLS_GMP"):
+                    recommended_id = sid
+
+            elif sid == "SLS_HACCP":
+                if targets_formal_market:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="market_required",
+                            confidence=0.93,
+                            reasoning=(
+                                "HACCP Certification is required by your target market. "
+                                "All major Sri Lankan supermarket chains, government institutional food "
+                                "contracts, and export markets mandate HACCP as a prerequisite for supply. "
+                                "It is also the foundation of any ISO 22000 implementation."
+                            ),
+                            source_reference=(
+                                "applicability_rule.market — supermarket, institutional, export."
+                            ),
+                        )
+                    )
+                    # HACCP becomes the primary recommended path when targeting formal markets
+                    recommended_id = sid
+                else:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="recommended",
+                            confidence=0.72,
+                            reasoning=(
+                                "While HACCP is not immediately required by your current markets, "
+                                "implementing it will systematically reduce food safety risk and "
+                                "prepare you to access supermarket and export channels in future."
+                            ),
+                            source_reference="applicability_rule.market — proactive recommendation.",
+                        )
+                    )
+
+            elif sid == "ISO_22000":
+                if targets_export:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="recommended",
+                            confidence=0.88,
+                            reasoning=(
+                                "ISO 22000:2018 is strongly recommended given your export market target. "
+                                "Most regulated export markets (EU, US, Australia, Middle East) and global "
+                                "retail buyers require or strongly prefer this internationally recognised "
+                                "Food Safety Management System standard. It integrates your GMP and HACCP "
+                                "programmes into a full FSMS with management review and continuous improvement."
+                            ),
+                            source_reference="applicability_rule.note — Recommended for export to regulated markets.",
+                        )
+                    )
+                else:
+                    decisions.append(
+                        SchemeDecision(
+                            scheme_id=sid,
+                            tier="optional",
+                            confidence=0.60,
+                            reasoning=(
+                                "ISO 22000 is optional for your current domestic market profile. "
+                                "If you plan to enter export markets in future, starting with GMP and HACCP "
+                                "now will position you to achieve ISO 22000 with less incremental effort."
+                            ),
+                            source_reference="applicability_rule.note — optional domestically; recommended for export.",
+                        )
+                    )
+
             elif sid in supplied_ids:
                 # Any other supplied scheme — mark as optional with low confidence
                 decisions.append(
@@ -208,13 +301,31 @@ class MockAIProvider:
                 )
             )
 
-        return ApplicabilityDecisionOutput(
-            decisions=decisions,
-            overall_reasoning=(
+        # Build overall reasoning for the response
+        if is_process_track:
+            overall = (
+                "Based on your business profile, GMP Certification is recommended as your foundation. "
+            )
+            if targets_formal_market:
+                overall += "HACCP Certification is required for your supermarket or export market targets. "
+            if targets_export:
+                overall += (
+                    "ISO 22000:2018 is strongly recommended to meet your export market requirements."
+                )
+            else:
+                overall += (
+                    "ISO 22000 is available as an optional international standard if you plan to export."
+                )
+        else:
+            overall = (
                 "Based on the submitted business profile and product, two certification "
                 "actions are identified. CAA registration is legally required and should be "
                 "completed first. The SLS Mark is the recommended next step to unlock "
                 "supermarket and institutional market access."
-            ),
+            )
+
+        return ApplicabilityDecisionOutput(
+            decisions=decisions,
+            overall_reasoning=overall,
             recommended_path_scheme_id=recommended_id,
         )

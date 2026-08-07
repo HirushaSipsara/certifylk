@@ -12,7 +12,7 @@ import type { SchemeChip } from "@/types";
 
 export default function LandingPage() {
   const router = useRouter();
-  const [busy, setBusy] = useState<"start" | "sample" | null>(null);
+  const [busy, setBusy] = useState<"start" | "sample" | "track2" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [schemes, setSchemes] = useState<SchemeChip[]>([]);
 
@@ -30,6 +30,19 @@ export default function LandingPage() {
       cancelled = true;
     };
   }, []);
+
+  async function startTrack2() {
+    if (busy) return;
+    setBusy("track2");
+    setError(null);
+    try {
+      const assessment = await api.createAssessment();
+      router.push(`/process-management/${assessment.id}/business-profile`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not start the assessment.");
+      setBusy(null);
+    }
+  }
 
   async function loadSample() {
     if (busy) return;
@@ -59,7 +72,9 @@ export default function LandingPage() {
           message={
             busy === "sample"
               ? "Building the chilli-paste sample…"
-              : "Starting your assessment…"
+              : busy === "track2"
+                ? "Setting up your process readiness check…"
+                : "Starting your assessment…"
           }
         />
       ) : null}
@@ -145,15 +160,15 @@ export default function LandingPage() {
           </div>
 
           {/* Track 2: Process Management Certification */}
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50/70 p-8">
+          <div className="flex flex-col justify-between rounded-3xl border-2 border-indigo-200 bg-white p-8 shadow-card">
             <div>
               <div className="flex items-center justify-between">
-                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold uppercase text-slate-600">
-                  Track 2 · Coming Soon
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase text-indigo-700">
+                  Track 2 · Live
                 </span>
                 <span className="text-2xl">🏭</span>
               </div>
-              <h2 className="mt-4 text-2xl font-bold text-slate-800">
+              <h2 className="mt-4 text-2xl font-bold text-ink">
                 Process & System Certification
               </h2>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
@@ -163,29 +178,32 @@ export default function LandingPage() {
               {/* Scheme Chips */}
               <div className="mt-6 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Planned Schemes
+                  Available Standards & Schemes
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {processManagementSchemes.length > 0 ? (
                     processManagementSchemes.map((s) => (
                       <span
                         key={s.id}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900"
                       >
-                        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
                         {s.name}
                       </span>
                     ))
                   ) : (
                     <>
-                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
-                        ISO 22000 Food Safety Management
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
                         SLS GMP Certification
                       </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
-                        HACCP Systems
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                        HACCP Certification
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                        ISO 22000:2018 Food Safety
                       </span>
                     </>
                   )}
@@ -193,13 +211,15 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-200/60">
+            <div className="mt-8 pt-6 border-t border-slate-100">
               <button
+                id="start-track2-btn"
                 type="button"
-                disabled
-                className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-6 py-4 text-base font-semibold text-slate-400 cursor-not-allowed"
+                disabled={Boolean(busy)}
+                onClick={() => void startTrack2()}
+                className="block w-full text-center rounded-2xl bg-indigo-600 px-6 py-4 text-base font-bold text-white shadow-card hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Track 2 Coming Soon
+                Start Process Readiness Check →
               </button>
             </div>
           </div>

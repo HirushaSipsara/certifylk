@@ -59,3 +59,18 @@ The first public deployment intentionally uses deterministic mock AI even though
 ## D015 — Exact-run AI transparency without new persistence
 
 Process-analysis and evidence-analysis responses include provider and fallback status from the same successful `ai_runs` record created inside `run_with_validation`; no latest-run query or schema field is added. The frontend pauses in lightweight review states to show confirmed metadata and accessible evidence polarity/confidence. Internal retries remain unobservable during the single HTTP request and are not simulated. Response-only metadata is deliberately absent after an older response or browser refresh unless the operation is run again.
+
+## D016 — Phase 2: Track 2 Process & System Certification
+
+Explicitly authorized by the project owner on 2026-08-07. Phase 2 lifts the Phase 1 exclusion of ISO, HACCP, and GMP and adds a second certification track to the platform for Sri Lankan food manufacturers.
+
+**Authorized schemes (all within Sri Lanka food manufacturing readiness scope):**
+- **SLS GMP Certification** (SLSI) — Good Manufacturing Practice for any food manufacturer. Mandatory tier: `recommended`.
+- **HACCP Certification** (SLSI) — Hazard Analysis & Critical Control Points. Mandatory tier: `market_required` for supermarket/export/institutional markets.
+- **ISO 22000:2018 Food Safety Management** (ISO/IAF-accredited CB) — International FSMS standard. Mandatory tier: `optional` domestically, `recommended` for export markets.
+
+**Track 2 wizard flow (authorized design):** Home → Business Profile directly (no product selection step, since GMP/HACCP/ISO 22000 are not product-specific) → AI Applicability Agent recommends applicable schemes → Assessment Hub → full 4-page readiness assessment (same pages as Track 1). No new assessment pages are required; existing hub and assessment pages work for both tracks.
+
+**Product mission unchanged:** CertifyLK remains an educational readiness tool for small Sri Lankan food manufacturers. Phase 2 does not add certification issuance, official inspection, accounts, payments, or services outside Sri Lanka.
+
+**Content verification:** All Track 2 requirement clauses are derived from publicly available SLSI and ISO guidance. Content is flagged `content_verified=False` and accompanied by the standard disclaimer. Clause counts and descriptions are approximations pending verification against purchased standard texts.
