@@ -79,7 +79,14 @@ Db = Annotated[Session, Depends(get_db)]
 
 @router.get("/health", summary="Process liveness")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": get_settings().app_name}
+    settings = get_settings()
+    sha = settings.release_sha if settings.release_sha != "unknown" else os.getenv("IMAGE_TAG", "unknown")
+    return {
+        "status": "ok",
+        "service": settings.app_name,
+        "version": settings.api_version,
+        "release_sha": sha[:40] if sha else "unknown",
+    }
 
 
 @router.get("/ready", summary="Database readiness")

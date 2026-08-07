@@ -1,0 +1,31 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+
+def test_health_endpoint_response_schema():
+    """Verify GET /api/v1/health returns status, service, version, and release_sha without exposing secrets."""
+    client = TestClient(app)
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "service" in data
+    assert "version" in data
+    assert "release_sha" in data
+
+    # Verify zero secrets or database host details are exposed
+    keys = set(data.keys())
+    assert keys == {"status", "service", "version", "release_sha"}
+
+
+def test_ready_endpoint_database_liveness():
+    """Verify GET /api/v1/ready returns database liveness state."""
+    client = TestClient(app)
+    response = client.get("/api/v1/ready")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["database"] == "ok"

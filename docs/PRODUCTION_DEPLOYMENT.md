@@ -16,8 +16,8 @@ This is a single-host deployment for the authorized Track 1/Track 2 pilot. It is
 | AWS region | `ap-south-1` |
 | EC2 instance | `i-00e924bf43a9d1fbe` |
 | Elastic IP | `3.108.242.97` |
-| Verified release | `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d` |
-| AI mode | deterministic mock |
+| Verified release | `85a111a436928bc94a1d478cf3dcbaec0a66d03d` |
+| AI mode | `gemini` (`gemini-3.6-flash`) with deterministic `mock` fallback |
 
 The landing page and API health endpoints were verified for the recorded historical release. Re-verify both track entries and the current canonical workflow after every redesign deployment. The production environment file and all credentials remain EC2-only.
 

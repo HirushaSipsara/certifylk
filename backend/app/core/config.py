@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     app_name: str = "CertifyLK API"
+    api_version: str = "1.0.0"
+    release_sha: str = Field(default="unknown")
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://certifylk:certifylk@localhost:5432/certifylk"
     cors_origins: list[str] | str = Field(default_factory=lambda: ["http://localhost:3000"])
