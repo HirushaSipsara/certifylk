@@ -25,9 +25,20 @@ Every operation accepts a structured application payload and returns a Pydantic 
 - Clarification plan: `question_ids` and reason.
 - Roadmap explanations: recommendation ID and simple explanation. Cost/gain inputs are repeated as immutable context, never model outputs.
 
+The Gemini adapter is implemented inside the FastAPI monolith. It uses one-shot
+`generateContent` calls with JSON Schema output, low-temperature generation, bounded
+output tokens, backend-only credentials, and inline image/PDF evidence. It does not
+expose a separate AI HTTP service or change the frontend/API workflow.
+
 ## Whitelist enforcement
 
 The backend supplies candidate question IDs and allowed evidence/requirement identifiers in every relevant call. It rejects an output containing an unknown ID before persistence and records the validation failure. Adaptive plans contain two to five IDs. Clarification plans contain three to five IDs. Evidence request plans are deterministic; a provider cannot add slots.
+
+Process extraction must return exactly one stage for every non-empty submitted process
+step, using the original position once. Evidence observations must reference an uploaded
+evidence request and a requirement linked to that exact request; global requirement
+membership is insufficient. Duplicate request/requirement observations are rejected.
+All model-authored text is stripped of control characters before persistence.
 
 ## Retry and fallback
 
@@ -58,3 +69,8 @@ Images and PDFs create observations only. They never constitute an official insp
 ## Production configuration
 
 `AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, and fallback behavior are injected only into the backend container from the protected EC2 environment file. They are absent from the frontend build and runtime environment. Production may deliberately use deterministic mock mode; live mode uses the stable explicit model ID `gemini-3.6-flash`, not a moving `latest` alias. Changing the provider mode never transfers scoring, costing, priority, or certification decisions to AI.
+
+`GEMINI_TIMEOUT_SECONDS`, `GEMINI_TEMPERATURE`, and
+`GEMINI_MAX_OUTPUT_TOKENS` bound live requests. The adapter converts timeouts, HTTP
+errors, blocked responses, empty candidates, and invalid structured output into safe
+provider errors without logging prompts, uploaded bytes, or raw provider responses.

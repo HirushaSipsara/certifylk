@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from pydantic import ValidationError
 
@@ -6,11 +8,15 @@ from app.core.errors import AppError
 from app.models.enums import EvidenceKind
 from app.schemas.ai import (
     APPROVED_PROCESS_TAGS,
+    EvidenceAnalysisOutput,
+    EvidenceObservationOutput,
     ProcessExtractionOutput,
     ProcessStageOutput,
     QuestionPlanOutput,
 )
 from app.services.ai_service import (
+    validate_evidence_output,
+    validate_process_output,
     validate_question_plan,
     wrap_untrusted_evidence_data,
 )
@@ -32,6 +38,40 @@ def test_process_tag_whitelist_is_exposed_to_structured_output_schema() -> None:
     schema = ProcessExtractionOutput.model_json_schema()
     tag_items = schema["$defs"]["ProcessStageOutput"]["properties"]["tags"]["items"]
     assert set(tag_items["enum"]) == APPROVED_PROCESS_TAGS
+
+
+def test_process_output_must_map_each_non_empty_step_once() -> None:
+    output = ProcessExtractionOutput(
+        stages=[
+            ProcessStageOutput(position=1, name="Receiving", tags=["receiving"], confidence=0.9),
+            ProcessStageOutput(position=2, name="Washing", tags=["washing"], confidence=0.9),
+            ProcessStageOutput(position=2, name="Duplicate", tags=["preparation"], confidence=0.9),
+        ]
+    )
+    with pytest.raises(ValueError, match="Duplicate process-stage"):
+        validate_process_output(output, ["Buy", "Wash", "Cook", "", ""])
+
+
+def test_evidence_requirement_must_belong_to_returned_request() -> None:
+    request_id = uuid.uuid4()
+    output = EvidenceAnalysisOutput(
+        observations=[
+            EvidenceObservationOutput(
+                evidence_request_id=request_id,
+                requirement_id="OTHER_REQUIREMENT",
+                polarity="unclear",
+                text="The requested detail is not visible.",
+                confidence=0.4,
+            )
+        ]
+    )
+    with pytest.raises(ValueError, match="not linked"):
+        validate_evidence_output(output, {request_id: {"EXPECTED_REQUIREMENT"}})
+
+
+def test_model_text_control_characters_are_removed() -> None:
+    output = QuestionPlanOutput(question_ids=["Q1", "Q2"], reason="  useful\x00 reason  ")
+    assert output.reason == "useful reason"
 
 
 def test_upload_rejects_type_size_and_mismatch() -> None:
