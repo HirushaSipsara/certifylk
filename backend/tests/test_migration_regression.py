@@ -13,6 +13,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
+from app.core.config import get_settings
 
 POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 
@@ -20,8 +21,10 @@ POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 @pytest.mark.skipif(
     not POSTGRES_URL, reason="TEST_POSTGRES_URL must point to a disposable PostgreSQL DB"
 )
-def test_postgres_historical_migration_sequence_and_seed() -> None:
+def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert POSTGRES_URL is not None
+    monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
+    get_settings.cache_clear()
     engine = create_engine(POSTGRES_URL)
     backend_dir = Path(__file__).resolve().parents[1]
     config = Config(str(backend_dir / "alembic.ini"))

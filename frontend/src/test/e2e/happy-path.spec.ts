@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("one-click chilli-paste workflow reaches a complete readiness result", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Load Sample Report/ }).click();
-  await expect(page.getByRole("heading", { name: "Your readiness roadmap" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Readiness Report & Action Roadmap" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText("Readiness score")).toBeVisible();

@@ -59,6 +59,7 @@ jobs:
         working-directory: backend
         env:
           AI_PROVIDER: mock
+          DATABASE_URL: postgresql+psycopg://certifylk:certifylk-ci@127.0.0.1:5432/certifylk
           TEST_POSTGRES_URL: postgresql+psycopg://certifylk:certifylk-ci@127.0.0.1:5432/certifylk
         run: python -m pytest
       - name: Audit Python dependencies
