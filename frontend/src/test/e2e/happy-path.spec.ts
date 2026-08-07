@@ -1,15 +1,24 @@
 import { expect, test } from "@playwright/test";
 
-test("one-click chilli-paste workflow reaches a complete readiness result", async ({ page }) => {
+test("one-click Fresh Fruit Cordial sample reaches the readiness roadmap", async ({ page }) => {
   await page.goto("/");
+  const sampleResponsePromise = page.waitForResponse((response) =>
+    response.url().endsWith("/assessments/sample") && response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: /Load Sample Report/ }).click();
-  await expect(page.getByRole("heading", { name: "Readiness Report & Action Roadmap" })).toBeVisible({
-    timeout: 30_000,
-  });
+  const sampleResponse = await sampleResponsePromise;
+  expect(sampleResponse.ok()).toBeTruthy();
+  const sample = (await sampleResponse.json()) as { result_url?: string };
+  expect(sample.result_url).toMatch(/^\/assessment\/[^/]+\/result$/);
+  await expect(page).toHaveURL(/\/assessment\/[^/]+\/result$/);
+  await expect(page.getByRole("heading", { name: "Readiness Report & Action Roadmap" })).toBeVisible();
+  await expect(page.getByText("Readiness Indicator")).toBeVisible();
   await expect(page.getByText("Readiness score")).toBeVisible();
   await expect(page.getByText("Confirmed strengths")).toBeVisible();
   await expect(page.getByText("Possible gaps")).toBeVisible();
-  await expect(page.getByText(/LKR/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Estimated Cost Summary (LKR)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Prioritized Action Roadmap" })).toBeVisible();
+  await expect(page.getByText(/Draft \/ Educational Certification Content/)).toBeVisible();
   await expect(page.getByText(/does not issue, guarantee, or replace SLS certification/i)).toBeVisible();
 });
 

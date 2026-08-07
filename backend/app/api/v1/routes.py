@@ -130,7 +130,7 @@ def get_assessment_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     "/assessments/sample",
     response_model=SampleResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create the completed chilli-paste demo",
+    summary="Create the completed Fresh Fruit Cordial demo",
 )
 async def sample_assessment_route(db: Db) -> dict[str, object]:
     assessment = await load_sample_assessment(db)

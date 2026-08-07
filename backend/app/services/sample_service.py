@@ -18,7 +18,7 @@ from app.services.seed_service import PROD_CORDIAL, seed_initial_knowledge_base
 
 
 async def build_sample_assessment(db: Session) -> Assessment:
-    """Build a synthetic read-only Fresh Fruit Cordial (SLS Mark) sample assessment."""
+    """Build the canonical read-only Fresh Fruit Cordial (SLS Mark) sample."""
     if not db.scalar(
         select(CertificationScheme).where(CertificationScheme.id == "SLS_MARK_CORDIAL")
     ):
