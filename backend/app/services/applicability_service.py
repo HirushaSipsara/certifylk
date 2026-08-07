@@ -54,11 +54,17 @@ def _scheme_payload(scheme: Any) -> dict[str, Any]:
     return {
         "id": scheme.id,
         "name": scheme.name,
+        "short_code": scheme.short_code,
+        "track": scheme.track.value if hasattr(scheme.track, "value") else str(scheme.track),
         "mandatory_tier": scheme.mandatory_tier.value
         if hasattr(scheme.mandatory_tier, "value")
         else str(scheme.mandatory_tier),
         "applicability_rule": scheme.applicability_rule,
         "summary": scheme.summary,
+        "typical_timeline_days": scheme.typical_timeline_days,
+        "standard_version": scheme.standard_version,
+        "catalogue_revision": scheme.catalogue_revision,
+        "source_document_id": scheme.source_document_id,
         "body_name": scheme.body.name if scheme.body else "",
     }
 
@@ -67,7 +73,7 @@ def _validate_applicability_output(
     output: ApplicabilityDecisionOutput,
     allowed_scheme_ids: set[str],
 ) -> None:
-    """Whitelist check: reject any scheme IDs the AI invented."""
+    """Whitelist check: reject any scheme IDs or invalid tiers the AI invented."""
     unknown = {d.scheme_id for d in output.decisions} - allowed_scheme_ids
     if unknown:
         raise ValueError(
@@ -80,6 +86,10 @@ def _validate_applicability_output(
         raise ValueError(
             f"recommended_path_scheme_id '{output.recommended_path_scheme_id}' is not in the whitelist"
         )
+    allowed_tiers = {"mandatory", "market_required", "recommended", "optional"}
+    for d in output.decisions:
+        if d.tier not in allowed_tiers:
+            raise ValueError(f"Invalid mandatory tier '{d.tier}' returned for scheme '{d.scheme_id}'")
 
 
 async def run_applicability_agent(
@@ -179,6 +189,13 @@ async def run_applicability_agent(
     # Set recommended scheme on the assessment
     if decision.recommended_path_scheme_id:
         assessment.scheme_id = decision.recommended_path_scheme_id
+        selected_scheme = next(
+            (scheme for scheme in schemes if scheme.id == decision.recommended_path_scheme_id),
+            None,
+        )
+        if selected_scheme is not None:
+            assessment.scheme_version = selected_scheme.standard_version
+            assessment.catalogue_revision = selected_scheme.catalogue_revision
 
     db.flush()
     return decision

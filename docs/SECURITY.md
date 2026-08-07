@@ -1,8 +1,12 @@
 # Production security
 
+The certificate-specific redesign increases the sensitivity and trust expectations of catalogue and evidence data. Before accepting real manufacturer documents, complete source/licensing review, privacy/retention consent, access-control risk review, and the off-host restore drill in `FULL_IMPLEMENTATION_PLAN.md`. The guest UUID remains a bearer link, not an authenticated private account.
+
 ## Security boundaries
 
-The browser communicates only with Nginx over HTTPS. Nginx is the only container with host ports. Next.js, FastAPI, and PostgreSQL use internal Docker networks; PostgreSQL has no host port. Gemini and database credentials remain backend-only. Uploaded content remains untrusted data and cannot alter question, evidence, scoring, cost, or certification rules.
+The browser communicates only with Nginx over HTTPS. Nginx is the only container with host ports. Next.js, FastAPI, and PostgreSQL use internal Docker networks; PostgreSQL has no host port. Gemini and database credentials remain backend-only. Uploaded content remains untrusted data and cannot alter scheme candidates, source records, question/evidence/requirement identifiers, scoring, costs, legal tiers, or certification rules.
+
+Catalogue provenance is also a security boundary: only reviewed imports/migrations may create active standards, clauses, applicability rules, or prices. AI output and frontend input never write authoritative catalogue facts.
 
 The application still has the locked guest UUID model and no authentication. Possession of an assessment UUID permits access to that assessment. A public operator must treat assessment URLs as sensitive bearer links, avoid sharing them, define a retention policy, and disclose this limitation. Adding accounts or changing the API is outside this deployment change.
 

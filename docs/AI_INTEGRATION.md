@@ -1,33 +1,55 @@
-# Integrated AI implementation
+# AI integration
 
-The AI implementation is part of the existing FastAPI backend monolith. The frontend
-continues to call the same `/api/v1` endpoints and no separate AI microservice is used.
+AI remains inside the FastAPI monolith behind `AIProvider`; there is no AI microservice, chatbot, LangChain runtime, or autonomous agent process.
 
-## Runtime flow
+## Implemented flow
 
-1. `profile_service` sends the saved profile and approved candidate question IDs to the
-   configured `AIProvider`.
-2. `process_service` sends the five process steps and adaptive answers, validates that
-   every non-empty step is mapped once, and persists only approved process tags.
-3. `process_service` creates the existing deterministic evidence plan.
-4. `evidence_service` sends only uploaded files to the provider, validates every returned
-   observation against the exact request-to-requirement mapping, and stores cautious
-   observations.
-5. `evidence_service` asks the provider to select approved clarification IDs.
-6. `result_service` performs deterministic requirement evaluation, scoring, costing,
-   ranking, expected-gain calculation, and projections. AI only explains the already
-   fixed roadmap items.
+1. `catalog_service` selects active schemes for the product/track from PostgreSQL.
+2. `applicability_service` supplies business/product and candidate scheme facts to `plan_applicable_schemes`, enforces the ID whitelist, persists the decision, and links the recommended scheme.
+3. Legacy `profile_service`, `process_service`, and `evidence_service` plan questions, normalize five process steps, create evidence requests, and store validated observations.
+4. `result_service` uses a scheme-specific deterministic branch when `assessment.scheme_id` is set, loading `scheme_requirements`, scheme category weights, and `scheme_cost_items`; legacy assessments without `scheme_id` continue through the global regression catalogue.
+5. `ai_service.run_with_validation` records exact-run success/provider/fallback metadata.
 
-## Provider selection
+The important current limitation is now earlier in the workflow: question and evidence planning still need full cutover to the assessment’s frozen scheme version before describing the browser journey as certificate-specific end to end.
 
-Use deterministic mode for development and guaranteed demos:
+## Target bounded workflow
+
+```text
+business/product profile
+  → supplied catalogue applicability decision
+  → selected and frozen scheme/version
+  → scheme requirement/evidence planning
+  → requirement-bound evidence extraction
+  → unresolved whitelisted clarifications
+  → deterministic evaluation/scoring/roadmap/cost
+  → AI narrative over the fixed result
+```
+
+A typed application coordinator may sequence these operations. It has fixed steps and state transitions; the model cannot choose arbitrary tools/actions. Optional Gemini function calling, if implemented, is restricted to read-only catalogue lookup functions returning bounded rows.
+
+## Implementation files
+
+- `backend/app/ai/base.py` — provider protocol.
+- `backend/app/ai/mock.py` — deterministic provider, including Track 1/Track 2 applicability.
+- `backend/app/ai/gemini.py` — live structured-output adapter.
+- `backend/app/ai/prompts.py` — fixed safety/task instructions.
+- `backend/app/schemas/ai.py` — validated output schemas and sanitization.
+- `backend/app/services/ai_service.py` — provider selection, retry/fallback, validation and `ai_runs`.
+- `backend/app/services/applicability_service.py` — DB-grounded scheme decision and persistence.
+- `backend/app/services/catalog_service.py` — category/product/scheme/requirement queries.
+- `backend/app/services/profile_service.py`, `process_service.py`, `evidence_service.py` — legacy workflow services being re-plumbed.
+- `backend/app/services/result_service.py` — legacy result branch plus scheme-specific deterministic result branch.
+
+## Provider configuration
+
+Deterministic development/demo:
 
 ```env
 AI_PROVIDER=mock
 ALLOW_AI_FALLBACK=true
 ```
 
-Use Gemini inside the backend only:
+Gemini, backend only:
 
 ```env
 AI_PROVIDER=gemini
@@ -39,26 +61,14 @@ GEMINI_MAX_OUTPUT_TOKENS=2048
 ALLOW_AI_FALLBACK=true
 ```
 
-Run a small structured-output connectivity check from the repository root:
+Run `python scripts/check_gemini.py` from the repository root for structured connectivity. Never place the key in the frontend or commit `backend/.env`.
 
-```bash
-python scripts/check_gemini.py
-```
+## Required completion tests
 
-## Files that implement AI
-
-- `backend/app/ai/base.py`: provider contract.
-- `backend/app/ai/gemini.py`: live multimodal Gemini adapter.
-- `backend/app/ai/mock.py`: deterministic fallback and demo provider.
-- `backend/app/ai/prompts.py`: fixed system/task instructions.
-- `backend/app/schemas/ai.py`: structured output models and text sanitization.
-- `backend/app/services/ai_service.py`: retries, fallback, run logging, and whitelist
-  validation.
-- `backend/app/services/profile_service.py`: adaptive question operation.
-- `backend/app/services/process_service.py`: process extraction operation.
-- `backend/app/services/evidence_service.py`: image/PDF observation and clarification
-  operations.
-- `backend/app/services/result_service.py`: roadmap explanation operation after
-  deterministic calculation.
-
-No API key is included in the repository. `backend/.env` remains ignored by Git.
+- Track candidates cannot cross between product-quality and process-management.
+- Unknown scheme/question/evidence/requirement IDs fail before domain persistence.
+- Prompt-injection evidence remains data.
+- An observation cannot reference a different scheme’s requirement.
+- Provider/fallback metadata belongs to the exact run.
+- Mock/Gemini output cannot change legal tier facts, weight, status multiplier, priority, cost, gain, or projection.
+- A catalogue version change does not alter a completed result snapshot.

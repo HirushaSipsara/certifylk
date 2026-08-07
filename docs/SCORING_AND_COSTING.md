@@ -1,58 +1,95 @@
 # Scoring and costing
 
-## Category and requirement weights
+## Non-negotiable rule
 
-Category weights total 100:
+Requirement evaluation, scores, evidence completeness, ranking, costs, gains, and projections are deterministic. AI may explain these outputs but cannot calculate or modify them.
 
-| Category | Weight | Seeded requirements (internal weights) |
-|---|---:|---|
-| Hygiene and sanitation | 20 | handwashing 6, cleaning 6, chemical separation 4, pest observation 4 |
-| Production process control | 20 | defined stages 5, measured cooking control 7, thermometer availability 4, contamination separation 4 |
-| Documentation and records | 15 | batch record 6, cleaning record 5, production frequency 4 |
-| Raw-material and supplier control | 15 | approved/suitable suppliers 6, supplier register 5, incoming checks 4 |
-| Packaging and labelling | 15 | label information 7, food-grade evidence 5, protected filling 3 |
-| Storage and traceability | 15 | raised/dry storage 4, finished-product storage 3, batch code 5, distribution trace 3 |
+## Current legacy baseline
 
-Each requirement weight is expressed as global score points and category members sum exactly to the category weight. A startup assertion and tests enforce both totals.
+The existing generic engine uses six categories totaling 100:
+
+| Category | Weight |
+|---|---:|
+| Hygiene and sanitation | 20 |
+| Production process control | 20 |
+| Documentation and records | 15 |
+| Raw-material and supplier control | 15 |
+| Packaging and labelling | 15 |
+| Storage and traceability | 15 |
+
+This remains the deterministic chilli-paste regression engine. The sample produces `32.0000` raw / `32` displayed. That number must remain stable while legacy code exists, but it is not a certificate-specific Fresh Fruit Cordial/SLS score.
+
+## Scheme-specific weights
+
+Each `certification_scheme.category_weights` and its active `scheme_requirements.weight` values define that scheme’s 100-point model. Before activation, deterministic validation must prove:
+
+- category weights sum to 100;
+- requirements within each category sum to the category’s weight;
+- every requirement belongs to the assessment’s frozen scheme version;
+- weights are non-negative Decimals and cannot be supplied by AI;
+- completed results snapshot scheme, standard version, catalogue revision, scores, costs, and roadmap items.
+
+GMP, HACCP, ISO 22000, and SLS Cordial may have different category structures. The UI must not assume the legacy six categories.
+
+When an assessment has `scheme_id`, `POST /complete` evaluates only that scheme’s active `scheme_requirements`, uses that scheme’s category weights, and creates a JSON `roadmap_snapshot` from `scheme_cost_items`. Legacy assessments without `scheme_id` continue to use the global chilli-paste regression catalogue.
 
 ## Requirement scoring
 
-Statuses and multipliers are `confirmed=1.0`, `partial=0.5`, `gap=0.0`, `unknown=0.0`, and `not_applicable` excluded. Every decision includes evidence references and a deterministic rationale.
+Statuses and multipliers remain:
 
-A **gap** means submitted evidence affirmatively indicates a missing/inadequate practice. **Unknown** means the system lacks sufficient reliable evidence. Both add zero readiness points, but only gaps may be worded as known deficiencies. Unknowns remain a separate result group and generally recommend verification or record collection.
+- `confirmed = 1.0`
+- `partial = 0.5`
+- `gap = 0.0`
+- `unknown = 0.0`
+- `not_applicable` excluded from the denominator
 
-For category `c`, let applicable seeded category weight be `D_c`, earned points be `E_c = sum(weight × multiplier)`, and fixed published category weight be `W_c`:
+A gap requires affirmative evidence of a missing/inadequate practice. Unknown means evidence is insufficient. They score the same but must be displayed and explained separately.
 
-`normalized category points = (E_c / D_c) × W_c`
+For category `c`, with applicable requirement denominator `D_c`, earned points `E_c`, and configured category weight `W_c`:
 
-If no requirements apply, the category is marked not applicable and excluded from the overall denominator. Overall raw score is `sum(normalized category points) / sum(applicable category weights) × 100`. Raw Decimal values are stored to four places; rounding occurs only for displayed integers using half-up rounding.
+`category points = (E_c / D_c) × W_c`
 
-Evidence completeness is separate: `100 × count(applicable requirements with confirmed or partial evidence) / count(applicable requirements)`. It is not confidence in certification.
+Overall readiness is normalized across applicable category weights. Raw Decimal scores are stored; display uses half-up integer rounding. Empty categories are safely excluded.
 
-## Priority and recommendation mapping
+Evidence completeness is separate:
 
-Gaps and unknowns map only to active seeded recommendations whose related requirement IDs overlap. Duplicate recommendations are collapsed. Ranking uses a stable tuple:
+`100 × applicable requirements with confirmed or partial evidence / all applicable requirements`
 
-1. Tier 1: safety-critical confirmed gaps.
-2. Tier 2: other high-weight uncovered requirements (weight at least 5).
-3. Tier 3: low-cost/high-gain actions (one-time maximum at most LKR 5,000 and gain at least 2 points).
-4. Tier 4: remaining documentation actions.
-5. Tier 5: capital expenditure.
+It is not readiness, AI confidence, or probability of certification.
 
-Within a tier: larger uncovered weight, larger `priority_base`, lower maximum one-time cost, then stable recommendation ID. This makes ranking repeatable.
+## Evidence references
+
+Every status requires deterministic rationale and references to profile answers, process steps, clarification answers, evidence observations, and the scheme requirement/source. A model observation never directly becomes official compliance; the rule engine interprets validated facts according to the reviewed `evaluation_rule`.
+
+## Roadmap priority
+
+The stable ordering remains:
+
+1. safety-critical confirmed gaps;
+2. other high-weight uncovered requirements;
+3. low-cost/high-gain actions;
+4. remaining documentation improvements;
+5. capital expenditure.
+
+Within a tier use uncovered weight, configured priority, lower maximum one-time cost, then stable ID. Scheme isolation is mandatory.
 
 ## Costs
 
-Every cost is loaded from the active `cost_items` row for the recommendation. Min/max values are non-negative integer LKR and min cannot exceed max. The API snapshots one-time and recurring ranges, cost note, currency, and last review date. A missing catalogue cost is a configuration error; AI/free text is never parsed as a price.
+Scheme-specific results read only active `scheme_cost_items` and separate:
 
-Cost summary is the sum of displayed item minima and maxima separately. It is an indicative preparation estimate, excludes official fees/labor unless the catalogue note says otherwise, and must show its review date.
+- `certifying_body_fee`;
+- `lab_testing_fee`;
+- `business_capex`;
+- `business_opex`.
+
+Each numeric range needs currency LKR, min/max, recurrence, source note, effective date, and last-reviewed date. If no reliable value exists, display “quote required”/no numeric estimate rather than inventing one. AI and user text are never parsed as prices.
 
 ## Expected improvement
 
-A roadmap action's maximum expected gain is the uncovered fraction of its related requirements: `weight × (1 - current multiplier)`. Requirements shared by several actions are assigned to the first ranked action that can address them, preventing double counting. Unknowns use the same theoretical gain but explanations say confirmation is needed. Projected raw score accumulates gains in roadmap order and is capped at 100; displayed projections use half-up rounding.
+An action’s theoretical maximum gain is the uncovered fraction of its related applicable requirement weights: `weight × (1 − current multiplier)`. Shared requirements are assigned to the first ranked action capable of addressing them, preventing double counting. Projections accumulate in order and cap at 100. Wording must state that performing an action still requires evidence and does not guarantee certification.
 
-## Worked chilli-paste example
+## Required worked examples
 
-The seeded sample earns 11/20 hygiene, 7/20 process, 7.5/15 documentation, 3/15 supplier, 3.5/15 packaging, and 0/15 storage/traceability. Its raw readiness score is 32.0000 and displayed score is 32. Ten of 21 applicable requirements have confirmed or partial evidence, so evidence completeness is 48%. The result contains two confirmed strengths, ten partial/confirmed gaps, and nine unknowns.
-
-Cooking measurement and thermometer requirements are currently uncovered, so the first ranked catalogue action is `REC_THERMOMETER`, with an 11-point non-duplicated theoretical gain and a projected score of 43. `REC_TEMP_LOG` then covers the remaining three uncovered batch-record points and projects 46. These projections explain the deterministic roadmap but do not claim that buying equipment or creating a record guarantees certification.
+- Preserve the legacy chilli-paste `32.0000 / 32` regression example until legacy retirement.
+- Add a reviewed Fresh Fruit Cordial/SLS worked example after certificate-scoped evaluation is complete.
+- Add at least one Track 2 domestic case and one export/supermarket case. Each must publish its frozen scheme/version, category math, evidence completeness, costs, and deterministic expected-gain calculation.

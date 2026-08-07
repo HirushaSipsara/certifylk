@@ -1,12 +1,19 @@
 # CertifyLK
 
-CertifyLK is a Phase 1 MVP that helps small Sri Lankan food manufacturers assess preparation readiness for SLS-related food certification. It provides a four-page guided assessment, deterministic scoring and costing, evidence-aware recommendations, mock AI for reproducible demos, an optional Gemini adapter, and a production delivery path that preserves the same workflow.
+CertifyLK is a certificate-specific guidance and readiness platform for small Sri Lankan food manufacturers. It combines a database-backed certification knowledge base, bounded AI reasoning and evidence extraction, and deterministic scoring/costing to explain which pathway applies and what the manufacturer should improve next.
 
-> CertifyLK is a readiness-assessment tool. It does not issue, guarantee, or replace SLS certification or an official inspection.
+> CertifyLK does not issue, guarantee, or replace certification, regulatory approval, laboratory testing, or an official inspection. Catalogue entries marked unverified must be confirmed with the named authority or standards body.
+
+## Authorized tracks
+
+- **Product Quality:** the active pilot is Fresh Fruit Cordial with SLS Mark and relevant food-registration guidance.
+- **Process & System:** SLS GMP, SLS HACCP, and ISO 22000:2018 readiness for Sri Lankan food manufacturers.
+
+The repository is in a **transitional redesign**. The database-backed catalogue, Track 1 wizard, Track 2 entry flow, applicability reasoning, Assessment Hub, legacy assessment workflow, AI adapters, deployment, and tests exist. The scheme-specific evidence, evaluation, scoring, roadmap, verified source content, PDF export, education page, and dashboard are not yet complete. See [Implementation progress](docs/IMPLEMENTATION_PROGRESS.md) and the [Full implementation plan](docs/FULL_IMPLEMENTATION_PLAN.md).
 
 ## Quick start
 
-Prerequisites: Python 3.10+, Node.js 20+, Docker with Compose, and GNU Make (optional on Windows).
+Prerequisites: Python 3.10+, Node.js 20+, Docker Compose, and optionally GNU Make.
 
 ```bash
 copy backend\.env.example backend\.env
@@ -20,25 +27,23 @@ make backend-dev
 make frontend-dev
 ```
 
-Open <http://localhost:3000>. API documentation is at <http://localhost:8000/docs>.
+Open <http://localhost:3000>. API docs are at <http://localhost:8000/docs>.
 
-Use `make test` for all automated tests and `make check` for formatting, linting, types, and tests. See [Local development](docs/LOCAL_DEVELOPMENT.md) for direct PowerShell/Linux commands and troubleshooting.
+Use `make test` for automated tests and `make check` for format, lint, type, test, and build gates. Direct PowerShell and Bash commands are in [Local development](docs/LOCAL_DEVELOPMENT.md).
 
 ## Repository map
 
-- `docs/`: canonical product, architecture, API, data, AI, scoring, and test documentation.
-- [`docs/IMPLEMENTATION_PROGRESS.md`](docs/IMPLEMENTATION_PROGRESS.md): current milestone, verification, live Gemini, limitations, and next-step status.
-- `frontend/`: Next.js App Router application.
-- `backend/`: FastAPI application, Alembic migration, and pytest suite.
-- `infra/local/`: local PostgreSQL Compose service only.
-- `infra/production/`: HTTPS Nginx, private application/data services, persistent volumes, and release operations for one EC2 host.
-- `infra/terraform/`: repeatable AWS, EC2, IAM/OIDC, SSM, networking, Elastic IP, and budget provisioning.
-- `.github/workflows/`: test-gated CI and commit-SHA production deployment through AWS Systems Manager.
-- `scripts/`: seed, reset, and local health-check helpers.
-- `sample-data/`: deterministic chilli-paste demo inputs.
+- `docs/`: canonical product, domain, API, AI, test, delivery, and completion plans.
+- `frontend/`: Next.js App Router UI for both tracks and the assessment experience.
+- `backend/`: FastAPI, SQLAlchemy/Alembic, certificate catalogue, domain engines, and Mock/Gemini adapters.
+- `infra/local/`: local PostgreSQL.
+- `infra/production/`: single-host Compose, Nginx, backup, health, deploy, and rollback scripts.
+- `infra/terraform/`: AWS EC2/network/IAM/OIDC/SSM provisioning.
+- `.github/workflows/`: test-gated CI and immutable production deployment.
+- `sample-data/`: legacy deterministic chilli-paste regression fixture.
 
-## Production delivery
+## Production
 
-Production delivery is a separate infrastructure stage; it does not change Phase 1 product scope. The verified Phase 1 deployment is available at <https://certifylk.duckdns.org> and currently uses deterministic mock AI. Pushes to `main` are test-gated, published as full-commit-SHA GHCR images, and deployed to EC2 through GitHub OIDC and AWS Systems Manager.
+The existing single-host deployment is documented at [Production deployment](docs/PRODUCTION_DEPLOYMENT.md). Infrastructure is reusable for the redesign, but a previously verified release is not proof that the current working tree or all new Track 2 paths are deployed. Release only a commit whose complete CI suite and updated public smoke checklist pass.
 
-Use [Terraform automation](infra/terraform/README.md) for infrastructure, [Production deployment](docs/PRODUCTION_DEPLOYMENT.md) for routine operations, and [AWS credentials and final deployment](docs/AWS_CREDENTIALS_AND_FINAL_DEPLOYMENT.md) for credential boundaries and first-time recovery. Never commit the EC2 production environment, PostgreSQL password, Gemini key, registry token, Terraform state, or AWS access keys.
+Never commit backend/frontend environment files, Gemini credentials, database passwords, AWS credentials, registry tokens, uploaded evidence, backups, Terraform state, or TLS private keys.

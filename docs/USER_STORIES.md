@@ -1,251 +1,175 @@
 # User stories and acceptance criteria
 
-## Epic A — Start and resume assessment
+## Epic A — Choose a certification track
 
-### A1 Start without an account
+### A1 Product-quality entry
 
-As a food business owner, I want to start an assessment without creating an account so that I can begin quickly.
+As a Sri Lankan food manufacturer, I want to choose my product category and product so that guidance is based on a relevant product standard.
 
-**Given** the landing page, **when** I select Start Assessment, **then** a guest assessment is created and Page 1 opens without authentication.
+**Given** the Product Quality entry, **when** I load categories and products, **then** enabled values come from the API and Food Products / Fresh Fruit Cordial is the pilot selection.
 
-### A2 Unique assessment identity
+### A2 Process/system entry
 
-As a food business owner, I want a unique assessment link or ID so that the application can load my current progress during the local session.
+As a manufacturer, I want to describe my business before seeing GMP, HACCP, and ISO 22000 guidance so the system can recommend a realistic maturity path.
 
-**Given** an assessment was created, **when** its route is shown, **then** the URL contains its UUID and loading that URL retrieves the same assessment.
+**Given** the Track 2 home action, **when** I start, **then** a guest assessment is created and the business-profile page opens without a product-selection page.
 
-### A3 Preserve progress
+### A3 Guest recovery
 
-As the system, I want to preserve the current page and answers so that browser refreshes do not destroy progress.
+As a guest, I want my assessment UUID preserved so a refresh does not destroy progress.
 
-**Given** saved answers, **when** the browser refreshes, **then** the API state is restored and the UUID remains in local storage.
+**Given** a created assessment, **when** I refresh or return with its URL, **then** the API state is restored; the UI explains that possession of the URL grants access.
 
-## Epic B — Product and business profile
+## Epic B — Business screening profile
 
-### B1 Plain profile questions
+### B1 Simple business questions
 
-As a food business owner, I want to answer simple MCQs about my product, production location, scale, packaging, storage, shelf life, certifications, and records so that I do not need certification expertise.
+As an owner, I want to provide business name/type, years, scale, markets, current certifications, food-licence status, volume, and a short description without certification jargon.
 
-**Given** Page 1, **when** I view the form, **then** each required topic uses plain, labelled controls.
+**Given** a valid profile, **when** I submit it, **then** it is persisted and linked to the assessment and selected product where applicable.
 
-### B2 Other values
+### B2 Validation
 
-As a food business owner, I want an Other option with free text so that unusual products and practices can be represented.
+As a user, I want useful field errors so I can correct incomplete information.
 
-**Given** a supported field, **when** I choose Other, **then** a required free-text control appears and is persisted.
+**Given** missing or invalid required fields, **when** I submit, **then** the UI shows the API/Zod validation near the relevant field and does not duplicate the request.
 
-### B3 Validation
+## Epic C — AI applicability decision
 
-As the system, I want to validate required fields and display useful errors.
+### C1 Ranked pathways
 
-**Given** missing or invalid data, **when** the profile is submitted, **then** submission is blocked or a field-specific API error is displayed.
+As an owner, I want CertifyLK to rank relevant pathways so I do not have to interpret the certification decision tree alone.
 
-### B4 Product classification
+**Given** a saved profile and a DB-supplied scheme candidate list, **when** applicability runs, **then** AI returns only supplied scheme IDs grouped as mandatory, market-required, recommended, or optional and promotes one recommended path.
 
-As the AI assessment engine, I want to classify the product and identify missing information.
+### C2 Explainable grounding
 
-**Given** a valid profile, **when** planning runs, **then** structured tags and missing-information flags conform to the AI schema.
+As a user, I want to see why a scheme is recommended and which supplied source fact supports it.
 
-### B5 Approved adaptive questions
+**Given** an applicability decision, **when** I expand “Why this?”, **then** I see the reasoning, confidence, issuer, source reference, and verification warning without fabricated clauses or legal claims.
 
-As the AI assessment engine, I want to select only relevant next questions from an approved question bank.
+### C3 Provider/fallback truth
 
-**Given** a candidate whitelist, **when** AI returns a plan, **then** only two to five supplied IDs are accepted; unknown IDs fail validation.
+As a user, I want completed AI work labelled accurately.
 
-## Epic C — Manufacturing process
+**Given** exact-run metadata, **when** the response completes, **then** the UI shows Gemini or confirmed fallback truthfully and shows Mock only in development/test/QA mode; missing metadata remains safe.
 
-### C1 Five process spaces
+## Epic D — Certificate Assessment Hub
 
-As a food business owner, I want five short spaces to enter my main production steps.
+### D1 One assessment, one scheme
 
-**Given** Page 2, **when** it renders, **then** exactly five ordered, labelled inputs are shown and at least three must be non-empty.
+As a user, I want each attempt attached to a single certification scheme so its requirements and result cannot be mixed with another scheme.
 
-### C2 Adaptive MCQs
+**Given** a chosen/recommended scheme, **when** I open the Hub, **then** it shows the product when applicable, issuer, scheme/version, verification state, and the stages remaining.
 
-As a food business owner, I want to answer a small number of adaptive MCQs selected from my profile.
+### D2 Requirement overview
 
-**Given** profile planning completed, **when** Page 2 loads, **then** two to five persisted approved questions are displayed.
+As a user, I want to review requirement categories, clauses, and sources before supplying evidence.
 
-### C3 Structured process
+**Given** an assessment with a scheme, **when** I open Requirements, **then** only active requirements for that frozen scheme version appear with weight, clause/source, and verification status.
 
-As the AI assessment engine, I want to convert the five free-text steps into structured manufacturing stages.
+## Epic E — Process and evidence
 
-**Given** valid process steps, **when** analysis runs, **then** ordered stages with approved tags and confidence values are stored.
+### E1 Process capture
 
-### C4 Process uncertainty
+As an owner, I want to describe my production process in simple steps so it can be mapped to relevant controls.
 
-As the AI assessment engine, I want to identify process-related uncertainty without inventing certification rules.
+**Given** at least the minimum valid steps, **when** extraction completes, **then** every non-empty input is mapped once to approved tags and provider/fallback metadata is shown.
 
-**Given** ambiguous steps, **when** analysis runs, **then** uncertainties are observations tied to known requirements and never described as official violations.
+### E2 Relevant requests
 
-## Epic D — Evidence collection
+As an owner, I want only evidence relevant to the selected scheme requirements.
 
-### D1 Relevant photos
+**Given** the frozen requirement set, **when** the plan is built, **then** every requested photo/document/lab report/licence references allowed evidence expectations and scheme requirement IDs.
 
-As a food business owner, I want the system to request only relevant photos.
+### E3 Safe upload or unavailable
 
-**Given** the process tags, **when** the evidence plan is built, **then** it contains only whitelisted relevant photo types.
+As an owner, I want to upload supported evidence or say I do not have it.
 
-### D2 Five-photo maximum
+**Given** a requested slot, **when** I upload JPEG/PNG/WebP/PDF within limits or mark unavailable, **then** generated safe storage is used and invalid, oversized, mismatched, or cross-assessment files are rejected.
 
-As a food business owner, I want to upload up to five photos.
+### E4 Accessible observations
 
-**Given** Page 3, **when** uploads are requested, **then** no more than five photo slots exist.
+As a user, I want observations distinguished as supports, concern, or unclear with confidence.
 
-### D3 One or two documents
+**Given** analyzed evidence, **when** review appears, **then** polarity has icon plus text, confidence uses Clear/Plausible/Unclear bands without changing the value, and unknown polarity renders neutrally.
 
-As a food business owner, I want to upload one or two requested documents.
+## Epic F — Adaptive clarification
 
-**Given** the evidence plan, **when** Page 3 renders, **then** at most two whitelisted PDF document requests appear.
+### F1 Ask only unresolved questions
 
-### D4 Evidence observations
+As an owner, I want a small set of targeted questions so I do not repeat information already supported by evidence.
 
-As the AI assessment engine, I want to inspect images and PDFs and return structured observations with confidence values.
+**Given** evaluated profile/process/evidence facts, **when** clarification planning runs, **then** it selects only approved candidates associated with unresolved selected-scheme requirements.
 
-**Given** supported stored files, **when** analysis runs, **then** validated observations reference requests/requirements and include confidence from 0 to 1.
+### F2 Whitelist enforcement
 
-**Given** evidence observations are returned, **when** the review state renders, **then** supports, concern, and unclear use visible text plus distinct icons, and confidence is labelled Clear, Plausible, or Unclear using the documented bands.
+As the system, I want unknown question/evidence/requirement IDs rejected so model output cannot change the catalogue.
 
-### D5 Safe file rejection
+**Given** AI output containing an unsupplied ID, **when** validation runs, **then** persistence is stopped, the failed run is safely logged, and fallback/error rules apply.
 
-As the system, I want to reject unsupported or oversized files safely.
+## Epic G — Deterministic result
 
-**Given** an invalid MIME type or size, **when** upload is attempted, **then** the API returns 415 or 413 without persisting the file.
+### G1 Requirement status
 
-### D6 Unavailable evidence
+As an owner, I want confirmed, partial, gap, unknown, and not-applicable statuses separated so missing evidence is not accused as a known failure.
 
-As the system, I want to mark a requested item as unavailable when the user cannot provide it.
+**Given** submitted facts and evidence, **when** completion runs, **then** deterministic evaluation records a rationale and evidence/source references for each applicable scheme requirement.
 
-**Given** an open request, **when** the user selects I do not have this, **then** the request is persisted as unavailable.
+### G2 Readiness and completeness
 
-## Epic E — Final clarification
+As an owner, I want readiness separate from evidence completeness.
 
-### E1 Resolve high-priority unknowns
+**Given** requirement evaluations, **when** scoring runs, **then** scheme category weights normalize safely, raw/display scores are stored, and completeness counts confirmed/partial evidence separately.
 
-As the AI assessment engine, I want to identify unresolved high-priority information after reviewing answers and evidence.
+### G3 Roadmap and costs
 
-**Given** completed evidence handling, **when** clarification planning runs, **then** high-priority applicable candidates are preferred.
+As an owner, I want prioritized actions and trustworthy LKR estimates.
 
-### E2 Three to five questions
+**Given** gaps/unknowns, **when** the roadmap is built, **then** deterministic ranking uses only scheme-linked catalogue items, costs show payer/type/source/review date, gains do not double count, and AI only explains fixed items.
 
-As a food business owner, I want to answer only three to five final MCQs.
+### G4 Report
 
-**Given** Page 4, **when** it renders, **then** three to five questions are shown with Other only where allowed.
+As an owner, I want a downloadable report I can discuss with an adviser.
 
-### E3 Approved clarification bank
+**Given** a stored completed result, **when** I export PDF, **then** it reproduces the result, sources, catalogue version, verification warnings, generation time, and certification disclaimer.
 
-As the system, I want all clarification questions to come from the approved question bank.
+## Epic H — Education and recovery
 
-**Given** the model output, **when** it contains an unknown ID, **then** validation rejects it and safe fallback rules apply.
+### H1 My Assessments
 
-## Epic F — Readiness result
+As a returning guest, I want to see assessment links remembered in this browser.
 
-### F1 Overall score
+**Given** locally remembered UUIDs, **when** I open My Assessments, **then** existing accessible assessments are listed and stale/missing IDs can be removed without implying account security.
 
-As a food business owner, I want to see an overall readiness score.
+### H2 Understand Certification
 
-**Given** a completed assessment, **when** the result loads, **then** a deterministic integer score from 0 to 100 is displayed.
+As a new manufacturer, I want a plain-language guide to product versus management-system certification and mandatory versus market-required pathways.
 
-### F2 Category scores
+**Given** reviewed educational content, **when** I open the page, **then** it cites authoritative sources and repeats that final applicability must be confirmed with the relevant body.
 
-As a food business owner, I want category-level scores.
+## Epic I — Reliability, security, and demo
 
-**Given** a result, **when** categories render, **then** all six applicable category scores are shown.
+### I1 Loading, long-running, and retry
 
-### F3 Separate evidence states
+As a user, I want truthful progress and an actionable retry after complete failure.
 
-As a food business owner, I want confirmed strengths, possible gaps, and unknown evidence shown separately.
+**Given** an AI request, **when** it runs, **then** the UI may show analyzing and taking longer; it never claims an unobservable retry, and retry is offered only after request failure.
 
-**Given** evaluated requirements, **when** evidence summary renders, **then** confirmed, gap/partial, and unknown groups remain distinct.
+### I2 Source and content governance
 
-### F4 Prioritized actions
+As the system owner, I want standards and costs versioned and reviewed so old assessments remain reproducible.
 
-As a food business owner, I want a prioritized checklist of next actions.
+**Given** a catalogue update, **when** it is imported, **then** source/reviewer/effective-date metadata is required and previous completed snapshots remain unchanged.
 
-**Given** uncovered requirements, **when** the roadmap is built, **then** deterministic safety, weight, value, documentation, and capital rules order it.
+### I3 Deterministic samples
 
-### F5 Cost ranges
+As a judge, I want completed examples demonstrating the same real workflow.
 
-As a food business owner, I want an estimated cost range for each action.
+**Given** Mock mode, **when** I load the Fresh Fruit Cordial/SLS example or execute Track 2 test scenarios, **then** the paths are reproducible and show at least two strengths, a gap, an unknown, a source-linked cost, AI metadata, and the disclaimer.
 
-**Given** a recommendation, **when** rendered, **then** its one-time and recurring LKR ranges come from seeded costs.
+### I4 Release safety
 
-### F6 Expected gain
+As an operator, I want failed tests to block production and data preserved through deployment.
 
-As a food business owner, I want the expected readiness improvement for each action.
-
-**Given** related uncovered requirement weights, **when** an item is calculated, **then** its non-duplicated deterministic gain is shown.
-
-### F7 Cumulative projection
-
-As a food business owner, I want to see the projected score after each completed item.
-
-**Given** the ordered roadmap, **when** items render, **then** each shows the capped cumulative score after preceding gains.
-
-### F8 Rationale
-
-As a food business owner, I want an explanation of why each action was recommended.
-
-**Given** a structured roadmap item, **when** explanation succeeds or falls back, **then** a simple non-certifying rationale is displayed.
-
-### F9 Disclaimer
-
-As a food business owner, I want a clear statement that the result is not official SLS approval.
-
-**Given** a result, **when** it renders, **then** the certification disclaimer is prominent.
-
-### F10 Deterministic model
-
-As the system, I want scoring and costing to remain deterministic and explainable.
-
-**Given** identical persisted inputs and catalogue versions, **when** results are regenerated, **then** scores, costs, gains, and order are identical.
-
-## Epic G — Reliability and safety
-
-### G1 Loading feedback
-
-As a user, I want loading indicators during AI analysis.
-
-**Given** an analysis request is pending, **when** the UI waits, **then** a labelled blocking loading overlay prevents duplicate submission.
-
-**Given** an analysis remains pending beyond the normal threshold, **when** the threshold is reached, **then** the UI says it is taking longer than expected without claiming a retry occurred.
-
-### G2 Retry
-
-As a user, I want a retry option when AI processing fails.
-
-**Given** a retryable API error, **when** it is displayed, **then** the user can submit that operation again without losing saved data.
-
-Internal Gemini retries are not separately visible to the browser and are never simulated in the UI.
-
-### G3 Deterministic fallback
-
-As the system, I want a deterministic fallback when the AI provider is unavailable.
-
-**Given** Gemini fails and fallback is enabled, **when** the single retry is exhausted, **then** Mock AI completes the operation and the run is logged.
-
-**Given** fallback completed an analysis, **when** its response is shown, **then** the UI displays “Completed using fallback analysis” only because `fallback_used=true` was returned for that exact request.
-
-### G7 AI execution transparency
-
-As a user, I want to know which analysis provider completed the current operation so that AI behavior is transparent.
-
-**Given** a process or evidence analysis response, **when** its review state renders, **then** Gemini is named only when `provider=gemini`, fallback is named only when confirmed, Mock is named only in development/test or enabled QA display mode, and missing metadata is handled safely.
-
-### G4 Pydantic validation
-
-As the system, I want AI outputs validated against Pydantic schemas.
-
-**Given** any provider response, **when** it reaches the application, **then** schema and whitelist validation occurs before persistence.
-
-### G5 Backend-only secrets
-
-As the system, I want AI API keys kept only in backend environment variables.
-
-**Given** the frontend bundle, **when** configuration is inspected, **then** it contains only the public API base URL and no AI secret.
-
-### G6 Demonstration sample
-
-As a judge, I want a sample chilli-paste assessment that demonstrates the complete workflow.
-
-**Given** the landing page, **when** Load Sample Assessment is selected, **then** a completed realistic sample opens with strengths, gaps, unknowns, costs, gains, and disclaimer.
+**Given** a release commit, **when** CI/deployment runs, **then** all checks pass for the exact SHA, migrations run explicitly after backup, volumes remain intact, health gates pass, and rollback never silently downgrades the database.

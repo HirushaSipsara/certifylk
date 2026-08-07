@@ -2,6 +2,8 @@
 
 This guide starts from the current CertifyLK repository and explains exactly how to connect GitHub Actions to AWS and finish the first deployment.
 
+It is an infrastructure/credential runbook and remains valid for the Track 1/Track 2 redesign. It does not verify standards content or prove the certificate-specific workflow is complete. Use `IMPLEMENTATION_PROGRESS.md`, `FULL_IMPLEMENTATION_PLAN.md`, and `RELEASE_CHECKLIST.md` for current product and smoke-test status.
+
 For the automated alternative that creates the AWS roles, network, EC2, Elastic IP, optional DNS/budget, and GitHub environment variables, use `infra/terraform/README.md`. Keep this document as the credential-flow reference and troubleshooting fallback.
 
 ## Local credentials used to run Terraform
@@ -554,7 +556,7 @@ health: ok
 ready:  ready
 ```
 
-Then choose **Load Sample Assessment** and confirm:
+Then choose the currently supported **Load Sample Report** action and confirm:
 
 - readiness score;
 - separate evidence completeness;

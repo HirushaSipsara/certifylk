@@ -1,39 +1,63 @@
 # Data model
 
-PostgreSQL is the source of truth. Assessment-owned rows use UUID primary keys and foreign keys with delete cascades. Seed/catalogue entities use stable string IDs. Mutable tables include UTC `created_at` and `updated_at`; event-like rows include `created_at`.
+PostgreSQL is the source of truth. UUIDs identify assessment-owned data; stable string IDs identify controlled catalogue data. JSON is used only for bounded, validated structures. Completed results snapshot the deterministic values shown to users.
 
-## Entities
+## Current entities
 
-- **assessments** — UUID, status enum, current page, sample flag, structured profile/process-analysis JSON, nullable `business_profile_id` FK, `scheme_id` FK, `product_id` FK, timestamps. Statuses: `draft_profile`, `profile_complete`, `process_complete`, `evidence_pending`, `evidence_complete`, `clarification_pending`, `ready_to_score`, `completed`, `failed`.
-- **business_profiles** — UUID, business name, business type, scale, market JSON list, existing certifications JSON list, food licence status, volume range, timestamps.
-- **categories** — UUID, unique name, unique slug, description, enabled flag, display order.
-- **products** — UUID, category UUID FK, name, unique slug, description, enabled flag, display order.
-- **certification_bodies** — stable string ID (e.g. SLSI, CAA, ISO), name, unique short code, website URL, description.
-- **certification_schemes** — stable string ID (e.g. SLS_MARK_CORDIAL), scheme name, short code, track enum (`product_quality`/`process_management`), certification body ID FK, product UUID FK (nullable), mandatory tier enum (`mandatory`, `market_required`, `recommended`, `optional`), applicability rule JSON, category weights JSON, summary, typical timeline days, active flag, display order.
-- **scheme_requirements** — stable string ID, scheme ID FK, category label, title, description, weight decimal, safety critical flag, source document, clause reference, source URL, content verified flag, evaluation rule JSON, active flag, display order.
-- **scheme_cost_items** — stable string ID, scheme ID FK, action ref, title, cost type enum (`certifying_body_fee`, `lab_testing_fee`, `business_capex`, `business_opex`), one-time min/max integer LKR, recurring min/max integer LKR, currency, source note, effective/reviewed dates.
-- **assessment_answers** — UUID, assessment UUID, page (`profile`, `adaptive`, `clarification`), stable question/field key, value JSON, timestamp. Unique per assessment/page/key.
-- **process_steps** — UUID, assessment UUID, position 1–5, text, normalized stage/tags/confidence, timestamps. Unique position per assessment.
-- **question_bank** — stable ID, category, text, options JSON, allows Other, product/process tags JSON, affected requirement IDs JSON, priority, eligible page, active flag.
-- **assessment_questions** — UUID, assessment UUID, question ID, page, display order, planning rationale, answered flag, timestamp. Unique assessment/page/question.
-- **evidence_requests** — UUID, assessment UUID, allowed evidence type, kind (`photo`/`document`), title, related requirements JSON, status (`requested`, `uploaded`, `unavailable`, `analyzed`), display order, timestamps.
-- **evidence_files** — UUID, request and assessment UUIDs, generated storage key, sanitized original name, MIME type, size, SHA-256, timestamp.
-- **evidence_observations** — UUID, assessment/request/file UUIDs, requirement ID, polarity (`supports`, `concern`, `unclear`), bounded text, confidence decimal, provider, timestamp.
-- **requirements** — stable ID, category, title, description, weight decimal, safety critical, applicability tags JSON, evaluation rule JSON, active flag.
-- **recommendations** — stable ID, title, implementation steps JSON, related requirement IDs JSON, priority base, capex flag, cost note, review date, active flag.
-- **cost_items** — stable ID, recommendation ID, one-time min/max and recurring min/max integer LKR, currency fixed to LKR, effective/reviewed dates.
-- **requirement_evaluations** — UUID, assessment UUID, requirement ID, status (`confirmed`, `partial`, `gap`, `unknown`, `not_applicable`), multiplier decimal, evidence references JSON, rationale, timestamps. Unique assessment/requirement.
-- **assessment_results** — UUID, assessment UUID unique, raw decimal and displayed score, evidence completeness, category score JSON, strengths/gaps/unknowns JSON snapshots, cost summary JSON, scoring version, timestamps.
-- **roadmap_items** — UUID, result/assessment UUIDs, recommendation ID, order, priority tier, deterministic gains/raw projected score, catalogue cost snapshot JSON, AI/fallback explanation, timestamps.
-- **ai_runs** — UUID, optional assessment UUID, operation, provider, model, latency, success, fallback flag, bounded error/validation message, timestamp. No prompt or raw content.
+### Certificate knowledge base
+
+- **categories** — UUID, unique name/slug, description, enabled, display order.
+- **products** — UUID, category FK, name/slug, description, enabled, display order.
+- **certification_bodies** — stable ID, name/short code, website, description.
+- **source_documents** — stable ID, owner body FK, title, version/effective date, URL or access reference, copyright note, reviewer/review date, verification flag, notes.
+- **certification_schemes** — stable ID, name/short code, track (`product_quality`, `process_management`), body FK, nullable product FK, mandatory tier, applicability-rule JSON, category-weight JSON, standard version, effective date, source-document FK, catalogue revision, summary, timeline, source URL, active, display order.
+- **scheme_requirements** — stable ID, scheme FK, category, title/description, Decimal weight, safety-critical flag, source document/source-document FK/clause/URL, `content_verified`, standard version, effective date, evaluation-rule JSON, order, active.
+- **evidence_expectations** — stable ID, scheme FK, scheme-requirement FK, kind (`photo`, `document`, `lab_report`, `licence`, `declaration`), label, guidance, required flag, order, active.
+- **scheme_cost_items** — stable ID, scheme FK, action reference/title, cost type, one-time and recurring LKR ranges, source note, effective date, last reviewed date.
+- **business_profiles** — UUID, business name/type, years, scale, market list, existing-certification list, food-licence status, volume range, additional information, created time.
+
+### Assessment workflow
+
+- **assessments** — UUID, status/current page, sample flag, profile/process JSON, optional business-profile/product/scheme FKs, frozen scheme version, frozen catalogue revision, timestamps.
+- **assessment_answers** — UUID, assessment FK, page/key/value JSON, timestamp; unique per assessment/page/key.
+- **process_steps** — UUID, assessment FK, position 1–5, raw text, normalized stage/tags/confidence, timestamps.
+- **question_bank** and **assessment_questions** — approved questions/options/tags/affected legacy requirement IDs and per-assessment assignments.
+- **evidence_requests**, **evidence_files**, **evidence_observations** — requested type/kind/legacy requirement references, generated storage metadata, and validated observation polarity/confidence/provider.
+- **requirements**, **recommendations**, **cost_items** — legacy global deterministic catalogue still used by the current scoring workflow.
+- **requirement_evaluations** — statuses for legacy or scheme requirements. `requirement_id` stores the displayed requirement ID; `scheme_id` and `scheme_requirement_id` are populated for certificate-specific results.
+- **assessment_results** — raw/display score, evidence completeness, category/result/cost snapshots, optional scheme/version/revision snapshot, and `roadmap_snapshot` for scheme-specific roadmap items.
+- **roadmap_items** — legacy normalized roadmap rows for the global regression flow.
+- **ai_runs** — optional assessment FK, operation, provider/model, latency, success, fallback, bounded error, created time. No prompt or raw evidence.
+
+Assessment statuses currently implemented are `draft_profile`, `profile_complete`, `process_complete`, `evidence_pending`, `evidence_complete`, `clarification_pending`, `ready_to_score`, `completed`, and `failed`. Current pages are `profile`, `process`, `evidence`, `clarification`, and `result`.
+
+## Transitional boundary
+
+`scheme_requirements`/`scheme_cost_items` now power scheme-specific deterministic evaluation and roadmap snapshots when an assessment has `scheme_id`. `requirements`/`recommendations`/`cost_items` still power the legacy chilli-paste regression flow only. They are not interchangeable.
+
+## Required target additions
+
+The following remain planned:
+
+- immutable retired-date lifecycle and historical version entities beyond the current frozen version/revision fields;
+- reviewed import files for all catalogue facts;
+- full question/evidence-submission cutover to `evidence_expectations`;
+- explicit scheme binding on all question assignments and uploaded evidence files;
+- recurring cost period and “quote required” semantics where a reliable numeric price is unavailable.
+
+Every addition requires an Alembic migration and an update to this document.
 
 ## JSON fields
 
-All JSON fields are bounded application structures validated at service boundaries. Question options use `{value,label}` objects. Tags and related IDs are arrays of stable strings. Evidence references are strings such as `profile.production_record_frequency`, `answer.DOC_BATCH_01`, `process.3`, or `evidence:<observation UUID>`. Result/cost snapshots make completed results reproducible when catalogues later change.
+- `applicability_rule` contains deterministic supplied facts such as supported markets/scales and explanatory source notes.
+- `category_weights` maps scheme category labels to published internal score weights.
+- `evaluation_rule` is a controlled rule description interpreted only by deterministic code.
+- market, certifications, options, tags, related IDs, evidence references, and result snapshots are bounded lists/objects validated at service boundaries.
+- `assessments.profile_data.applicability_decision` currently stores decisions, overall reasoning, recommended scheme, exact provider/fallback, and run time.
 
-## Indexes
+## Indexes and integrity
 
-Indexes cover `assessments.status`, `assessments.business_profile_id`, `assessments.scheme_id`, `assessments.product_id`, assessment foreign keys on all owned tables, `(assessment_id, created_at)` for events, question IDs, requirement IDs, evidence status, AI operation/created time, `categories.slug`, `products.slug`, `scheme_requirements.(scheme_id, display_order)`, and unique composite business keys described above.
+Current indexes cover assessment status and catalogue/assessment foreign keys; unique constraints cover slugs and per-assessment positions/answers/evaluations. Target migrations must add efficient version/source/evidence-expectation lookups and prevent cross-scheme requirement references. Scheme category/requirement weights and cost min/max validity are additionally checked in deterministic seed/tests.
 
 ## Relationships
 
@@ -42,24 +66,23 @@ erDiagram
   CATEGORY ||--o{ PRODUCT : contains
   PRODUCT ||--o{ CERTIFICATION_SCHEME : targets
   CERTIFICATION_BODY ||--o{ CERTIFICATION_SCHEME : issues
+  CERTIFICATION_BODY ||--o{ SOURCE_DOCUMENT : owns
+  SOURCE_DOCUMENT ||--o{ CERTIFICATION_SCHEME : supports
   CERTIFICATION_SCHEME ||--o{ SCHEME_REQUIREMENT : defines
+  SOURCE_DOCUMENT ||--o{ SCHEME_REQUIREMENT : supports
+  SCHEME_REQUIREMENT ||--o{ EVIDENCE_EXPECTATION : requests
   CERTIFICATION_SCHEME ||--o{ SCHEME_COST_ITEM : prices
-  BUSINESS_PROFILE ||--o{ ASSESSMENT : screens
-  CERTIFICATION_SCHEME ||--o{ ASSESSMENT : guides
+  BUSINESS_PROFILE ||--o{ ASSESSMENT : describes
+  PRODUCT ||--o{ ASSESSMENT : scopes
+  CERTIFICATION_SCHEME ||--o{ ASSESSMENT : scopes
   ASSESSMENT ||--o{ ASSESSMENT_ANSWER : has
-  ASSESSMENT ||--|{ PROCESS_STEP : has
+  ASSESSMENT ||--o{ PROCESS_STEP : has
   ASSESSMENT ||--o{ ASSESSMENT_QUESTION : assigns
-  QUESTION_BANK ||--o{ ASSESSMENT_QUESTION : supplies
   ASSESSMENT ||--o{ EVIDENCE_REQUEST : requests
   EVIDENCE_REQUEST ||--o| EVIDENCE_FILE : stores
   EVIDENCE_REQUEST ||--o{ EVIDENCE_OBSERVATION : yields
-  EVIDENCE_FILE ||--o{ EVIDENCE_OBSERVATION : supports
-  REQUIREMENT ||--o{ EVIDENCE_OBSERVATION : concerns
-  ASSESSMENT ||--o{ REQUIREMENT_EVALUATION : evaluates
-  REQUIREMENT ||--o{ REQUIREMENT_EVALUATION : is_evaluated
+  ASSESSMENT ||--o{ REQUIREMENT_EVALUATION : records
   ASSESSMENT ||--o| ASSESSMENT_RESULT : produces
   ASSESSMENT_RESULT ||--o{ ROADMAP_ITEM : contains
-  RECOMMENDATION ||--o{ COST_ITEM : priced_by
-  RECOMMENDATION ||--o{ ROADMAP_ITEM : instantiates
-  ASSESSMENT ||--o{ AI_RUN : records
+  ASSESSMENT ||--o{ AI_RUN : logs
 ```

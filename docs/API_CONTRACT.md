@@ -2,7 +2,9 @@
 
 Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `https://<production-domain>/api/v1` through Nginx. JSON responses include `X-Request-ID`; clients may supply the same header. UUIDs below are abbreviated examples. Timestamps are RFC 3339 UTC. Production and local deployments use the same response shapes.
 
-Process-analysis and evidence-analysis responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
+Process-analysis, evidence-analysis, and applicability responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
+
+The API is transitional. The legacy four-page endpoints remain operational against the global readiness catalogue. The knowledge-base/applicability endpoints select a certification scheme and expose its requirement overview, but certificate-specific evidence/evaluation/result contracts are not yet complete. Planned endpoints or fields are documented only in `FULL_IMPLEMENTATION_PLAN.md`, not as current API behavior.
 
 ## Shared errors
 
@@ -63,7 +65,7 @@ Returns resumable state and assigned questions/evidence requests. `200`:
 }
 ```
 
-Statuses: `200`, `404`, `422` for malformed UUID.
+Statuses: `200`, `404`, `422` for malformed UUID. Implemented assessment status values are `draft_profile`, `profile_complete`, `process_complete`, `evidence_pending`, `evidence_complete`, `clarification_pending`, `ready_to_score`, `completed`, and `failed`.
 
 ### `POST /assessments/sample`
 
@@ -203,7 +205,7 @@ All assigned clarification questions require valid answers. `200`: `{"status":"r
 
 ### `POST /assessments/{assessment_id}/complete`
 
-No body. Requires `ready_to_score`. Performs deterministic evaluation/scoring/roadmap creation in one transaction; AI can only explain fixed items. `200`:
+No body. Requires `ready_to_score`. Performs deterministic evaluation/scoring/roadmap creation in one transaction; AI can only explain fixed items. Assessments with `scheme_id` use the frozen `scheme_requirements`, `certification_scheme.category_weights`, and `scheme_cost_items`; legacy assessments without `scheme_id` use the global regression catalogue. `200`:
 
 ```json
 {"status":"completed","result":{"overall_score_raw":"47.5000","overall_score":48,"evidence_completeness":55,"roadmap_count":8}}
@@ -260,6 +262,8 @@ List certification schemes, optionally filtered by `?track=product_quality` or `
     "short_code": "SLS_MARK",
     "track": "product_quality",
     "mandatory_tier": "market_required",
+    "standard_version": "draft-2026-08",
+    "catalogue_revision": "2026-08-07-draft",
     "summary": "The SLS Mark certifies that your product consistently meets the Sri Lanka Standard for Fresh Fruit Cordial (SLS 187).",
     "typical_timeline_days": 365,
     "body_name": "Sri Lanka Standards Institution",
@@ -283,9 +287,31 @@ List clauses/requirements for a certification scheme. `200`:
     "weight": 6.0,
     "safety_critical": true,
     "source_document": "SLS 187 / GMP Guidelines (SLSI)",
+    "source_document_id": "SRC_SLS_187_CORDIAL_DRAFT",
     "clause_reference": "Clause 4.2.1 — Personal Hygiene",
     "source_url": "",
     "content_verified": false,
+    "standard_version": "draft-2026-08",
+    "effective_date": "2026-08-07",
+    "display_order": 1
+  }
+]
+```
+
+### `GET /schemes/{scheme_id}/evidence-expectations`
+
+List curated evidence expectations tied to a certification scheme’s requirements. `200`:
+
+```json
+[
+  {
+    "id": "EV_SLS_HYG_HANDWASH",
+    "scheme_id": "SLS_MARK_CORDIAL",
+    "requirement_id": "SLS_HYG_HANDWASH",
+    "kind": "photo",
+    "label": "Evidence for Handwashing facilities and supplies",
+    "guidance_text": "Provide available evidence for this requirement, or mark it unavailable.",
+    "required": true,
     "display_order": 1
   }
 ]
@@ -293,7 +319,25 @@ List clauses/requirements for a certification scheme. `200`:
 
 ### `POST /business-profiles`
 
-Create a screening business profile. `201`:
+Create a screening business profile. Optional `assessment_id` links the profile to an existing guest assessment; optional `product_slug` links a Track 1 product. Omitting `product_slug` supports Track 2. `201`:
+
+```json
+{
+  "name": "Lanka Cordial Works",
+  "business_type": "limited_company",
+  "years_operating": 3,
+  "scale": "small",
+  "market": ["supermarket", "export"],
+  "existing_certifications": [],
+  "has_food_licence": "yes",
+  "monthly_volume_range": "1000_5000_litres",
+  "additional_info": "We want to enter formal retail.",
+  "assessment_id": "60609be3-b36a-4455-95d9-31898586ee9f",
+  "product_slug": "fresh_fruit_cordial"
+}
+```
+
+Response:
 
 ```json
 {
@@ -308,7 +352,7 @@ Create a screening business profile. `201`:
 
 ### `POST /assessments/{assessment_id}/applicable-schemes`
 
-Runs the Applicability Reasoning Agent on the assessment's business profile and product. Returns ranked scheme decisions with AI reasoning and source citations. `200`:
+Runs the Applicability Reasoning operation on the linked business profile. Track is inferred: an assessment with a product uses `product_quality`; without a product it uses `process_management`. Candidates are loaded from PostgreSQL, all output IDs are whitelisted, and the recommended ID is stored on the assessment. Returns ranked decisions with AI reasoning and supplied source references. `200`:
 
 ```json
 {
@@ -333,6 +377,8 @@ Runs the Applicability Reasoning Agent on the assessment's business profile and 
   "has_unverified_content": true
 }
 ```
+
+The current operation receives DB-sourced scheme facts in a bounded provider call. The response does not claim that Gemini function/tool calling occurred. `has_unverified_content` reflects the selected recommended scheme’s current requirement rows.
 
 ### `GET /assessments/{assessment_id}/scheme-requirements`
 

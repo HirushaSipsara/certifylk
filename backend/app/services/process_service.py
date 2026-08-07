@@ -90,33 +90,78 @@ def build_evidence_plan(db: Session, assessment: Assessment) -> list[EvidenceReq
         from app.core.errors import TransitionError
 
         raise TransitionError("Run process analysis before creating an evidence plan.")
-    photo_types = [
-        "production_area",
-        "handwashing_area",
-        "ingredient_storage",
-        "packaging_area",
-        "finished_product_label_photo",
-    ]
-    if assessment.profile_data.get("storage_method") in {"refrigerated", "frozen", "mixed"}:
-        photo_types[-1] = "cold_storage"
-    document_types = ["product_label", "production_record"]
-    planned_types = photo_types[:5] + document_types[:2]
     db.execute(delete(EvidenceRequest).where(EvidenceRequest.assessment_id == assessment.id))
     requests: list[EvidenceRequest] = []
-    for order, evidence_type in enumerate(planned_types, start=1):
-        definition = EVIDENCE_TYPES[evidence_type]
-        request = EvidenceRequest(
-            assessment_id=assessment.id,
-            evidence_type=evidence_type,
-            kind=EvidenceKind(str(definition["kind"])),
-            title=str(definition["title"]),
-            requirement_ids=list(definition["requirements"]),
-            required=False,
-            status=EvidenceRequestStatus.REQUESTED,
-            display_order=order,
+
+    if assessment.scheme_id:
+        from app.models import EvidenceExpectation
+        from app.services.catalog_service import get_scheme_requirements
+
+        expectations = list(
+            db.scalars(
+                select(EvidenceExpectation)
+                .where(
+                    EvidenceExpectation.scheme_id == assessment.scheme_id,
+                    EvidenceExpectation.active.is_(True),
+                )
+                .order_by(EvidenceExpectation.display_order)
+            )
         )
-        db.add(request)
-        requests.append(request)
+        if expectations:
+            for expectation in expectations:
+                request = EvidenceRequest(
+                    assessment_id=assessment.id,
+                    evidence_type=expectation.id,
+                    kind=EvidenceKind(expectation.kind),
+                    title=expectation.label,
+                    requirement_ids=[expectation.requirement_id],
+                    required=expectation.required,
+                    status=EvidenceRequestStatus.REQUESTED,
+                    display_order=expectation.display_order,
+                )
+                db.add(request)
+                requests.append(request)
+        else:
+            scheme_reqs = get_scheme_requirements(db, assessment.scheme_id)
+            for order, req in enumerate(scheme_reqs, start=1):
+                request = EvidenceRequest(
+                    assessment_id=assessment.id,
+                    evidence_type=f"ev_{req.id.lower()}",
+                    kind=EvidenceKind.DOCUMENT if "doc" in req.category_label.lower() else EvidenceKind.PHOTO,
+                    title=f"Evidence for {req.title}",
+                    requirement_ids=[req.id],
+                    required=req.safety_critical,
+                    status=EvidenceRequestStatus.REQUESTED,
+                    display_order=order,
+                )
+                db.add(request)
+                requests.append(request)
+    else:
+        photo_types = [
+            "production_area",
+            "handwashing_area",
+            "ingredient_storage",
+            "packaging_area",
+            "finished_product_label_photo",
+        ]
+        if assessment.profile_data.get("storage_method") in {"refrigerated", "frozen", "mixed"}:
+            photo_types[-1] = "cold_storage"
+        document_types = ["product_label", "production_record"]
+        planned_types = photo_types[:5] + document_types[:2]
+        for order, evidence_type in enumerate(planned_types, start=1):
+            definition = EVIDENCE_TYPES[evidence_type]
+            request = EvidenceRequest(
+                assessment_id=assessment.id,
+                evidence_type=evidence_type,
+                kind=EvidenceKind(str(definition["kind"])),
+                title=str(definition["title"]),
+                requirement_ids=list(definition["requirements"]),
+                required=False,
+                status=EvidenceRequestStatus.REQUESTED,
+                display_order=order,
+            )
+            db.add(request)
+            requests.append(request)
     update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_PENDING)
     db.commit()
     return requests

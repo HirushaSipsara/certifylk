@@ -69,8 +69,18 @@ Explicitly authorized by the project owner on 2026-08-07. Phase 2 lifts the Phas
 - **HACCP Certification** (SLSI) — Hazard Analysis & Critical Control Points. Mandatory tier: `market_required` for supermarket/export/institutional markets.
 - **ISO 22000:2018 Food Safety Management** (ISO/IAF-accredited CB) — International FSMS standard. Mandatory tier: `optional` domestically, `recommended` for export markets.
 
-**Track 2 wizard flow (authorized design):** Home → Business Profile directly (no product selection step, since GMP/HACCP/ISO 22000 are not product-specific) → AI Applicability Agent recommends applicable schemes → Assessment Hub → full 4-page readiness assessment (same pages as Track 1). No new assessment pages are required; existing hub and assessment pages work for both tracks.
+**Track 2 wizard flow (authorized design):** Home → Business Profile directly (no product selection step, since GMP/HACCP/ISO 22000 are not product-specific) → AI Applicability Agent recommends applicable schemes → Assessment Hub → certificate-scoped evidence/clarification/result. The entry/profile/applicability/Hub foundation is implemented; the shared scheme-specific evaluation/result cutover remains tracked in `FULL_IMPLEMENTATION_PLAN.md`.
 
 **Product mission unchanged:** CertifyLK remains an educational readiness tool for small Sri Lankan food manufacturers. Phase 2 does not add certification issuance, official inspection, accounts, payments, or services outside Sri Lanka.
 
 **Content verification:** All Track 2 requirement clauses are derived from publicly available SLSI and ISO guidance. Content is flagged `content_verified=False` and accompanied by the standard disclaimer. Clause counts and descriptions are approximations pending verification against purchased standard texts.
+
+## D017 — Certificate-specific target with an explicit transitional boundary
+
+The database-backed `Category → Product → CertificationScheme → SchemeRequirement` model is the target source of truth. The existing global requirements/recommendations/cost catalogue and chilli-paste four-page flow remain temporarily as regression and compatibility infrastructure; they are not a sourced Fresh Fruit Cordial/SLS assessment and must not be described as completion of the redesign.
+
+The conversion will proceed as one verified vertical slice: source review and standard versioning, scheme-scoped evidence/questions, scheme-scoped deterministic evaluation/scoring/roadmap, then a Fresh Fruit Cordial/SLS sample. Track 2 reuses that completed engine afterward. Open-ended autonomous agents remain excluded; the approved AI design is a bounded sequence of typed operations over supplied, whitelisted catalogue facts.
+
+## D018 — Track 2 entry remains business-profile-first
+
+Track 2 starts from the Home action, creates a guest assessment, and opens `/process-management/{assessmentId}/business-profile`. It does not require a separate scheme-selection page. The applicability operation ranks SLS GMP, SLS HACCP, and ISO 22000 after the profile is saved. This records the behavior already implemented and resolves the older proposal for `/process-management/select` in favor of D016.

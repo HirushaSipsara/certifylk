@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, cast
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.data.catalog import (
@@ -16,12 +17,14 @@ from app.models import (
     CertificationBody,
     CertificationScheme,
     CostItem,
+    EvidenceExpectation,
     Product,
     QuestionBank,
     Recommendation,
     Requirement,
     SchemeCostItem,
     SchemeRequirement,
+    SourceDocument,
 )
 from app.models.enums import CertificationTrack, CostType, MandatoryTier, RequirementCategory
 
@@ -133,6 +136,96 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 id=bid, name=bname, short_code=bcode, website_url=burl, description=bdesc
             )
         )
+    db.flush()
+
+    source_documents = [
+        SourceDocument(
+            id="SRC_SLS_MARK_PROCEDURE_DRAFT",
+            title="SLS Mark Product Certification Procedure",
+            owner_body_id="SLSI",
+            version="draft-public-summary",
+            effective_date=None,
+            source_url="https://www.slsi.lk",
+            access_reference="Public SLSI service information; full procedure must be confirmed with SLSI.",
+            copyright_note="Store only implementation summaries and references; do not copy paid standards text.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Draft source row used to keep catalogue facts traceable until primary-source review.",
+        ),
+        SourceDocument(
+            id="SRC_SLS_187_CORDIAL_DRAFT",
+            title="Sri Lanka Standard for Fresh Fruit Cordial",
+            owner_body_id="SLSI",
+            version="draft-unverified",
+            effective_date=None,
+            source_url="https://www.slsi.lk",
+            access_reference="Full standard must be lawfully obtained from SLSI before public reliance.",
+            copyright_note="Clause references only; no copyrighted standard text is stored.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Requirement summaries are implementation-oriented drafts pending official verification.",
+        ),
+        SourceDocument(
+            id="SRC_CAA_FOOD_REG_DRAFT",
+            title="Sri Lankan food business registration and labelling guidance",
+            owner_body_id="CAA",
+            version="draft-public-summary",
+            effective_date=None,
+            source_url="https://www.caa.gov.lk",
+            access_reference="Public CAA/Food Act guidance; legal interpretation pending review.",
+            copyright_note="Store concise guidance and references only.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Used for registration and labelling guidance in the product-quality track.",
+        ),
+        SourceDocument(
+            id="SRC_SLS_GMP_DRAFT",
+            title="SLS GMP Certification guidance for food manufacturers",
+            owner_body_id="SLSI",
+            version="draft-unverified",
+            effective_date=None,
+            source_url="https://www.slsi.lk",
+            access_reference="SLSI/GMP material must be reviewed before public reliance.",
+            copyright_note="Implementation summaries only.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Draft Track 2 GMP source row.",
+        ),
+        SourceDocument(
+            id="SRC_SLS_HACCP_DRAFT",
+            title="SLS HACCP Certification guidance for food manufacturers",
+            owner_body_id="SLSI",
+            version="draft-unverified",
+            effective_date=None,
+            source_url="https://www.slsi.lk",
+            access_reference="SLSI/HACCP material must be reviewed before public reliance.",
+            copyright_note="Implementation summaries only.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Draft Track 2 HACCP source row.",
+        ),
+        SourceDocument(
+            id="SRC_ISO_22000_2018_DRAFT",
+            title="ISO 22000:2018 Food safety management systems",
+            owner_body_id="ISO",
+            version="2018-draft-summary",
+            effective_date=None,
+            source_url="https://www.iso.org/standard/65464.html",
+            access_reference="Licensed ISO text is not stored; use only reviewed clause summaries.",
+            copyright_note="Do not copy ISO standard text into the application.",
+            reviewer="pending qualified reviewer",
+            review_date=None,
+            content_verified=False,
+            notes="Draft source row for ISO 22000 readiness mapping.",
+        ),
+    ]
+    for source_document in source_documents:
+        db.merge(source_document)
 
     cat_food = Category(
         id=CAT_FOOD_PRODUCTS,
@@ -177,6 +270,10 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 "mandatory_note": "Required by most supermarket chains and all government institutional buyers.",
             },
             category_weights=sls_weights,
+            standard_version="draft-2026-08",
+            effective_date=REVIEWED,
+            source_document_id="SRC_SLS_187_CORDIAL_DRAFT",
+            catalogue_revision="2026-08-07-draft",
             summary="The SLS Mark certifies that your product consistently meets the Sri Lanka Standard for Fresh Fruit Cordial (SLS 187). It is widely required by supermarkets and institutional buyers.",
             typical_timeline_days=365,
             source_url="https://www.slsi.lk/product-certification.html",
@@ -204,6 +301,10 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 "mandatory_note": "Required by law for all food manufacturers selling in Sri Lanka (Food Act No. 26 of 1980)."
             },
             category_weights=caa_weights,
+            standard_version="draft-2026-08",
+            effective_date=REVIEWED,
+            source_document_id="SRC_CAA_FOOD_REG_DRAFT",
+            catalogue_revision="2026-08-07-draft",
             summary="Mandatory registration under the Consumer Affairs Authority Act and Food Act No. 26 of 1980. Required before any food product can be legally sold in Sri Lanka.",
             typical_timeline_days=60,
             source_url="https://www.caa.gov.lk",
@@ -459,9 +560,12 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 weight=Decimal(str(w)),
                 safety_critical=safety,
                 source_document=sdoc,
+                source_document_id="SRC_SLS_187_CORDIAL_DRAFT",
                 clause_reference=sclause,
                 source_url="",
                 content_verified=False,
+                standard_version="draft-2026-08",
+                effective_date=REVIEWED,
                 evaluation_rule={},
                 display_order=dorder,
                 active=True,
@@ -615,6 +719,10 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 "note": "Recommended for all food manufacturers. Required by most supermarket chains as a baseline prerequisite alongside SLS Mark certification."
             },
             category_weights=gmp_weights,
+            standard_version="draft-2026-08",
+            effective_date=REVIEWED,
+            source_document_id="SRC_SLS_GMP_DRAFT",
+            catalogue_revision="2026-08-07-draft",
             summary="SLSI-issued Good Manufacturing Practice certification. Demonstrates systematic control of food production premises, personnel, equipment, and processes. Widely recognised as the foundation for food safety in Sri Lanka.",
             typical_timeline_days=180,
             source_url="https://www.slsi.lk/product-certification.html",
@@ -836,9 +944,12 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 weight=Decimal(str(w)),
                 safety_critical=safety,
                 source_document=sdoc,
+                source_document_id="SRC_SLS_GMP_DRAFT",
                 clause_reference=sclause,
                 source_url="",
                 content_verified=False,
+                standard_version="draft-2026-08",
+                effective_date=REVIEWED,
                 evaluation_rule={},
                 display_order=dorder,
                 active=True,
@@ -945,6 +1056,10 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 "mandatory_note": "Required by all major Sri Lankan supermarket chains, government institutional food contracts, and most export markets. Prerequisite for ISO 22000.",
             },
             category_weights=haccp_weights,
+            standard_version="draft-2026-08",
+            effective_date=REVIEWED,
+            source_document_id="SRC_SLS_HACCP_DRAFT",
+            catalogue_revision="2026-08-07-draft",
             summary="HACCP (Hazard Analysis and Critical Control Points) certification issued by SLSI. A science-based systematic approach to identifying and controlling food safety hazards. Required by supermarkets, hotels, and all export markets.",
             typical_timeline_days=270,
             source_url="https://www.slsi.lk/haccp.html",
@@ -1188,9 +1303,12 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 weight=Decimal(str(w)),
                 safety_critical=safety,
                 source_document=sdoc,
+                source_document_id="SRC_SLS_HACCP_DRAFT",
                 clause_reference=sclause,
                 source_url="",
                 content_verified=False,
+                standard_version="draft-2026-08",
+                effective_date=REVIEWED,
                 evaluation_rule={},
                 display_order=dorder,
                 active=True,
@@ -1311,6 +1429,10 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 "note": "Strongly recommended for export to regulated markets (EU, US, AU, Middle East). Internationally recognised FSMS standard. Builds on HACCP and GMP.",
             },
             category_weights=iso_weights,
+            standard_version="2018-draft-summary",
+            effective_date=REVIEWED,
+            source_document_id="SRC_ISO_22000_2018_DRAFT",
+            catalogue_revision="2026-08-07-draft",
             summary="ISO 22000:2018 specifies requirements for a Food Safety Management System (FSMS). It integrates GMP, HACCP, and management system requirements. Required or strongly preferred by most regulated export markets and global retail buyers.",
             typical_timeline_days=540,
             source_url="https://www.iso.org/iso-22000-food-safety-management.html",
@@ -1576,9 +1698,12 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 weight=Decimal(str(w)),
                 safety_critical=safety,
                 source_document=sdoc,
+                source_document_id="SRC_ISO_22000_2018_DRAFT",
                 clause_reference=sclause,
                 source_url="",
                 content_verified=False,
+                standard_version="2018-draft-summary",
+                effective_date=REVIEWED,
                 evaluation_rule={},
                 display_order=dorder,
                 active=True,
@@ -1684,9 +1809,48 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             )
         )
 
+    _seed_evidence_expectations(db)
+
     db.commit()
     return {
         "requirements": len(REQUIREMENTS),
         "questions": len(QUESTION_BANK),
         "recommendations": len(RECOMMENDATIONS),
     }
+
+
+def _evidence_kind_for_requirement(requirement: SchemeRequirement) -> str:
+    text = f"{requirement.category_label} {requirement.title}".lower()
+    if any(term in text for term in ("micro", "brix", "fruit content", "laboratory", "water")):
+        return "lab_report"
+    if any(term in text for term in ("licence", "registration", "permit")):
+        return "licence"
+    if any(term in text for term in ("record", "document", "plan", "procedure", "log", "register")):
+        return "document"
+    if any(term in text for term in ("label", "packaging", "storage", "premises", "facility")):
+        return "photo"
+    return "declaration"
+
+
+def _seed_evidence_expectations(db: Session) -> None:
+    requirements = list(
+        db.scalars(select(SchemeRequirement).where(SchemeRequirement.active.is_(True)))
+    )
+    for requirement in requirements:
+        kind = _evidence_kind_for_requirement(requirement)
+        db.merge(
+            EvidenceExpectation(
+                id=f"EV_{requirement.id}",
+                scheme_id=requirement.scheme_id,
+                requirement_id=requirement.id,
+                kind=kind,
+                label=f"Evidence for {requirement.title}",
+                guidance_text=(
+                    "Provide available evidence for this requirement, or mark it unavailable. "
+                    "CertifyLK treats missing evidence as unknown readiness, not as official non-compliance."
+                ),
+                required=requirement.safety_critical,
+                display_order=requirement.display_order,
+                active=True,
+            )
+        )

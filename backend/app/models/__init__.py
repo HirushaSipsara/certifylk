@@ -9,6 +9,7 @@ from app.models.domain import (
     CertificationBody,
     CertificationScheme,
     CostItem,
+    EvidenceExpectation,
     EvidenceFile,
     EvidenceObservation,
     EvidenceRequest,
@@ -21,6 +22,7 @@ from app.models.domain import (
     RoadmapItem,
     SchemeCostItem,
     SchemeRequirement,
+    SourceDocument,
 )
 
 __all__ = [
@@ -34,6 +36,7 @@ __all__ = [
     "CertificationBody",
     "CertificationScheme",
     "CostItem",
+    "EvidenceExpectation",
     "EvidenceFile",
     "EvidenceObservation",
     "EvidenceRequest",
@@ -46,4 +49,5 @@ __all__ = [
     "RoadmapItem",
     "SchemeCostItem",
     "SchemeRequirement",
+    "SourceDocument",
 ]

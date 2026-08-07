@@ -154,11 +154,23 @@ async def analyze_uploaded_evidence(
             )
         )
     request_requirements = {item.request_id: set(item.requirement_ids) for item in evidence_inputs}
-    allowed_requirements = {
-        requirement_id
-        for requirement_ids in request_requirements.values()
-        for requirement_id in requirement_ids
-    }
+    if assessment.scheme_id:
+        from app.services.catalog_service import get_scheme_requirements
+
+        scheme_reqs = get_scheme_requirements(db, assessment.scheme_id)
+        scheme_req_ids = {r.id for r in scheme_reqs}
+        allowed_requirements = {
+            req_id
+            for req_ids in request_requirements.values()
+            for req_id in req_ids
+            if req_id in scheme_req_ids
+        }
+    else:
+        allowed_requirements = {
+            requirement_id
+            for requirement_ids in request_requirements.values()
+            for requirement_id in requirement_ids
+        }
 
     async def call(provider: AIProvider) -> EvidenceAnalysisOutput:
         return await provider.analyze_evidence(evidence_inputs, allowed_requirements)
@@ -171,7 +183,7 @@ async def analyze_uploaded_evidence(
         lambda result: validate_evidence_output(result, request_requirements),
     )
     output = execution.output
-    observations = merge_evidence_observations(db, assessment.id, output, file_by_request)
+    observations = merge_evidence_observations(db, assessment, output, file_by_request)
     for request in requests:
         if request.status == EvidenceRequestStatus.UPLOADED:
             request.status = EvidenceRequestStatus.ANALYZED
@@ -182,22 +194,24 @@ async def analyze_uploaded_evidence(
 
 def merge_evidence_observations(
     db: Session,
-    assessment_id: uuid.UUID,
+    assessment: Assessment,
     output: EvidenceAnalysisOutput,
     file_by_request: dict[uuid.UUID, EvidenceFile],
 ) -> list[EvidenceObservation]:
     db.execute(
-        delete(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment_id)
+        delete(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
     )
     observations: list[EvidenceObservation] = []
     now = datetime.now(timezone.utc)
     for item in output.observations:
         evidence_file = file_by_request.get(item.evidence_request_id)
         observation = EvidenceObservation(
-            assessment_id=assessment_id,
+            assessment_id=assessment.id,
             evidence_request_id=item.evidence_request_id,
             evidence_file_id=evidence_file.id if evidence_file else None,
             requirement_id=item.requirement_id,
+            scheme_id=assessment.scheme_id,
+            scheme_requirement_id=item.requirement_id if assessment.scheme_id else None,
             polarity=ObservationPolarity(item.polarity),
             text=item.text,
             confidence=item.confidence,
@@ -218,18 +232,46 @@ def build_clarification_candidates(db: Session, assessment: Assessment) -> list[
             )
         )
     )
-    questions = list(
-        db.scalars(
-            select(QuestionBank)
-            .where(QuestionBank.active.is_(True))
-            .order_by(QuestionBank.priority.desc(), QuestionBank.id)
+    if assessment.scheme_id:
+        from app.services.catalog_service import get_scheme_requirements
+
+        scheme_reqs = get_scheme_requirements(db, assessment.scheme_id)
+        scheme_req_ids = {r.id for r in scheme_reqs}
+        supported_req_ids = set(
+            db.scalars(
+                select(EvidenceObservation.requirement_id).where(
+                    EvidenceObservation.assessment_id == assessment.id,
+                    EvidenceObservation.polarity == ObservationPolarity.SUPPORTS,
+                )
+            )
         )
-    )
-    return [
-        question
-        for question in questions
-        if "clarification" in question.page_eligibility and question.id not in assigned_ids
-    ]
+        unresolved_req_ids = scheme_req_ids - supported_req_ids
+        all_questions = list(
+            db.scalars(
+                select(QuestionBank)
+                .where(QuestionBank.active.is_(True))
+                .order_by(QuestionBank.priority.desc(), QuestionBank.id)
+            )
+        )
+        return [
+            q
+            for q in all_questions
+            if q.id not in assigned_ids
+            and any(req_id in unresolved_req_ids for req_id in q.requirement_ids)
+        ]
+    else:
+        questions = list(
+            db.scalars(
+                select(QuestionBank)
+                .where(QuestionBank.active.is_(True))
+                .order_by(QuestionBank.priority.desc(), QuestionBank.id)
+            )
+        )
+        return [
+            question
+            for question in questions
+            if "clarification" in question.page_eligibility and question.id not in assigned_ids
+        ]
 
 
 async def plan_final_clarifications(db: Session, assessment: Assessment) -> list[QuestionBank]:
@@ -237,11 +279,18 @@ async def plan_final_clarifications(db: Session, assessment: Assessment) -> list
         assessment, {AssessmentStatus.EVIDENCE_COMPLETE}, "Clarification planning"
     )
     candidates = build_clarification_candidates(db, assessment)
+    if not candidates:
+        update_assessment_progress(assessment, AssessmentStatus.READY_TO_SCORE)
+        db.commit()
+        return []
+
     candidate_ids = [question.id for question in candidates]
     context = {
         "profile": assessment.profile_data,
         "process_uncertainties": assessment.process_analysis.get("uncertainties", []),
     }
+    min_count = min(1, len(candidate_ids))
+    max_count = min(5, len(candidate_ids))
 
     async def call(provider: AIProvider) -> QuestionPlanOutput:
         return await provider.plan_clarifications(context, candidate_ids)
@@ -251,7 +300,7 @@ async def plan_final_clarifications(db: Session, assessment: Assessment) -> list
         assessment.id,
         "plan_clarifications",
         call,
-        lambda result: validate_question_plan(result, candidate_ids, 3, 5),
+        lambda result: validate_question_plan(result, candidate_ids, min_count, max_count),
     )
     output = execution.output
     db.execute(

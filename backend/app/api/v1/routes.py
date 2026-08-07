@@ -18,6 +18,7 @@ from app.schemas.assessment import (
     ClarificationInput,
     ClarificationPlanResponse,
     EvidenceAnalysisResponse,
+    EvidenceExpectationResponse,
     EvidencePlanResponse,
     ObservationResponse,
     ProcessAnalysisResponse,
@@ -42,6 +43,7 @@ from app.services.assessment_service import (
     load_sample_assessment,
 )
 from app.services.catalog_service import (
+    get_evidence_expectations,
     get_scheme_requirements,
     has_unverified_requirements,
     list_categories,
@@ -63,7 +65,12 @@ from app.services.process_service import (
 )
 from app.services.profile_service import plan_adaptive_questions, save_profile_answers
 from app.services.question_service import serialize_questions
-from app.services.result_service import generate_result, get_result, serialize_result
+from app.services.result_service import (
+    generate_result,
+    generate_scheme_result,
+    get_result,
+    serialize_result,
+)
 from app.services.storage_service import get_storage_provider
 
 router = APIRouter()
@@ -309,11 +316,17 @@ def clarification_answers_route(
 )
 async def complete_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     assessment = get_assessment(db, assessment_id)
-    result = await generate_result(db, assessment)
+    result = (
+        await generate_scheme_result(db, assessment)
+        if assessment.scheme_id
+        else await generate_result(db, assessment)
+    )
     from app.models import RoadmapItem
 
-    roadmap_count = len(
-        list(db.scalars(select(RoadmapItem.id).where(RoadmapItem.result_id == result.id)))
+    roadmap_count = (
+        len(result.roadmap_snapshot)
+        if result.roadmap_snapshot
+        else len(list(db.scalars(select(RoadmapItem.id).where(RoadmapItem.result_id == result.id))))
     )
     return {
         "status": assessment.status.value,
@@ -402,6 +415,8 @@ def list_schemes_route(
             "mandatory_tier": s.mandatory_tier.value
             if hasattr(s.mandatory_tier, "value")
             else str(s.mandatory_tier),
+            "standard_version": s.standard_version,
+            "catalogue_revision": s.catalogue_revision,
             "summary": s.summary,
             "typical_timeline_days": s.typical_timeline_days,
             "body_name": s.body.name if s.body else "",
@@ -428,12 +443,37 @@ def scheme_requirements_route(scheme_id: str, db: Db) -> list[dict[str, object]]
             "weight": float(r.weight),
             "safety_critical": r.safety_critical,
             "source_document": r.source_document,
+            "source_document_id": r.source_document_id,
             "clause_reference": r.clause_reference,
             "source_url": r.source_url,
             "content_verified": r.content_verified,
+            "standard_version": r.standard_version,
+            "effective_date": r.effective_date.isoformat() if r.effective_date else None,
             "display_order": r.display_order,
         }
         for r in reqs
+    ]
+
+
+@router.get(
+    "/schemes/{scheme_id}/evidence-expectations",
+    response_model=list[EvidenceExpectationResponse],
+    summary="List evidence expectations for a specific certification scheme",
+)
+def scheme_evidence_expectations_route(scheme_id: str, db: Db) -> list[dict[str, object]]:
+    expectations = get_evidence_expectations(db, scheme_id)
+    return [
+        {
+            "id": item.id,
+            "scheme_id": item.scheme_id,
+            "requirement_id": item.requirement_id,
+            "kind": item.kind,
+            "label": item.label,
+            "guidance_text": item.guidance_text,
+            "required": item.required,
+            "display_order": item.display_order,
+        }
+        for item in expectations
     ]
 
 
@@ -468,6 +508,12 @@ async def create_business_profile_route(payload: BusinessProfileInput, db: Db) -
             product = get_product_by_slug(db, payload.product_slug)
             if product:
                 assessment.product_id = product.id
+        # Advance assessment page and status once profile is attached
+        from app.models.enums import AssessmentPage, AssessmentStatus
+
+        assessment.current_page = AssessmentPage.PROCESS
+        if assessment.status == AssessmentStatus.DRAFT_PROFILE:
+            assessment.status = AssessmentStatus.PROFILE_COMPLETE
         db.flush()
 
     db.commit()
@@ -552,9 +598,12 @@ def assessment_scheme_requirements_route(
             "weight": float(r.weight),
             "safety_critical": r.safety_critical,
             "source_document": r.source_document,
+            "source_document_id": r.source_document_id,
             "clause_reference": r.clause_reference,
             "source_url": r.source_url,
             "content_verified": r.content_verified,
+            "standard_version": r.standard_version,
+            "effective_date": r.effective_date.isoformat() if r.effective_date else None,
             "display_order": r.display_order,
         }
         for r in reqs

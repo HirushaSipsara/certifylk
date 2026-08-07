@@ -1,31 +1,53 @@
-# MVP Scope
+# Authorized product scope
 
-## Phase 1 — Included
+## Product mission
 
-- Sri Lankan food-manufacturing readiness for SLS-related preparation.
-- Guest assessments addressed by UUID, four guided pages, refresh recovery, and one-click chilli-paste sample.
-- Profile/adaptive questions, five process slots, relevant evidence requests, final clarifications, and a structured result.
-- PostgreSQL persistence, local filesystem uploads, mock/Gemini AI adapters, exact-run AI provider/fallback transparency, accessible evidence-observation review, deterministic scoring/roadmap/costing, responsive UI, API errors, and truthful loading states.
-- Local Compose database, Alembic, seed data, tests, run scripts, and documentation.
-- A separately authorized production delivery layer for the unchanged MVP: CI, immutable Docker images, single-host EC2 Compose, Nginx/HTTPS, persistent volumes, backup, and rollback.
-- **Redesign (authorized 2026-08-07):** Database-backed certification knowledge base (`Category → Product → CertificationScheme → SchemeRequirement`), Track 1 Product Quality wizard (SLS Mark Fresh Fruit Cordial, CAA Food Registration), Applicability Reasoning Agent, Assessment Hub.
+CertifyLK provides educational, evidence-aware certification guidance and readiness assessment for small food manufacturers operating in Sri Lanka. It identifies relevant pathways, assesses one certificate at a time, and produces a deterministic improvement roadmap. It never issues certification or replaces a regulator, standards body, certification body, consultant, laboratory, or physical inspection.
 
-## Phase 2 — Included (authorized 2026-08-07, see D016)
+## Currently authorized
 
-- **Track 2: Process & System Certification** — SLS GMP Certification, HACCP Certification, ISO 22000:2018 Food Safety Management for Sri Lankan food manufacturers.
-- Business-profile-first wizard flow for Track 2 (no product selection step).
-- Full 4-page readiness assessment for Track 2 via existing Assessment Hub and wizard pages.
+### Track 1 — Product Quality
+
+- Category: Food Products.
+- Pilot product: Fresh Fruit Cordial.
+- Pilot pathways: SLS Mark readiness and relevant Sri Lankan food-business registration guidance.
+- Product selection, business-profile screening, AI applicability decision, requirement overview, evidence/clarification flow, and result roadmap are the target journey.
+
+### Track 2 — Process & System
+
+Authorized by D016 for Sri Lankan food manufacturers:
+
+- SLS GMP Certification readiness.
+- SLS HACCP Certification readiness.
+- ISO 22000:2018 Food Safety Management readiness.
+- Business-profile-first entry, AI-ranked pathways, and the same certificate-scoped Assessment Hub.
+
+### Shared platform
+
+- Guest UUID assessments and refresh recovery.
+- PostgreSQL knowledge base for categories, products, bodies, schemes, requirements, applicability facts, and catalogue costs.
+- Mock and Gemini provider modes with exact-run metadata, structured validation, and fallback controls.
+- Safe photo/PDF evidence storage and accessible observation review.
+- Deterministic evaluation, scoring, ranking, costs, gains, and projections.
+- Local development plus the separately authorized test-gated AWS deployment stack.
+
+## Transitional compatibility
+
+The original chilli-paste four-page assessment remains as a deterministic regression/demo path while the new certificate-specific engines are completed. It is not the target information architecture and must not be mistaken for a sourced SLS product assessment.
 
 ## Excluded
 
-- Other countries, industries, and certifications outside of those documented in Phase 1 and Phase 2 above; certification issuance or guarantees; accounts/roles; administrators/auditors; payments; suppliers; official submissions; appointments; real-time monitoring; generic chat; vector databases; LangChain/agents; custom models; multi-region/high-availability infrastructure; Kubernetes; and application-managed cloud storage.
+- Countries or industries outside Sri Lankan food manufacturing.
+- Schemes not listed above until explicitly authorized and sourced.
+- Certification issuance, official application submission, legal advice, laboratory testing, physical inspection, pass probability, or certification guarantees.
+- Authentication, user/admin/auditor roles, payments, supplier marketplace, appointments, real-time monitoring, or a generic chatbot.
+- Vector databases, LangChain, open-ended autonomous agents, and custom-trained models.
+- Multi-region/high-availability infrastructure, Kubernetes, and production S3 integration.
 
-## Definition of done
+## Definition of complete for the authorized redesign
 
-The documented endpoints and pages exist, the complete mock workflow persists and returns a result, Gemini can be enabled only from the backend, catalogue/whitelist safeguards are enforced, migrations and seed data run, supported tests pass, local commands remain documented, and the same workflow can be released through the test-gated production deployment contract.
+Completion requires every applicable assessment to be scoped to a scheme/version, all displayed requirements and costs to be traceable to reviewed sources, certificate-specific evidence and questions to feed certificate-specific deterministic evaluation, both tracks to complete end-to-end, and the legacy generic catalogue to be removed from the primary user journey. Full acceptance criteria are in `FULL_IMPLEMENTATION_PLAN.md`.
 
-## Feature freeze
+## Change control
 
-Work in Phase 1 and Phase 2 may fix correctness, accessibility, safety, documentation, or test gaps only. New product features require an explicit scope decision recorded in `DECISIONS.md` before code changes.
-
-Production delivery is frozen to the documented single-EC2 architecture. Infrastructure changes may improve security, reliability, recovery, or testability, but may not introduce product features or change API/domain behavior.
+New products, schemes, countries, roles, or workflows require a dated decision in `DECISIONS.md` before implementation. Content corrections within an authorized scheme require source review, version metadata, seed/import changes, and regression tests. Deployment changes may improve delivery and security but cannot silently broaden product scope.

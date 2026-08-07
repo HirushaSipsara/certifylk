@@ -151,6 +151,9 @@ export const api = {
     apiFetch<SchemeRequirement[]>(`/schemes/${schemeId}/requirements`),
 };
 
-export function rememberAssessment(id: string): void {
-  window.localStorage.setItem("certifylk_assessment_id", id);
-}
+export {
+  getRememberedAssessments,
+  rememberAssessment,
+  removeRememberedAssessment,
+} from "./assessment-storage";
+

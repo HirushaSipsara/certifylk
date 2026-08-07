@@ -1,5 +1,7 @@
 # Local development
 
+This environment runs both the legacy regression workflow and the in-progress certificate-specific catalogue/applicability flows. Seed before testing either track. The authoritative remaining work is in `FULL_IMPLEMENTATION_PLAN.md`.
+
 ## Prerequisites
 
 - Python 3.10 or newer and `pip`
@@ -71,6 +73,15 @@ make frontend-dev
 
 Open <http://localhost:3000>; API docs are at <http://localhost:8000/docs>.
 
+Useful current routes:
+
+- `/product-quality/select` — Track 1 category/product entry;
+- Home → `/process-management/{assessmentId}/business-profile` — Track 2 direct entry;
+- `/assessment/{assessmentId}/hub` — linked scheme and Assessment Hub;
+- `/assessment/{assessmentId}/hub/requirements` — scheme requirement overview.
+
+There is no `/process-management/select` route.
+
 ## Tests and checks
 
 ```bash
@@ -94,6 +105,8 @@ npm run build
 ```
 
 For the HTTP happy path while the services run: `bash scripts/check_local.sh`.
+
+The current browser happy path primarily protects the legacy chilli-paste workflow. Also manually verify both track entry/profile/applicability pages until the new automated Track 1 and Track 2 paths in `TEST_PLAN.md` are implemented.
 
 ## AI modes
 

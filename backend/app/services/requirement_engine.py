@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from app.models import Requirement
 from app.models.enums import RequirementStatus
 
 MULTIPLIERS = {
@@ -28,16 +27,16 @@ class EvaluatedRequirement:
 
 
 def load_applicable_requirements(
-    requirements: list[Requirement], product_tags: set[str] | None = None
-) -> list[Requirement]:
+    requirements: list[Any], product_tags: set[str] | None = None
+) -> list[Any]:
     tags = product_tags or set()
     return [
         requirement
         for requirement in requirements
         if requirement.active
         and (
-            not requirement.applicability_tags
-            or bool(set(requirement.applicability_tags).intersection(tags))
+            not getattr(requirement, "applicability_tags", [])
+            or bool(set(getattr(requirement, "applicability_tags", [])).intersection(tags))
         )
     ]
 
@@ -47,7 +46,7 @@ def attach_evidence_references(*references: str | None) -> list[str]:
 
 
 def evaluate_requirement(
-    requirement: Requirement,
+    requirement: Any,
     *,
     answers: dict[str, str],
     profile: dict[str, Any],
@@ -112,7 +111,7 @@ def evaluate_requirement(
 
     return EvaluatedRequirement(
         requirement_id=requirement.id,
-        category=requirement.category.value,
+        category=_requirement_category(requirement),
         title=requirement.title,
         weight=Decimal(requirement.weight),
         safety_critical=requirement.safety_critical,
@@ -124,7 +123,7 @@ def evaluate_requirement(
 
 
 def evaluate_all_requirements(
-    requirements: list[Requirement],
+    requirements: list[Any],
     *,
     answers: dict[str, str],
     profile: dict[str, Any],
@@ -144,3 +143,10 @@ def evaluate_all_requirements(
         )
         for requirement in load_applicable_requirements(requirements)
     ]
+
+
+def _requirement_category(requirement: Any) -> str:
+    category = getattr(requirement, "category", None)
+    if category is not None:
+        return category.value if hasattr(category, "value") else str(category)
+    return str(requirement.category_label)

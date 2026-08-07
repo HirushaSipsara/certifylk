@@ -12,6 +12,8 @@
 - [ ] No secret, private key, environment file, upload, backup, or log is staged.
 - [ ] GitHub Actions and base image changes are reviewed.
 - [ ] Migrations are backward-compatible with the immediately previous application release.
+- [ ] Every changed standard, clause, tier, threshold, or cost has source/version/reviewer metadata and the correct verification state.
+- [ ] Scheme-specific changes cannot read questions, evidence, requirements, or costs from another scheme.
 
 ## GitHub and infrastructure readiness
 
@@ -45,8 +47,10 @@
 
 - [ ] `https://<domain>/` loads without mixed content or browser certificate warnings.
 - [ ] `/api/v1/health` and `/api/v1/ready` return `200` with request IDs where applicable.
-- [ ] Start Assessment creates and resumes a guest UUID assessment.
-- [ ] Load Sample Assessment reaches a result with score, confidence/completeness, strength, gap, LKR cost, projected gain, and disclaimer.
+- [ ] Product Quality loads category/product data, saves a profile, returns whitelisted applicability decisions, and opens the linked scheme Hub.
+- [ ] Process & System starts directly from Home, saves a profile, ranks GMP/HACCP/ISO 22000, and opens the linked scheme Hub.
+- [ ] The currently supported canonical sample reaches a result with readiness/completeness, strength, gap, unknown, source-linked cost, projected gain, verification state, and disclaimer.
+- [ ] A completed scheme-specific assessment retains the exact scheme/catalogue version and only that scheme’s requirements once cutover is released.
 - [ ] At a minimum, test one supported evidence upload/unavailable path within configured size limits.
 - [ ] Confirm browser developer tools reveal no Gemini key, database credential, internal hostname, or insecure request.
 - [ ] Review Nginx, backend, frontend, and PostgreSQL logs for errors and accidental sensitive content.

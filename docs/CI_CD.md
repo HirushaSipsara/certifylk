@@ -1,5 +1,7 @@
 # CI/CD
 
+CI/CD deploys the repository exactly as tested; it does not make unverified catalogue content authoritative. During the redesign, a green legacy chilli-paste job is not sufficient evidence that Track 1 and Track 2 are complete. Add the scheme-specific gates in `TEST_PLAN.md` before making that release claim.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs for pull requests to `main`, pushes to `main`, and manual checks. Permissions default to read-only. Concurrent runs for the same ref cancel older work.
@@ -8,7 +10,7 @@ The required jobs are:
 
 - Backend: Ruff format/lint, strict mypy, pytest, `pip-audit`, and Bandit.
 - Frontend: `npm ci`, high-severity dependency audit, ESLint, TypeScript, Vitest, and a production Next.js build using `/api/v1`.
-- Mock-AI E2E: PostgreSQL service, Alembic migration, deterministic seed, real FastAPI/Next.js processes, and Playwright’s chilli-paste happy path.
+- Mock-AI E2E: PostgreSQL service, Alembic migration, deterministic seed, real FastAPI/Next.js processes, and the currently implemented Playwright happy path. The target suite must add complete Track 1 and Track 2 scheme-specific journeys.
 - Terraform: locked-provider initialization without a backend, recursive formatting check, and static configuration validation without AWS credentials.
 - Containers: clean builds of both production Dockerfiles and validation of production Compose interpolation.
 
@@ -30,7 +32,7 @@ The workflow trims whitespace from all four GitHub environment variables and val
 
 ## Verified production run
 
-The complete CI-to-production chain passed on 2026-08-06 for commit `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`:
+The CI-to-production chain passed on 2026-08-06 for historical commit `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`. This is evidence for that SHA only, not confirmation that later redesign commits are deployed:
 
 - CI completed successfully for the pushed `main` commit.
 - `Deploy production` published both commit-SHA images.

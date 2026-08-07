@@ -71,6 +71,8 @@ class Assessment(TimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    scheme_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    catalogue_revision: Mapped[str | None] = mapped_column(String(80), nullable=True)
     product_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -213,8 +215,18 @@ class EvidenceObservation(Base):
     evidence_file_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("evidence_files.id", ondelete="SET NULL"), index=True
     )
-    requirement_id: Mapped[str] = mapped_column(
-        ForeignKey("requirements.id"), nullable=False, index=True
+    requirement_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scheme_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("certification_schemes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    scheme_requirement_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("scheme_requirements.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     polarity: Mapped[ObservationPolarity] = mapped_column(
         enum_type(ObservationPolarity, "observation_polarity"), nullable=False
@@ -284,8 +296,18 @@ class RequirementEvaluation(TimestampMixin, Base):
     assessment_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    requirement_id: Mapped[str] = mapped_column(
-        ForeignKey("requirements.id"), nullable=False, index=True
+    requirement_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scheme_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("certification_schemes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    scheme_requirement_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("scheme_requirements.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     status: Mapped[RequirementStatus] = mapped_column(
         enum_type(RequirementStatus, "requirement_status"), nullable=False
@@ -293,7 +315,6 @@ class RequirementEvaluation(TimestampMixin, Base):
     multiplier: Mapped[Decimal] = mapped_column(Numeric(3, 2), nullable=False)
     evidence_references: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     rationale: Mapped[str] = mapped_column(String(1000), nullable=False)
-    requirement: Mapped[Requirement] = relationship(lazy="joined")
 
 
 class AssessmentResult(TimestampMixin, Base):
@@ -314,6 +335,12 @@ class AssessmentResult(TimestampMixin, Base):
     gaps: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     unknowns: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     cost_summary: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    roadmap_snapshot: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    scheme_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    scheme_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    catalogue_revision: Mapped[str | None] = mapped_column(String(80), nullable=True)
     scoring_version: Mapped[str] = mapped_column(String(30), nullable=False)
 
 
@@ -424,6 +451,27 @@ class CertificationBody(Base):
     description: Mapped[str] = mapped_column(String(500), default="", nullable=False)
 
 
+class SourceDocument(Base):
+    """Reviewed source metadata for catalogue facts."""
+
+    __tablename__ = "source_documents"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    title: Mapped[str] = mapped_column(String(250), nullable=False)
+    owner_body_id: Mapped[str] = mapped_column(
+        ForeignKey("certification_bodies.id"), nullable=False, index=True
+    )
+    version: Mapped[str] = mapped_column(String(60), default="", nullable=False)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    source_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    access_reference: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    copyright_note: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    reviewer: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    review_date: Mapped[date | None] = mapped_column(Date)
+    content_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notes: Mapped[str] = mapped_column(String(1000), default="", nullable=False)
+
+
 class CertificationScheme(Base):
     """A specific certification scheme (e.g. SLS Mark for Fresh Fruit Cordial)."""
 
@@ -448,6 +496,19 @@ class CertificationScheme(Base):
     applicability_rule: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     # JSON: {"category_label": weight, ...}
     category_weights: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    standard_version: Mapped[str] = mapped_column(
+        String(40), default="draft-2026-08", server_default="draft-2026-08", nullable=False
+    )
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    source_document_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("source_documents.id", ondelete="SET NULL"), nullable=True
+    )
+    catalogue_revision: Mapped[str] = mapped_column(
+        String(80),
+        default="2026-08-07-draft",
+        server_default="2026-08-07-draft",
+        nullable=False,
+    )
     summary: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     typical_timeline_days: Mapped[int | None] = mapped_column(Integer)
     source_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
@@ -472,10 +533,40 @@ class SchemeRequirement(Base):
     weight: Mapped[Decimal] = mapped_column(Numeric(6, 3), nullable=False)
     safety_critical: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     source_document: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    source_document_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("source_documents.id", ondelete="SET NULL"), nullable=True
+    )
     clause_reference: Mapped[str] = mapped_column(String(100), default="", nullable=False)
     source_url: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     content_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    standard_version: Mapped[str] = mapped_column(
+        String(40), default="draft-2026-08", server_default="draft-2026-08", nullable=False
+    )
+    effective_date: Mapped[date | None] = mapped_column(Date)
     evaluation_rule: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class EvidenceExpectation(Base):
+    """Evidence request template tied to one scheme requirement."""
+
+    __tablename__ = "evidence_expectations"
+    __table_args__ = (
+        Index("ix_evidence_expectation_scheme_requirement", "scheme_id", "requirement_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    scheme_id: Mapped[str] = mapped_column(
+        ForeignKey("certification_schemes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requirement_id: Mapped[str] = mapped_column(
+        ForeignKey("scheme_requirements.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    label: Mapped[str] = mapped_column(String(180), nullable=False)
+    guidance_text: Mapped[str] = mapped_column(String(700), default="", nullable=False)
+    required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -500,3 +591,5 @@ class SchemeCostItem(Base):
     source_note: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_reviewed: Mapped[date] = mapped_column(Date, nullable=False)
+    is_quote_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+

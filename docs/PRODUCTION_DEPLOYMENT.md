@@ -4,11 +4,11 @@ For automated first-time provisioning, start with `infra/terraform/README.md`. F
 
 ## Scope and result
 
-Production runs the existing CertifyLK workflow without changing its routes, scoring, costing, or AI boundaries. A single Ubuntu EC2 instance runs Nginx, the standalone Next.js server, FastAPI, PostgreSQL, and persistent upload storage through Docker Compose. Nginx is the only public container and serves one HTTPS origin; `/api/v1/*` is proxied to FastAPI and every other path to Next.js.
+Production runs the tested CertifyLK commit without changing domain behavior at deploy time. A single Ubuntu EC2 instance runs Nginx, standalone Next.js, FastAPI, PostgreSQL, and persistent upload storage through Docker Compose. Nginx is the only public container and serves one HTTPS origin; `/api/v1/*` is proxied to FastAPI and every other path to Next.js.
 
-This is a single-host Phase 1 deployment. It is recoverable through logical backups and immutable application image tags, but it is not highly available.
+This is a single-host deployment for the authorized Track 1/Track 2 pilot. It is recoverable through logical backups and immutable application image tags, but it is not highly available. Product redesign status is tracked in `IMPLEMENTATION_PROGRESS.md`; infrastructure does not make unverified standard content trustworthy.
 
-## Current Phase 1 environment
+## Recorded production environment
 
 | Item | Current value |
 |---|---|
@@ -19,7 +19,7 @@ This is a single-host Phase 1 deployment. It is recoverable through logical back
 | Verified release | `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d` |
 | AI mode | deterministic mock |
 
-The landing page and both API health endpoints were publicly verified after the GitHub deployment completed. The production environment file and all credentials remain EC2-only.
+The landing page and API health endpoints were verified for the recorded historical release. Re-verify both track entries and the current canonical workflow after every redesign deployment. The production environment file and all credentials remain EC2-only.
 
 ## Release invariants
 

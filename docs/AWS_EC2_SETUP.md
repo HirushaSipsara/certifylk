@@ -1,5 +1,7 @@
 # AWS EC2 setup
 
+This runbook provisions and operates infrastructure only. It is reusable for the Track 1/Track 2 redesign and does not validate certification content or scheme-specific domain behavior. Use `RELEASE_CHECKLIST.md` for current product smoke gates.
+
 For the complete first-time sequence—including billing safeguards, GitHub/GHCR, DNS, TLS, OIDC, SSM, first deployment, and verification—follow `AWS_GITHUB_DEPLOYMENT_GUIDE.md`. This document remains the focused EC2 reference.
 
 ## Target

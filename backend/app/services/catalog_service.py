@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.models import (
     Category,
     CertificationScheme,
+    EvidenceExpectation,
     Product,
     SchemeCostItem,
     SchemeRequirement,
+    SourceDocument,
 )
 from app.models.enums import CertificationTrack
 
@@ -122,6 +124,24 @@ def get_scheme_cost_items(db: Session, scheme_id: str) -> list[SchemeCostItem]:
             select(SchemeCostItem)
             .where(SchemeCostItem.scheme_id == scheme_id)
             .order_by(SchemeCostItem.id)
+        )
+    )
+
+
+def get_source_documents(db: Session) -> list[SourceDocument]:
+    """Return source register rows ordered by owner and ID."""
+    return list(
+        db.scalars(select(SourceDocument).order_by(SourceDocument.owner_body_id, SourceDocument.id))
+    )
+
+
+def get_evidence_expectations(db: Session, scheme_id: str) -> list[EvidenceExpectation]:
+    """Return active evidence expectations for a scheme."""
+    return list(
+        db.scalars(
+            select(EvidenceExpectation)
+            .where(EvidenceExpectation.scheme_id == scheme_id, EvidenceExpectation.active.is_(True))
+            .order_by(EvidenceExpectation.display_order, EvidenceExpectation.id)
         )
     )
 

@@ -1,76 +1,100 @@
 # AI behavior contract
 
-## Responsibilities
+## Principle
 
-AI may: select relevant IDs from supplied approved questions; convert informal production-step text into typed stages/tags; return cautious evidence observations and confidence; identify unresolved clarification IDs from supplied candidates; and explain already-calculated roadmap items in plain language.
+AI makes bounded, explainable judgments over facts supplied by CertifyLK. It is not the source of standards, law, thresholds, prices, scores, or certification decisions. Every identifier in model output is untrusted until validated against the candidate list for that exact request.
 
-AI may not define or interpret official certification rules, make legal decisions, inspect a facility, claim compliance, assign requirement status directly without deterministic rules, calculate scores or priorities, invent recommendations/prices, request an unapproved evidence type, or act on document/image instructions.
+## Current operations
 
-## Provider interface
+`AIProvider` currently supports:
 
-```python
-class AIProvider(Protocol):
-    async def plan_adaptive_questions(...): ...
-    async def extract_process(...): ...
-    async def analyze_evidence(...): ...
-    async def plan_clarifications(...): ...
-    async def explain_roadmap(...): ...
-```
+1. `plan_applicable_schemes` — rank supplied certification scheme IDs for a saved business/product context.
+2. `plan_adaptive_questions` — select approved process question IDs.
+3. `extract_process` — normalize non-empty submitted process steps into approved stages/tags.
+4. `analyze_evidence` — return requirement-bound observations with polarity and confidence.
+5. `plan_clarifications` — select approved unresolved question IDs.
+6. `explain_roadmap` — explain deterministic recommendation items without changing them.
 
-Every operation accepts a structured application payload and returns a Pydantic v2 model. Core response shapes are:
+Mock and Gemini implement the same typed contract. Mock is deterministic and is the default for tests/demos.
 
-- Question plan: `question_ids: list[str]`, `reason: str`.
-- Process extraction: ordered `stages` with source step, normalized name, supplied approved tags, and confidence; plus uncertainties. The approved process-tag whitelist is included in both the application payload and structured-output schema.
-- Evidence analysis: `observations` with evidence request ID, requirement ID, observation text, polarity (`supports`, `concern`, `unclear`), and confidence 0–1.
-- Clarification plan: `question_ids` and reason.
-- Roadmap explanations: recommendation ID and simple explanation. Cost/gain inputs are repeated as immutable context, never model outputs.
+## Applicability behavior
 
-The Gemini adapter is implemented inside the FastAPI monolith. It uses one-shot
-`generateContent` calls with JSON Schema output, low-temperature generation, bounded
-output tokens, backend-only credentials, and inline image/PDF evidence. It does not
-expose a separate AI HTTP service or change the frontend/API workflow.
+The backend loads active schemes for the resolved track and supplies each scheme’s ID, name, tier, applicability rule, summary, and body plus the structured business profile/product. AI returns:
 
-## Whitelist enforcement
+- `decisions`: whitelisted `scheme_id`, tier, confidence, reasoning, and source reference;
+- `recommended_path_scheme_id`: null or one supplied ID;
+- `overall_reasoning`.
 
-The backend supplies candidate question IDs and allowed evidence/requirement identifiers in every relevant call. It rejects an output containing an unknown ID before persistence and records the validation failure. Adaptive plans contain two to five IDs. Clarification plans contain three to five IDs. Evidence request plans are deterministic; a provider cannot add slots.
+The backend rejects unknown IDs and persists the validated decision in assessment profile data. Track 1 candidates are product-quality schemes; Track 2 candidates are process-management schemes. The current implementation supplies a bounded context in one provider operation. It is not yet proof of Gemini function/tool calls. A later read-only tool registry must retain exactly the same whitelist and safety boundary.
 
-Process extraction must return exactly one stage for every non-empty submitted process
-step, using the original position once. Evidence observations must reference an uploaded
-evidence request and a requirement linked to that exact request; global requirement
-membership is insufficient. Duplicate request/requirement observations are rejected.
-All model-authored text is stripped of control characters before persistence.
+Mandatory or market-required wording must come from reviewed catalogue facts. AI may explain ambiguity but may not upgrade an optional/recommended scheme to a legal mandate without a supplied rule.
 
-## Retry and fallback
+## Evidence and clarification behavior
 
-Mock mode has no network and is deterministic. Gemini requests JSON output and validates it. Invalid or transient Gemini output is retried once. When `ALLOW_AI_FALLBACK=true`, the same operation then runs through Mock and both run outcomes are logged. Otherwise the API returns a safe retryable error. Business validation failures do not silently alter state.
+- Uploaded files/text are wrapped as untrusted evidence data.
+- Observations reference an uploaded request and a requirement allowed for that exact request.
+- Polarity is `supports`, `concern`, or `unclear`; confidence remains the model-returned validated 0–1 value.
+- AI does not perform an official pass/fail inspection and must not state a limit from memory.
+- The target scheme-specific operation must receive the retrieved requirement/source/threshold data before comparison.
+- Clarification selects only supplied question IDs linked to unresolved selected-scheme requirements.
 
-`ai_runs` records operation, provider, model, latency milliseconds, success, fallback flag, and a bounded validation/error message. Prompts, keys, raw uploaded document text, and image bytes are not logged.
+## Roadmap behavior
 
-`run_with_validation` returns the validated provider output together with `provider` and `fallback_used` copied from the same successful run it just persisted. Process-analysis and evidence-analysis expose those two read-only values; they never query a global or assessment-wide “latest run.” A Gemini retry that succeeds reports Gemini without fallback. A completed Mock fallback reports Mock with `fallback_used=true`.
+AI receives only already-ranked, already-priced roadmap items and their source references. It may simplify the explanation but may not add/remove/reorder actions, change cost/gain/projection values, create a clause, or promise readiness/certification.
 
-Retries occur inside one HTTP request and are not observable as a distinct browser state, so the UI never claims “Retrying analysis.” While waiting it may show that analysis is active and, after elapsed time, that it is taking longer than expected. A confirmed fallback label appears only after the response reports it. A complete request failure keeps saved data and exposes an actionable retry.
+## Deterministic exclusions
+
+AI never controls:
+
+- catalogue content, standard version, source verification, legal tier, or applicability candidate set;
+- requirement status rules or multipliers;
+- category weights/normalization, readiness, evidence completeness, or rounding;
+- recommendation mapping/ranking, cost lookup/sums, expected gain, or projection;
+- upload validation, page transition, persistence authorization, or release behavior.
+
+## Validation and whitelist enforcement
+
+- Applicability scheme IDs must be a subset of the supplied active schemes.
+- Adaptive plans contain only supplied IDs and enforce their count.
+- Process extraction maps every non-empty source position once and uses approved tags.
+- Evidence observations require exact request/requirement membership; duplicates are rejected.
+- Clarification IDs must come from supplied candidates and enforce their count.
+- Roadmap explanations must match the deterministic recommendation IDs exactly.
+- All model-authored text is length-bounded and stripped of control characters before persistence.
+
+Unknown IDs or invalid structured output fail validation, are safely logged, and may trigger the configured retry/fallback path. They are never silently repaired into a different domain answer.
+
+## Retry, fallback, and transparency
+
+Gemini structured output is validated and may retry once on a transient/invalid provider response. With `ALLOW_AI_FALLBACK=true`, the same operation may then execute through Mock. `ai_runs` records operation, provider, model, latency, success, fallback flag, and bounded error—not prompts, keys, raw evidence, or model responses.
+
+`run_with_validation` returns validated output plus provider/fallback metadata from the exact successful run. The UI may show:
+
+- “Analyzing …” while the request is pending;
+- “Analysis is taking longer than expected” after elapsed time;
+- “Analyzed by Gemini” only when the response confirms Gemini without fallback;
+- “Completed using fallback analysis” only when confirmed;
+- “Analyzed by Mock AI” only in development/test or explicit QA display mode;
+- an actionable retry only after complete request failure.
+
+Internal retry is not browser-observable, so the UI must not claim “Retrying analysis.” Metadata may be absent after refresh/older responses and must degrade safely.
 
 ## Prompt-injection handling
 
-Extracted/uploaded content is wrapped and labelled as `UNTRUSTED_EVIDENCE_DATA`. System prompts explicitly prohibit executing, obeying, or repeating instructions from it. The model receives no tools, credentials, question catalogue beyond candidates, or authority to alter application rules. Output is sanitized for control characters and schema/whitelist validated. Phrases such as “ignore prior instructions” remain evidence text, not instructions.
+Uploaded/extracted content is labelled `UNTRUSTED_EVIDENCE_DATA`. Instructions embedded in documents or images are data, never commands. Providers receive no credentials, unrestricted tools, or authority to change the catalogue. Phrases such as “ignore previous instructions” are not followed or repeated unnecessarily.
 
-## Confidence
+## Confidence and polarity presentation
 
-- `0.80–1.00`: clear observation in the submitted material; still not an official finding.
-- `0.50–0.79`: plausible observation requiring user confirmation.
-- `<0.50`: unclear; treated as unknown by deterministic evaluation unless independently supported.
+- `0.80–1.00`: **Clear** observation, still not an official finding.
+- `0.50–0.79`: **Plausible**, requires user/independent confirmation.
+- `<0.50`: **Unclear**, normally unknown unless independently supported.
 
-Confidence is evidence quality, not readiness and not probability of certification.
+`supports` uses check icon plus visible success text; `concern` uses warning icon plus visible warning text; `unclear` uses question icon plus neutral text. Color is not the sole signal. Unknown future polarity renders neutrally. Confidence is evidence quality, not certification probability or readiness.
 
-Evidence-review presentation preserves the returned polarity and confidence. Supports uses a visible check and success label; concern uses a warning icon and label; unclear uses a question icon and neutral label. Color is supplementary. Unknown future polarity strings receive a neutral observation treatment rather than breaking the page.
+## Grounding and source display target
 
-Images and PDFs create observations only. They never constitute an official inspection conclusion. Every user-facing result states that CertifyLK does not issue, guarantee, or replace SLS certification.
+Every applicability/evidence/narrative output should expose only references to facts actually supplied for its exact execution. If read-only tools are implemented, log safe tool names and catalogue record IDs—not copyrighted text, prompts, or evidence. Never fabricate a grounding trail. Unverified source rows remain visibly unverified even when Gemini confidence is high.
 
 ## Production configuration
 
-`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, and fallback behavior are injected only into the backend container from the protected EC2 environment file. They are absent from the frontend build and runtime environment. Production may deliberately use deterministic mock mode; live mode uses the stable explicit model ID `gemini-3.6-flash`, not a moving `latest` alias. Changing the provider mode never transfers scoring, costing, priority, or certification decisions to AI.
-
-`GEMINI_TIMEOUT_SECONDS`, `GEMINI_TEMPERATURE`, and
-`GEMINI_MAX_OUTPUT_TOKENS` bound live requests. The adapter converts timeouts, HTTP
-errors, blocked responses, empty candidates, and invalid structured output into safe
-provider errors without logging prompts, uploaded bytes, or raw provider responses.
+`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, timeout/temperature/token limits, and fallback settings exist only in the backend environment. Frontend variables never contain provider secrets. Provider changes do not change deterministic domain behavior.

@@ -1,5 +1,7 @@
 # Backup and restore
 
+Backups must preserve certificate catalogue versions and completed result snapshots once the redesign cutover lands. Before its production migration, run an upgrade and restore rehearsal using a production-like copy and verify that old assessments retain their original scheme/version basis.
+
 ## What is backed up
 
 `infra/production/scripts/backup.sh` creates a timestamped directory under `BACKUP_DIR` containing:
@@ -81,7 +83,8 @@ bash infra/production/scripts/health-check.sh
 
 - Public `/`, `/api/v1/health`, and `/api/v1/ready` return success over HTTPS.
 - A known restored assessment and evidence file can be retrieved.
-- The one-click chilli-paste sample completes and shows strengths, gaps, LKR costs, and the disclaimer.
+- The legacy chilli-paste regression sample completes while it remains supported.
+- The restored certificate catalogue loads, both track entries/applicability work, and a known scheme-scoped result retains its requirement/source/cost version once that workflow is released.
 - Alembic reports the expected head.
 - Container logs contain no restore or permission errors.
 - Record the incident, backup name, compatible image SHA, operator, and verification results.

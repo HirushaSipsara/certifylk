@@ -1,8 +1,8 @@
 # CertifyLK AWS and GitHub deployment guide
 
-This is the end-to-end operator runbook for connecting the existing CertifyLK repository to GitHub Actions, GitHub Container Registry (GHCR), AWS EC2, AWS Systems Manager, DNS, Nginx, and HTTPS.
+This is the end-to-end operator runbook for connecting the CertifyLK repository to GitHub Actions, GitHub Container Registry (GHCR), AWS EC2, AWS Systems Manager, DNS, Nginx, and HTTPS.
 
-It does not change the product. Readiness scoring, costs, AI validation, API routes, and the four-page workflow remain exactly the same.
+It does not change product behavior. It deploys the exact tested commit, whether that commit contains the legacy regression path or the authorized Track 1/Track 2 redesign. Product truth and remaining work are recorded in `IMPLEMENTATION_PROGRESS.md` and `FULL_IMPLEMENTATION_PLAN.md`.
 
 > CertifyLK is a readiness-assessment tool. It does not issue, guarantee, or replace SLS certification or an official inspection.
 
@@ -573,7 +573,7 @@ Expected API statuses are `ok` and `ready`.
 In the browser:
 
 1. Confirm HTTPS has no certificate warning or mixed-content error.
-2. Choose **Load Sample Assessment**.
+2. Choose the currently supported **Load Sample Report** action.
 3. Confirm the result contains a readiness score, separate evidence completeness, strengths, gaps, LKR cost ranges, projected gains, and the certification disclaimer.
 4. Start a manual assessment and confirm refresh/resume works.
 5. During the Free Plan, use synthetic evidence only.

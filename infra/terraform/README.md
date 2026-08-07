@@ -1,10 +1,10 @@
 # CertifyLK Terraform deployment
 
-This Terraform root automates the repetitive AWS and GitHub connection work for the existing CertifyLK production Compose deployment.
+This Terraform root automates AWS and GitHub connection work for the CertifyLK production Compose deployment. It is product-agnostic: Track 1/Track 2 catalogue and workflow changes use the same immutable-image pipeline and require no Terraform redesign.
 
 ## Current applied environment
 
-Terraform has been applied successfully for the Phase 1 deployment:
+Terraform has been applied successfully for the recorded single-host deployment:
 
 | Output | Verified value |
 |---|---|

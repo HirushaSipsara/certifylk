@@ -92,15 +92,26 @@ export interface CategoryScore {
   weight: number;
 }
 
+export interface CostTypeBreakdown {
+  one_time_min: number;
+  one_time_max: number;
+  recurring_min: number;
+  recurring_max: number;
+  items_count: number;
+}
+
 export interface RoadmapItem {
   recommendation_id: string;
   title: string;
   implementation_steps: string[];
   priority: number;
+  cost_type?: "certifying_body_fee" | "lab_testing_fee" | "business_capex" | "business_opex" | string;
   one_time_cost: { min: number; max: number; currency: "LKR" };
   recurring_cost: { min: number; max: number; currency: "LKR" };
   cost_note: string;
+  effective_date?: string;
   last_reviewed: string;
+  quote_required?: boolean;
   expected_gain: number;
   projected_score: number;
   explanation: string;
@@ -122,8 +133,10 @@ export interface AssessmentResult {
     recurring_min: number;
     recurring_max: number;
     currency: "LKR";
+    by_type?: Record<string, CostTypeBreakdown>;
   };
   disclaimer: string;
+  scheme_id?: string;
 }
 
 // ── Certification knowledge base types ────────────────────────────────────────

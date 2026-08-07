@@ -238,6 +238,8 @@ class SchemeChipResponse(BaseModel):
     short_code: str
     track: str
     mandatory_tier: str
+    standard_version: str
+    catalogue_revision: str
     summary: str
     typical_timeline_days: int | None
     body_name: str
@@ -253,9 +255,23 @@ class SchemeRequirementResponse(BaseModel):
     weight: float
     safety_critical: bool
     source_document: str
+    source_document_id: str | None = None
     clause_reference: str
     source_url: str
     content_verified: bool
+    standard_version: str
+    effective_date: str | None = None
+    display_order: int
+
+
+class EvidenceExpectationResponse(BaseModel):
+    id: str
+    scheme_id: str
+    requirement_id: str
+    kind: str
+    label: str
+    guidance_text: str
+    required: bool
     display_order: int
 
 

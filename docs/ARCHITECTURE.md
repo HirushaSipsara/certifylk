@@ -1,150 +1,156 @@
 # Architecture
 
+## Architectural state
+
+CertifyLK is being converted in place. The certificate knowledge base and track-selection/applicability layer coexist with the original generic four-page engine. Backend completion for assessments with `scheme_id` now evaluates the selected scheme requirements/weights/cost snapshot. The remaining cutover is to make every evidence request, question, upload, and frontend journey derive from the assessment’s frozen certification scheme/version. Until that cutover is complete, legacy and target flows must be labelled separately.
+
 ## System context
 
 ```mermaid
 flowchart LR
-  Owner[Small Sri Lankan food manufacturer] -->|guided answers and evidence| CertifyLK[CertifyLK]
-  CertifyLK -->|readiness result and roadmap| Owner
-  CertifyLK -->|structured prompts; optional| Gemini[Google Gemini API]
-  CertifyLK -.->|readiness only; no submission| SLS[Sri Lanka Standards Institution]
+  Owner[Small Sri Lankan food manufacturer] -->|profile, process, evidence| CertifyLK[CertifyLK]
+  CertifyLK -->|applicable pathways, readiness, roadmap| Owner
+  Reviewer[Standards/domain reviewer] -->|reviewed source catalogue| CertifyLK
+  CertifyLK -->|bounded structured requests| Gemini[Google Gemini API]
+  CertifyLK -.->|references only; no submission| Bodies[SLSI / regulator / certification body]
 ```
 
-CertifyLK has no authentication or official SLS integration in Phase 1.
+There is no official SLSI/regulator integration and no authenticated account. Catalogue facts are human-curated; AI reasons only over supplied facts.
 
 ## Containers
 
 ```mermaid
 flowchart TB
-  Browser[Browser] -->|HTTP :3000| Web[Next.js App Router]
-  Web -->|JSON / multipart :8000/api/v1| API[FastAPI]
-  API --> Services[Typed workflow services]
-  Services --> Engines[Deterministic requirement, scoring, roadmap engines]
-  Services --> AI[AIProvider]
-  Services --> Storage[StorageProvider]
-  Services --> Repos[Repositories / SQLAlchemy]
+  Browser[Next.js browser UI] -->|JSON and multipart /api/v1| API[FastAPI]
+  API --> Workflow[Typed workflow services]
+  Workflow --> Catalog[Catalogue/applicability services]
+  Workflow --> Engines[Deterministic evaluation, scoring, roadmap]
+  Workflow --> AI[AIProvider boundary]
+  Workflow --> Storage[StorageProvider boundary]
+  Workflow --> ORM[SQLAlchemy repositories/session]
   AI --> Mock[MockAIProvider]
   AI --> Gemini[GeminiAIProvider]
-  Storage --> Disk[Local generated paths]
-  Repos --> DB[(PostgreSQL :5432)]
+  Storage --> Disk[Generated local/persistent keys]
+  ORM --> DB[(PostgreSQL)]
 ```
 
-## Page request flows
+Next.js never receives Gemini/database credentials and never accesses files or PostgreSQL directly. Routes handle HTTP; services own workflow; pure engines own reproducible domain decisions.
 
-### Landing and Page 1
+## Domain hierarchy
 
-1. `POST /assessments` creates a UUID at `draft_profile`; the frontend stores it and opens `/profile`.
-2. `PUT /profile` validates and stores profile answers, then advances to `profile_complete`.
-3. `POST /adaptive-plan` creates profile-derived candidate questions, calls AI through validation/whitelisting, stores two to five questions, and returns them.
-4. The frontend navigates to `/process`. Loading and API error states remain visible.
+```mermaid
+flowchart LR
+  Category --> Product
+  Product --> ProductScheme[Product-specific scheme]
+  Track2[Process/System track] --> SystemScheme[System scheme]
+  Body[Certification body] --> ProductScheme
+  Body --> SystemScheme
+  ProductScheme --> Requirement
+  SystemScheme --> Requirement
+  Requirement --> EvidenceExpectation
+  Requirement --> EvaluationRule
+  Requirement --> CostAction
+  BusinessProfile --> Assessment
+  Assessment --> FrozenSchemeVersion
+```
 
-### Page 2
+The `EvidenceExpectation` and frozen version concepts are target additions described in `FULL_IMPLEMENTATION_PLAN.md`; the present database has scheme requirements/costs but not complete version/evidence-expectation entities.
 
-1. `PUT /process` requires the profile state, exactly five slots and at least three non-empty steps; it stores process/adaptive answers.
-2. `POST /process-analysis` invokes `AIProvider.extract_process`, validates structured stages/tags, stores the analysis, and returns exact-run provider/fallback metadata.
-3. The frontend shows a lightweight process-review state and confirmed provider label before the user continues.
-4. `POST /evidence-plan` applies approved evidence types and limits (five photos, two PDFs), stores requests, advances to `evidence_pending`, and opens `/evidence`.
+## User request flows
 
-### Page 3
+### Home and Track 1
 
-1. Multipart upload validates the request slot, MIME, extension, size, safe storage key, and slot count before storing metadata and bytes. Alternatively, `PUT /unavailable` closes a request without a file.
-2. `POST /evidence-analysis` opens only stored files, sends sanitized evidence context to AI, validates and persists observations/confidence, and returns exact-run provider/fallback metadata. Missing slots become unknown evidence, not gaps.
-3. The frontend pauses in a lightweight evidence-review state showing accessible polarity, unchanged confidence, and confirmed provider/fallback status.
-4. `POST /clarification-plan` runs only when the user continues, builds high-priority candidates, enforces a three-to-five supplied-ID whitelist, persists them, advances to `clarification_pending`, and opens `/clarification`.
+1. Home calls `GET /schemes` and renders API-sourced chips.
+2. `/product-quality/select` calls `GET /categories` and `GET /categories/{id}/products`.
+3. It creates an assessment with `POST /assessments` and opens `/product-quality/{id}/business-profile`.
+4. The profile page posts `POST /business-profiles` with `assessment_id` and `product_slug`.
+5. `/product-quality/{id}/certificates` calls `POST /assessments/{id}/applicable-schemes`.
+6. The backend loads only active product-quality candidates, executes the bounded AI operation, validates IDs, stores the recommended scheme, and returns exact provider/fallback metadata.
 
-### Page 4 and result
+### Track 2
 
-1. `PUT /clarifications` validates answers against assigned questions and advances to `ready_to_score`.
-2. `POST /complete` evaluates requirements and evidence references, calculates scores/completeness, maps/ranks catalogue actions, calculates LKR ranges and projected gains, and asks AI only for optional explanations. The transaction persists a completed result.
-3. `GET /result` serializes the stored deterministic result. No provider call occurs on retrieval.
+1. Home creates a guest assessment directly and opens `/process-management/{id}/business-profile`.
+2. Profile submission omits a product; the backend therefore resolves the process-management track.
+3. `/process-management/{id}/certificates` runs applicability across SLS GMP, SLS HACCP, and ISO 22000 candidates.
+4. A selected/recommended scheme leads to the shared Assessment Hub.
 
-## AI adapter pattern
+There is intentionally no `/process-management/select` route under D018.
 
-`AIProvider` is a protocol with five operations. `AIService` selects Mock or Gemini from backend settings, times calls, validates typed output, sanitizes free text, enforces supplied question/evidence whitelists, records `ai_runs`, retries Gemini once on invalid/transient output, and falls back only when explicitly allowed. `run_with_validation` returns a typed execution result containing the validated output plus provider/fallback metadata from the exact successful run. Mock is deterministic and exercises the same schemas. AI never changes scores, prices, or requirement rules.
+### Assessment Hub and requirement overview
 
-## Storage provider pattern
+1. `GET /assessments/{id}` restores assessment state.
+2. `GET /assessments/{id}/scheme-requirements` loads the linked scheme’s active requirement summaries.
+3. The Hub shows scheme/issuer/verification context and routes into assessment stages.
+4. Target completion will freeze a scheme version before evidence collection.
 
-`StorageProvider` exposes generated-key save/open/delete operations. `LocalStorageProvider` resolves keys beneath the configured upload root and rejects traversal. `S3StorageProvider` is a typed future placeholder that deliberately raises a configuration error; it contains no AWS code. Database records store the generated key, never a raw user filename.
+### Evidence, clarification, and result target
+
+```mermaid
+sequenceDiagram
+  participant UI as Next.js
+  participant API as FastAPI
+  participant DB as PostgreSQL catalogue
+  participant AI as AIProvider
+  participant Engine as Deterministic engines
+  UI->>API: open selected-scheme assessment
+  API->>DB: load frozen requirements/evidence expectations
+  UI->>API: process answers and uploads/unavailable
+  API->>AI: extract against supplied requirement whitelist
+  AI-->>API: observations with polarity/confidence/IDs
+  API->>API: validate and persist exact bindings
+  API->>AI: select unresolved approved questions
+  UI->>API: clarification answers
+  API->>Engine: evaluate, score, rank, cost, project
+  Engine->>DB: snapshot deterministic result
+  API->>AI: explain fixed roadmap only
+  API-->>UI: source-linked result and report data
+```
+
+The current legacy `/profile`, `/process`, `/evidence`, `/clarification`, and `/result` endpoints still implement much of the same technical mechanics against global catalogues. `POST /complete` branches to scheme-specific deterministic evaluation when `assessment.scheme_id` is set; question and evidence planning still require full certificate-scoped cutover.
+
+## AI adapter and orchestration
+
+`AIProvider` exposes typed operations for adaptive questions, process extraction, evidence analysis, clarifications, roadmap explanations, and applicability planning. `run_with_validation` selects Mock/Gemini, times the call, validates/sanitizes output, records `ai_runs`, and returns metadata from the exact successful run. Gemini can retry once and use Mock only when allowed.
+
+The target coordinator is a fixed application workflow: applicability → evidence → clarification → deterministic result → narrative. It is not an open-ended autonomous agent. Read-only DB lookup tools may later ground Gemini, but documentation must not claim function calls until implemented.
+
+## Storage provider
+
+`StorageProvider` exposes generated-key save/open/delete methods. Local and production host storage confines keys beneath a configured root. Raw names are retained only as sanitized metadata. `S3StorageProvider` is a future interface placeholder and contains no production AWS calls.
 
 ## Local infrastructure
 
 ```mermaid
 flowchart LR
-  Dev[Developer machine] --> Next[Next.js process]
-  Dev --> Fast[Uvicorn process]
-  Dev --> Compose[Docker Compose]
-  Compose --> PG[(PostgreSQL 16)]
-  Fast --> PG
-  Fast --> Uploads[(backend/data/uploads)]
+  Dev[Developer] --> Next[Next.js :3000]
+  Dev --> Fast[Uvicorn :8000]
   Next --> Fast
+  Fast --> PG[(Compose PostgreSQL :5432)]
+  Fast --> Uploads[(backend/data/uploads)]
 ```
-
-Only PostgreSQL is containerized in local development. These commands and ports remain independent from production.
 
 ## Production infrastructure
 
 ```mermaid
 flowchart TB
-  User[User browser] -->|HTTPS 443| DNS[Domain / Elastic IP]
-  DNS --> EC2[Ubuntu EC2]
-  LetsEncrypt[Let's Encrypt] -->|HTTP-01 80| EC2
-  EC2 --> Nginx[Nginx TLS proxy]
-  Nginx -->|all UI routes| Next[Next.js standalone]
-  Nginx -->|/api/v1| FastAPI[FastAPI / Uvicorn]
-  FastAPI --> PG[(Persistent PostgreSQL volume)]
-  FastAPI --> Uploads[(Persistent upload volume)]
-  FastAPI -->|optional backend-only HTTPS| Gemini[Gemini API]
-  GitHub[GitHub Actions] -->|OIDC short-lived role| AWS[AWS Systems Manager]
-  AWS -->|tested commit SHA| EC2
-  EC2 --> Backups[(Protected local backup directory)]
+  User -->|HTTPS 443| Nginx[Nginx on EC2]
+  Nginx --> Next[Private Next.js service]
+  Nginx -->|/api/v1| Fast[Private FastAPI service]
+  Fast --> PG[(Persistent PostgreSQL volume)]
+  Fast --> Uploads[(Persistent upload volume)]
+  Fast -->|optional backend-only| Gemini
+  Actions[GitHub Actions] -->|OIDC| SSM[AWS Systems Manager]
+  SSM -->|exact tested SHA| EC2[EC2 Compose host]
 ```
 
-Nginx is the only service publishing host ports. `app` and `data` Docker networks are internal. The frontend is built with same-origin `/api/v1`, so the browser never needs an internal hostname and CORS remains restricted to the production HTTPS origin.
-
-### Production release flow
-
-```mermaid
-sequenceDiagram
-  participant Push as Push to main
-  participant CI as GitHub CI
-  participant GHCR as GitHub Container Registry
-  participant SSM as AWS Systems Manager
-  participant Host as EC2 deploy script
-  participant DB as PostgreSQL
-  participant Web as Nginx / apps
-  Push->>CI: exact commit SHA
-  CI->>CI: lint, type, unit, integration, E2E, audit, image build
-  CI->>GHCR: push frontend/backend tagged with tested SHA
-  CI->>SSM: OIDC-authenticated command with SHA
-  SSM->>Host: checkout SHA and deploy
-  Host->>DB: pre-deploy logical backup
-  Host->>DB: explicit Alembic migration and idempotent seed
-  Host->>Web: replace containers with SHA images
-  Host->>Web: public HTTPS health checks
-  alt health fails
-    Host->>Web: restore previous application SHA
-  else health passes
-    Host->>Host: record current and previous release
-  end
-```
-
-Application rollback never deletes volumes and never automatically reverses a database migration. Migrations must be backward-compatible with the preceding image. Database/upload recovery is a separate, operator-approved restore procedure.
-
-### Terraform provisioning boundary
-
-`infra/terraform` provisions the same production topology: VPC, public subnet/route, HTTP/HTTPS security group, encrypted EC2/EBS, Elastic IP, EC2 SSM role, GitHub OIDC deployment role, and optional Route 53 record, budget, and GitHub environment variables. EC2 cloud-init installs host dependencies, clones a public repository, creates the backend environment in mock mode with a host-generated PostgreSQL password, and requests TLS only after DNS resolves to the instance.
-
-Terraform does not deploy product logic and does not receive PostgreSQL, Gemini, GHCR, deploy-key, or TLS private-key secrets. Those remain protected on EC2 so they cannot be retained in Terraform state. GitHub Actions remains responsible for immutable application images, migrations, deployment, and public health gating.
+Nginx is the only host-port entry. Deployment backs up, migrates/seeds explicitly, starts immutable SHA-tagged images, performs public health gates, and rolls application images back without deleting volumes or automatically downgrading the database.
 
 ## Security boundaries
 
-- The browser is untrusted. All state transitions, assigned-question checks, file rules, and assessment ownership-by-UUID constraints are enforced server-side.
-- `GEMINI_API_KEY`, database credentials, uploaded bytes, and raw extracted text remain behind FastAPI. Only `NEXT_PUBLIC_API_BASE_URL` reaches the browser.
-- Uploaded content is untrusted data. It cannot change prompts, candidate IDs, requirements, costs, or tool behavior.
-- Storage keys are UUID-based and path-confined; raw filenames are metadata only after control-character stripping and length limiting.
-- Correlation IDs are accepted/generated and returned, but logs omit secrets and raw evidence content.
-- CORS is restricted by backend environment configuration. No Phase 1 authentication means possession of a UUID allows retrieval; production treats assessment URLs as sensitive bearer links and documents this limitation.
-- Production secrets exist only in protected EC2 files or short-lived OIDC sessions. The Gemini key is injected into FastAPI only; GHCR read credentials are not injected into application containers.
-- Nginx terminates TLS and applies body, connection, and request-rate limits. Database, backend, and frontend ports are not exposed by the production Compose project.
-- Application containers run non-root with read-only root filesystems and dropped capabilities. The narrowly scoped upload initializer is the only one-shot container that runs as root.
-- Persistent PostgreSQL, uploads, TLS files, and backups reside on encrypted host storage. Backups require protected off-host copies for host-loss recovery.
+- Browser, UUIDs, form values, filenames, uploaded bytes, extracted text, and model output are untrusted.
+- Guest UUID URLs are bearer links; this is not account-grade privacy.
+- Only backend environment variables contain Gemini/database credentials.
+- Catalogue IDs, question IDs, evidence types, requirement IDs, source references, and costs are server-controlled.
+- Unverified catalogue rows remain visibly marked.
+- Logs contain request/run metadata but not prompts, raw evidence, keys, or internal exception details.
+- Migrations must remain backward-compatible with the immediately previous release; persistent data restoration requires explicit operator approval.

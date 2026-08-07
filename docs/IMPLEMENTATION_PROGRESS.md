@@ -1,137 +1,89 @@
-# CertifyLK Phase 1 implementation progress
+# CertifyLK implementation progress
 
-**Last updated:** 2026-08-06
+**Last reconciled:** 2026-08-07
 
-**Current status:** Local MVP complete; production deployment live and test-gated
+**Status:** certificate-specific redesign in progress; infrastructure and legacy MVP operational
 
-**Public URL:** <https://certifylk.duckdns.org>
+**Public URL recorded by operations:** <https://certifylk.duckdns.org>
 
-**Verified release:** `77cd9cbbf6bc42533bfa87e9c2ebf0692a0d577d`
+**Public AI mode last recorded:** deterministic Mock
 
-**Production AI mode:** deterministic mock
+This file reports repository capability, not certification validity. A previously deployed commit may differ from the current branch. Confirm the release SHA in GitHub/EC2 before describing a new feature as live.
 
-CertifyLK remains a readiness-assessment tool for small Sri Lankan food manufacturers preparing for SLS-related certification. It does not issue, guarantee, or replace SLS certification or an official inspection.
+## Implemented
 
-## Milestone status
+### Engineering and delivery foundation
 
-| Milestone | Status | Evidence |
+- FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, PostgreSQL, typed services/repositories, centralized API errors, correlation IDs, and OpenAPI.
+- Next.js App Router, strict TypeScript, Tailwind, React Hook Form, Zod, native API client, accessible reusable assessment/evidence/result components.
+- Safe image/PDF uploads through generated filesystem keys and a `StorageProvider` boundary.
+- Deterministic Mock AI and optional backend-only Gemini with structured validation, one retry, fallback control, exact-run `ai_runs` metadata, and prompt-injection boundaries.
+- Deterministic legacy requirement evaluation, scoring, catalogue costing, roadmap ranking, expected gains, and projections.
+- Local Compose PostgreSQL, test/check scripts, production Docker/Compose/Nginx, Terraform AWS single-host provisioning, GitHub Actions CI/CD, OIDC/SSM deployment, HTTPS, persistent volumes, backups, health checks, and rollback scripts.
+
+### Certificate-specific redesign foundation
+
+- Database entities and migrations for `BusinessProfile`, `Category`, `Product`, `CertificationBody`, `SourceDocument`, `CertificationScheme`, `SchemeRequirement`, `EvidenceExpectation`, and `SchemeCostItem`.
+- Idempotent seed service for Food Products / Fresh Fruit Cordial, SLS Mark/CAA catalogue data, and Track 2 schemes.
+- Track 1 routes: `/product-quality/select`, `/product-quality/{assessmentId}/business-profile`, and `/product-quality/{assessmentId}/certificates`.
+- Track 2 routes: Home action → `/process-management/{assessmentId}/business-profile` → `/process-management/{assessmentId}/certificates`.
+- API-driven scheme chips, business-profile persistence, product association for Track 1, and track inference for applicability.
+- Bounded `plan_applicable_schemes` operation in Mock/Gemini provider contracts. It receives DB-sourced scheme facts, validates all returned scheme IDs, stores the decision, and returns provider/fallback metadata.
+- Assessment Hub and scheme-requirement browser at `/assessment/{assessmentId}/hub` and `/hub/requirements`.
+- Track 2 seeds for SLS GMP, SLS HACCP, and ISO 22000 with deterministic Mock applicability behavior and catalogue tests.
+- Scheme-specific deterministic result branch for assessments with `scheme_id`: loads `scheme_requirements`, freezes scheme version/revision, uses scheme category weights, persists scheme-bound evaluations, and stores a `scheme_cost_items` roadmap snapshot.
+- Bounded, Grounded AI Workflow (Phase D): Applicability, evidence analysis, clarification planning, and roadmap explanations operate strictly on DB-supplied candidate sets with strict ID whitelist validation and fallback logging. Added typed `AssessmentWorkflowCoordinator` and adversarial test suite.
+- Frontend Completion for Track 1 & Track 2 (Phase E): Complete landing page, track CTAs, guest assessment recovery dashboard (`/my-assessments`), education guide (`/education`), scheme applicability cards, assessment hub, scheme-bound process page, requirement-tagged evidence upload/review page, clarification flow, readiness indicator report with print/PDF export and Track 1 -> Track 2 handoff.
+- Costing and Roadmap Completion (Phase F): Categorized cost summaries by `cost_type` (`certifying_body_fee`, `lab_testing_fee`, `business_capex`, `business_opex`), non-double-counting score gain calculation, priority ordering, `quote_required` fallback flag, and frontend `CostBreakdownTable` component. Added Phase F unit & integration test suite (`test_phase_f_costing.py`).
+- Samples, Testing, and Migration Safety (Phase G): Canonical Track 1 Fresh Fruit Cordial (SLS 187) sample endpoint, Track 2 domestic vs export mock scenarios, scheme engine validation suite (`test_phase_g_scheme_engine.py`), Track 1 API integration test (`test_phase_g_track1_integration.py`), Track 2 API integration test (`test_phase_g_track2_integration.py`), migration safety & seed idempotency suite (`test_phase_g_migration_safety.py`), frontend sample Vitest component test (`sample.test.tsx`), and Playwright E2E test suites (`track1-cordial.spec.ts`, `track2-process.spec.ts`).
+
+
+## Partially implemented
+
+| Area | What works | What remains |
 |---|---|---|
-| Certificate-Specific System Redesign | Complete | Re-architected domain from generic quiz to database-backed `Category → Product → CertificationScheme → SchemeRequirement → SchemeCostItem` relational knowledge base. |
-| Applicability Reasoning Agent | Complete | Added Applicability Reasoning Agent with structured Pydantic schema, Gemini + deterministic Mock providers, and whitelist verification. |
-| SLS Mark Pilot Seed | Complete | Seeded pilot data for Fresh Fruit Cordial (SLS 187, 21 requirement clauses with clause references, 8 LKR cost items). |
-| Guided Wizard & Hub UI | Complete | Built 3-step product-quality wizard (`/product-quality/select`, `/business-profile`, `/certificates`), Assessment Hub (`/hub`), and Requirements browser (`/requirements`). |
-| Canonical documentation | Complete | Product, architecture, API, data, AI, scoring, test, local-development, security, release, and production runbooks are maintained under `docs/`. |
-| Four-page guest workflow | Complete | Profile, process, evidence, clarification, and result routes persist UUID-based progress and support refresh recovery. |
-| Database and catalogue | Complete | Alembic migration and idempotent seed load 21 requirements, 35 approved questions, and 12 curated LKR recommendations. |
-| Deterministic domain engine | Complete | Requirement evaluation, readiness, evidence completeness, ranking, costs, gains, and projections run exclusively in typed Python. |
-| AI providers | Complete | Deterministic mock mode drives tests and production demo; the integrated Gemini adapter includes bounded requests, structured-output validation, exact evidence binding, safe errors, retry/fallback, and a backend-only connectivity script. |
-| AI transparency and evidence review | Complete | Process/evidence responses expose exact-run provider/fallback metadata; review states show accessible polarity icons/text, documented confidence bands, truthful long-running/error states, and confirmed fallback only. |
-| Upload safety | Complete | Generated storage keys, MIME/signature/size checks, unavailable states, and persistent filesystem storage abstraction are active. |
-| Automated tests | Passing | Backend (26 passing tests), frontend, mock-AI browser E2E, Terraform checks, audits, and production image/Compose validation pass. |
-| Terraform infrastructure | Applied | VPC, subnet, routing, security group, encrypted EC2/EBS, Elastic IP, SSM role, GitHub OIDC role, and AWS budget were created in `ap-south-1`. |
-| HTTPS production | Live | DuckDNS resolves to the Elastic IP; Nginx serves the frontend and API with a valid Let's Encrypt certificate. |
-| GitHub CI/CD | Passing | CI and `Deploy production` succeeded for release `77cd9cb`; deployment used OIDC, SSM, immutable GHCR tags, migration, seed, and public health gates. |
-| Persistence and recovery | Implemented | PostgreSQL and uploads use stable named volumes; deployment performs backups and preserves volumes; rollback and restore runbooks are documented. |
+| Standards knowledge base | Scheme requirements, clause/source strings, category weights, costs, source-register rows, version/revision fields, and `content_verified` exist. | Primary-source review, lawful content governance, reviewed import files, retired-date lifecycle, and domain approval. |
+| Applicability reasoning | AI ranks only supplied scheme IDs and persists one recommended scheme. | A richer, auditable grounding trail/tool-call model and reviewed legal applicability facts. |
+| Assessment Hub | Shows linked scheme and its requirements. | Must control the entire scheme-specific evidence → clarification → result journey. |
+| Evidence | Legacy safe upload, observation polarity/confidence, provider/fallback, unavailable behavior, and seeded scheme evidence expectations work. | Full evidence-plan UI/service cutover to `evidence_expectations` and hard binding for every file/request. |
+| Questions | Legacy adaptive/clarification whitelisting works. | Scheme-specific question/evaluation-rule catalogue and unresolved-requirement planning. |
+| Scoring and roadmap | Legacy deterministic engines and sample baseline work; scheme assessments now use scheme requirements/weights/cost snapshots. | Richer scheme recommendation mapping, grouped fee/capex/opex result table, and frontend result polish. |
+| Track 2 | Entry, profile, applicability page, seeds, service tests, and scheme-specific scoring branch exist. | Complete GMP/HACCP/ISO 22000 frontend evidence/clarification/result journeys using distinct scheme sets. |
+| Sample | Legacy chilli-paste result remains deterministic. | Replace primary demo with a clearly labelled read-only Fresh Fruit Cordial/SLS sample after scheme cutover. |
 
-## Production baseline
+## Not implemented
 
-| Item | Verified value |
-|---|---|
-| AWS account | `622215957056` |
-| AWS region | `ap-south-1` |
-| EC2 instance | `i-00e924bf43a9d1fbe` |
-| Elastic IP | `3.108.242.97` |
-| Hostname | `certifylk.duckdns.org` |
-| GitHub deploy role | `arn:aws:iam::622215957056:role/certifylk-github-deploy` |
-| Repository path on EC2 | `/opt/certifylk/repository` |
-| Release source | GitHub `main`, exact tested commit SHA |
-| Production provider | `AI_PROVIDER=mock` |
+- Historical catalogue version entities with retired dates and reviewed import workflow.
+- Full requirement-specific evidence-plan cutover in the user workflow.
+- Certification-body fee versus lab fee versus business capex/opex result table.
+- PDF export.
+- Browser-local “My Assessments” dashboard.
+- “Understand Certification” education page.
+- Reviewed YAML/JSON/CSV content-import governance or admin interface.
+- Domain-expert review and 2–3 manufacturer pilot.
+- Verified off-host backup/restore evidence for the redesigned release.
+- The referenced `sri_lanka_certification_system_complete_guide.md` is not currently present in the repository and therefore is not yet a versioned canonical source.
 
-These identifiers are non-secret operational metadata. Passwords, API keys, tokens, `.env.production`, TLS private keys, and Terraform state are intentionally omitted.
+## Important truth statements
 
-## Verified workflow
+- The current catalogue rows are marked `content_verified=false`; clause descriptions and legal/market tiers must be verified before public reliance.
+- The current applicability operation is a typed, bounded AI call over supplied facts. It should not yet be advertised as Gemini function-calling/tool execution unless that behavior is implemented and logged.
+- The legacy sample score `32.0000` raw / `32` displayed protects the old deterministic engine. It is not a Fresh Fruit Cordial/SLS Mark readiness score.
+- The `scheme_requirements` catalogue powers scheme-specific results when `scheme_id` is set, but the legacy `requirements` scoring catalogue still exists for the old chilli-paste regression flow.
+- No result is official approval, legal advice, a laboratory result, or a certification probability.
 
-1. The landing page provides Start Assessment and Load Sample Assessment.
-2. Page 1 saves the product profile and obtains two to five approved adaptive questions.
-3. Page 2 accepts exactly five process slots, requires at least three steps, extracts approved process stages, and builds an evidence plan.
-4. Page 3 accepts safe image/PDF uploads or unavailable states, records structured observations, and selects final approved questions.
-5. Page 4 saves clarifications and invokes deterministic evaluation, scoring, costing, ranking, and projection.
-6. The result separates readiness from evidence completeness and shows strengths, gaps, unknowns, LKR actions, expected gains, cumulative projections, explanations, and the certification disclaimer.
+## Completion roadmap
 
-The production deployment exposes the same workflow as local development. No production-only product behavior was added.
+The authoritative remaining-work sequence and acceptance checklist are in [FULL_IMPLEMENTATION_PLAN.md](FULL_IMPLEMENTATION_PLAN.md). The immediate priorities are:
 
-## Validation record
+1. obtain and review primary-source Fresh Fruit Cordial/SLS content and costs;
+2. replace draft source rows with reviewed import files and complete catalogue lifecycle metadata;
+3. re-point evidence and questions to the assessment’s selected scheme;
+4. deliver and test one Fresh Fruit Cordial/SLS vertical slice;
+5. reuse the completed engine for Track 2;
+6. add PDF/dashboard/education and perform production migration, restore drill, and domain pilot.
 
-### GitHub and public production
-
-- GitHub CI run for `77cd9cb` completed successfully on 2026-08-06.
-- The dependent `Deploy production` workflow completed successfully for the same SHA.
-- GHCR images were published with the full tested SHA; no floating application tag is used.
-- GitHub authenticated through OIDC; no long-lived AWS key is stored in GitHub.
-- AWS Systems Manager checked out the exact SHA and invoked the Bash deployment script.
-- Alembic migration and deterministic seed completed successfully.
-- PostgreSQL, FastAPI, Next.js, and Nginx reached healthy state.
-- `https://certifylk.duckdns.org/` returned HTTP `200` and rendered CertifyLK.
-- `https://certifylk.duckdns.org/api/v1/health` returned `{"status":"ok","service":"CertifyLK API"}`.
-- `https://certifylk.duckdns.org/api/v1/ready` returned `{"status":"ready","database":"ok"}`.
-
-### Local product checks
-
-- Ruff formatting and linting passed.
-- Mypy passed with no source errors.
-- Pytest passed all 14 backend tests, including exact-run metadata, confirmed fallback, and test-only concern persistence/evaluation coverage.
-- ESLint and TypeScript strict checks passed.
-- Vitest passed eight component tests across five files, including provider/fallback labels, all three evidence polarities, confidence bands, and unknown-polarity defense.
-- Next.js optimized production build passed.
-- Playwright passed both the complete deterministic chilli-paste browser flow and a manual synthetic evidence-analysis flow showing the actual Mock provider, Unclear polarity, question icon, and `45%` Unclear confidence.
-- npm audit reported zero vulnerabilities after reviewed dependency updates.
-- The deterministic sample produces readiness `32` with separate strengths, gaps, unknowns, catalogue-only costs, and the disclaimer.
-
-### Local Gemini verification
-
-A backend-only Gemini configuration separately completed all five AI operations with structured Pydantic validation and no fallback:
-
-1. `plan_adaptive_questions`
-2. `extract_process`
-3. `analyze_evidence`
-4. `plan_clarifications`
-5. `explain_roadmap`
-
-This does not mean Gemini is enabled in production. Production intentionally remains in mock mode until the EC2-only key is configured and the complete public sample is re-verified.
-
-## Deployment issues resolved
-
-- The first EC2 bootstrap clone failed while the repository was private. After the repository became public, the host repository and protected environment were recovered without putting a GitHub credential in Terraform.
-- GitHub's immutable OIDC subject format required the numeric owner and repository IDs in the IAM trust policy.
-- The deploy role now has an exact customer-managed SSM policy for `AWS-RunShellScript` and the single production instance, plus invocation status/cancel permissions.
-- Trailing whitespace in GitHub environment variables caused validation and IAM targeting failures. Workflow inputs are now normalized and validated before authentication and deployment.
-- `AWS-RunShellScript` executes its command list with `/bin/sh`; its wrapper now uses portable `set -eu`. The repository deployment script is still invoked explicitly with Bash and retains `set -Eeuo pipefail`.
-- The EC2 `.env.production` file was recovered with a host-generated PostgreSQL password, mock AI mode, `600` permissions, and `certifylk` ownership. Its contents were never printed or committed.
-- The frontend production build now creates an empty `public/` directory when no static assets are present.
-- AI execution metadata now comes directly from the exact successful `ai_runs` record returned by the call boundary; no latest-run query or persistence change was introduced.
-- Process and evidence pages now pause for lightweight review, preserve missing-metadata compatibility, and never claim an internal retry is visible.
-
-## Current limitations
-
-- The topology is one EC2 host and is not highly available.
-- DuckDNS is a temporary free hostname. A controlled domain can replace it later without changing product behavior.
-- PostgreSQL and uploads persist on the EC2 host; verified off-host backup retention and restore rehearsal remain operational follow-ups.
-- Production currently uses deterministic mock AI. Enabling Gemini requires an EC2-only key and another public workflow verification.
-- A real production photo/PDF Gemini analysis still needs a deliberate manual validation with non-sensitive fixtures.
-- Guest UUID possession grants assessment access; authentication and multi-user privacy controls remain outside Phase 1.
-- Curated requirements, readiness mappings, recommendations, and LKR cost bands require domain-expert review before public reliance.
-- The deployment does not provide laboratory testing, physical inspection, official submission, or certification decisions.
-
-## Next operational checks
-
-1. Complete the public one-click sample and one upload/unavailable path after each release.
-2. Run `certbot renew --dry-run` and verify the Nginx reload hook.
-3. Export a backup off EC2 and perform a controlled restore rehearsal using `BACKUP_AND_RESTORE.md`.
-4. Configure GitHub branch protection and production approval rules if the current repository plan supports them.
-5. Add Gemini only to the protected EC2 environment when live AI is required; never add it to GitHub or Terraform.
-6. Review AWS spend and budget alerts while the free-trial credits are active.
-
-## Local commands
+## Local verification commands
 
 ```powershell
 $env:CERTIFYLK_POSTGRES_PORT = "55432"
@@ -141,23 +93,7 @@ Push-Location backend
 python -m alembic upgrade head
 Pop-Location
 python scripts/seed_demo_data.py
-```
 
-Run the backend and frontend in separate terminals:
-
-```powershell
-Set-Location backend
-python -m uvicorn app.main:app --reload --port 8000
-```
-
-```powershell
-Set-Location frontend
-npm run dev
-```
-
-Run deterministic validation:
-
-```powershell
 Push-Location backend
 python -m ruff format --no-cache --check app tests
 python -m ruff check --no-cache app tests
@@ -172,3 +108,5 @@ npm test -- --run
 npm run build
 Pop-Location
 ```
+
+For release claims, also run the CI browser path, both production container builds, Compose validation, migrations against an upgraded database copy, and the public checklist in `RELEASE_CHECKLIST.md`.

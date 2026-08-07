@@ -2,48 +2,82 @@
 
 ## Problem and target user
 
-Small Sri Lankan food manufacturers often begin certification preparation with limited time, cash, formal records, and access to specialist guidance. SLS-related requirements can feel technical, evidence may be scattered across paper records and phone photos, and owners may not know which improvements to prioritize. CertifyLK targets the owner or operator of a home-based or small food-production business in Sri Lanka.
+Small Sri Lankan food manufacturers often do not know which certification or licence applies to their product and market, what a specific scheme actually requires, which evidence they already possess, or which improvement gives the best practical next step. Generic hygiene quizzes cannot provide defensible guidance because they are not traceable to a particular standard, clause, certification body, or fee source.
 
-Common pain points are uncertainty about what information matters, unfamiliar terminology, incomplete process and supplier records, limited confidence in labels or storage controls, and no simple view of the cost-versus-readiness benefit of the next action.
+The primary user is an owner or operator of a household-scale producer, small workshop, or small factory manufacturing food in Sri Lanka.
 
-## Solution and impact
+## Product outcome
 
-CertifyLK asks plain questions, structures five production steps, requests only relevant evidence, and produces an explainable readiness score and action roadmap. The primary Sustainable Development Goal is **SDG 8: Decent Work and Economic Growth**, supported by helping small businesses build repeatable practices and clearer paths toward market readiness.
+CertifyLK converts a short business/product profile and user-provided evidence into:
 
-AI is necessary for tasks that are variable in wording or media: classifying a user-described product, selecting relevant questions, turning informal process descriptions into stages, extracting cautious observations from photos/PDFs, and explaining a structured roadmap in plain language. AI is not used where reproducibility matters: requirements, scores, priorities, gains, and prices are deterministic.
+1. an AI-assisted, source-grounded list of applicable certification pathways;
+2. one recommended path with an explanation and cited catalogue facts;
+3. a separate assessment for one product/scheme pair (or one system scheme for Track 2);
+4. requirement-level strengths, gaps, and unknowns linked to sources;
+5. a deterministic, prioritized roadmap with source-dated LKR estimates.
 
-## Four-page journey
+The primary impact target is **SDG 8: Decent Work and Economic Growth**, helping small manufacturers build repeatable practices and qualify for stronger markets without pretending to replace official certification.
 
-1. **Product profile** — the guest creates an assessment and supplies product, location, scale, workforce, packaging, storage, shelf life, existing certification, record frequency, and optional context. The system validates and saves it, then selects two to five approved process questions.
-2. **Manufacturing process** — the user enters exactly five ordered slots, at least three non-empty, and answers the adaptive questions. AI extracts structured stages; a lightweight review identifies the confirmed provider/fallback path before deterministic rules and approved types create an evidence plan.
-3. **Evidence** — the user uploads up to five requested JPEG/PNG/WebP photos and up to two requested PDFs, or marks each request unavailable. AI returns structured observations with confidence. A review state distinguishes supports, concern, and unclear using text and icons, labels confidence without changing it, and shows confirmed provider/fallback metadata before the system selects three to five approved clarification questions.
-4. **Clarification** — the user answers the remaining MCQs. The deterministic engine evaluates requirements, scores readiness and evidence completeness, maps gaps/unknowns to catalogue recommendations, calculates LKR costs and projected gains, and asks AI only for simple explanations.
+## Why AI is necessary
 
-The landing page exposes one primary `Start Assessment` action plus a sample option. Refresh recovery uses the assessment UUID in both URL and local storage.
+AI handles ambiguity and unstructured material: it reasons over a supplied catalogue to rank applicable schemes, normalizes informal process descriptions, extracts cautious observations from images/PDFs, selects unresolved questions from a whitelist, and explains deterministic roadmap actions in plain language. AI does not create laws, standards, clauses, thresholds, costs, scores, statuses, or official decisions.
 
-## Result structure
+## Target user journey
 
-- Overall readiness score from 0–100 and separate evidence completeness.
-- Six category scores.
-- Confirmed strengths, possible gaps, and unknown evidence as distinct groups.
-- Ordered action checklist with catalogue-derived one-time/recurring LKR ranges.
-- Expected gain and cumulative projected readiness per action.
-- Plain-language rationale and evidence references for every status decision.
-- Persistent notice that the output is not official SLS approval.
+### Home
 
-No pass probability is shown.
+- Two primary entries: Product Quality and Process & System.
+- Live scheme summaries loaded from the API.
+- A clearly labelled completed example, disclaimer, “What we offer,” and education link.
 
-## Phase 1 success criteria
+### Track 1 — Product Quality
 
-- A new guest can complete the profile-to-result workflow on desktop or mobile without an account.
-- The one-click chilli-paste scenario reaches a complete, reproducible result in mock mode.
-- 100% of questions and evidence request types returned by AI pass a server-side whitelist.
-- 100% of displayed costs originate from the seeded catalogue.
-- Automated tests cover scoring normalization, AI validation, file rules, ranking, the API flow, key UI behavior, and the local happy path.
-- Loading, retry/fallback, validation, and unsupported/oversized upload paths are visible and safe.
-- Gemini and fallback labels are displayed only when confirmed by exact-request backend metadata; internal retries are not simulated.
-- AI keys exist only in backend environment configuration.
+1. Select category and product. Food Products / Fresh Fruit Cordial is the enabled pilot.
+2. Enter business name/type, years, scale, markets, existing certifications, food-licence status, production volume, and a short description.
+3. Run bounded AI applicability reasoning over database-supplied schemes/rules. Show mandatory, market-required, recommended, and optional groups and promote one recommended path.
+
+### Track 2 — Process & System
+
+1. Start directly from the home page because GMP/HACCP/ISO 22000 are not product-specific in this pilot.
+2. Enter the same business screening profile.
+3. Run applicability reasoning for Track 2 and rank SLS GMP, SLS HACCP, and ISO 22000 based on the submitted market and scale.
+
+### Certificate Assessment Hub
+
+Each assessment belongs to one scheme and, for product schemes, one product. The target steps are:
+
+1. **Requirement overview:** show scheme categories, clauses, source links, version/verification status, and what evidence may demonstrate each requirement.
+2. **Evidence and process:** collect relevant photos, PDF documents, process answers, or unavailable states, all tagged to the scheme requirements they support.
+3. **Clarification:** ask only unresolved, approved questions grounded in the selected requirement set.
+4. **Gap analysis:** deterministically evaluate requirements as confirmed, partial, gap, unknown, or not applicable.
+5. **Guidance and costs:** show clause-linked actions, certification-body/laboratory/business-cost separation, expected gain, cumulative projection, and downloadable report.
+
+### Shared pages
+
+- “My Assessments” lists locally recoverable guest assessments without implying secure accounts.
+- “Understand Certification” explains SLS versus management-system schemes, mandatory versus voluntary/market-required pathways, and the readiness disclaimer.
+
+## Result contract
+
+- Selected product and scheme, issuing body, standard/version, source and verification banner.
+- Overall readiness and separate evidence completeness.
+- Scheme-specific category and requirement statuses.
+- Confirmed strengths, confirmed/possible gaps, and unknown evidence separately.
+- Evidence references and clause/source references for every decision.
+- Prioritized actions with one-time and recurring LKR ranges, payer/cost type, source note, review date, expected gain, and cumulative projection.
+- AI-written narrative only around fixed structured facts.
+- No pass probability and no certification promise.
+
+## Success criteria
+
+- Both authorized tracks complete from landing to a persisted, scheme-specific result in Mock mode.
+- Gemini can complete the same bounded operations with backend-only credentials and validated outputs.
+- Every returned scheme/question/evidence/requirement ID is checked against the exact supplied whitelist.
+- Every requirement, legal tier, threshold, and cost displayed to users has versioned source metadata and verification status.
+- Unverified content is visibly labelled and cannot be mistaken for official guidance.
+- Scoring/costing are repeatable and tests prove cross-scheme isolation.
+- Mobile, keyboard, loading, error, fallback, upload, refresh, and deployment smoke paths pass.
 
 ## Limitations and disclaimer
 
-Phase 1 supports only Sri Lankan food manufacturing and SLS-related preparation readiness. It does not model every product-specific SLS standard, conduct laboratory testing or physical inspection, submit applications, or provide legal advice. Results depend on self-reported and uploaded evidence and may contain unknowns. CertifyLK does not issue, guarantee, or replace SLS certification or decisions by the Sri Lanka Standards Institution.
+The current catalogue is a pilot, not a complete inventory of Sri Lankan certification law or standards. Purchased/copyrighted standards must not be reproduced beyond permitted summaries. Legal applicability and fees can change and require owner review. Uploaded evidence is not a physical audit. CertifyLK provides readiness guidance only and users must confirm final requirements with SLSI, the relevant regulator/certification body, and qualified professionals.

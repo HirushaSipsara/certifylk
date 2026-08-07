@@ -1,60 +1,114 @@
 # Test plan
 
+## Test strategy
+
+Tests protect two layers during conversion:
+
+1. the existing deterministic legacy workflow and its `32.0000 / 32` sample baseline;
+2. the emerging certificate-specific catalogue/applicability/Hub and, as implemented, its complete scheme-scoped workflow.
+
+A green legacy suite is necessary but does not prove certificate-specific completion.
+
 ## Backend unit tests
 
-- Assert category weights total 100 and requirement weights total each category.
-- Verify confirmed/partial/gap/unknown multipliers, distinct gap/unknown presentation, and safe not-applicable normalization.
-- Verify raw Decimal storage, display rounding, completeness, non-duplicated gains, capped projections, catalogue-only costs, and stable roadmap ranking.
-- Reject AI question/evidence IDs outside supplied candidates, validate malformed output/fallback, tie execution metadata to the exact successful AI run, and treat prompt-injection phrases as untrusted data.
-- Validate generated storage keys, traversal protection, supported MIME/extensions, image/PDF limits, and file cleanup on persistence failure.
+### Existing regression coverage
+
+- Legacy category/requirement totals, status multipliers, gap-versus-unknown, not-applicable normalization, Decimal rounding, completeness, ranking, non-duplicated gains, projections, and catalogue-only costs.
+- Question/evidence whitelists, exact-run AI metadata, fallback behavior, prompt injection, generated storage keys, traversal/MIME/size rules, and file cleanup.
+- Catalogue listing, Track 1/Track 2 separation, seeded scheme requirement/cost counts, unverified-content flags, and deterministic Mock applicability for local/export markets.
+- Source-register seeding, scheme evidence expectations, applicability version/revision freeze, scheme-bound requirement evaluations, and scheme-cost roadmap snapshots.
+
+### Required certificate-specific coverage
+
+- Every active scheme version has category weights and requirement sums of exactly 100.
+- Assessment/product/scheme relationships are valid and cannot cross tracks/products.
+- Catalogue version/source/reviewer/effective-date rules are enforced.
+- Evidence expectations and observations cannot reference another scheme/version.
+- Scheme evaluation uses only that scheme’s requirements and preserves gap/unknown/not-applicable semantics. Backend service coverage exists; broaden through API/browser as the frontend cutover completes.
+- Scheme roadmap uses only scheme-linked costs and deterministic priority/gain math. Draft costs remain unverified until source review.
+- Completed snapshots remain unchanged after a later catalogue import.
 
 ## API integration tests
 
-Against a test database: create and retrieve an assessment; save profile and plan adaptive questions; save five steps/answers and analyze; generate an evidence plan; upload a small fixture or mark every request unavailable; analyze; plan and answer clarifications; complete; retrieve the result; assert gap/strength/cost/disclaimer. A test-only injected provider returns a schema-valid concern observation to prove the endpoint metadata matches its exact `ai_runs` row, concern persists without polarity conversion, and the existing requirement engine treats a clear concern as a gap. The test also asserts the chilli-paste score remains `32.0000` raw and `32` displayed. Attempting process before profile must return 409. Validation, 404, 413, and 415 envelopes and correlation IDs are checked.
+### Current paths
+
+- Create/retrieve assessment and legacy profile → process → evidence → clarification → result.
+- Test-only provider concern observation persists unchanged, matches its exact `ai_runs` row, and follows existing evaluation rules.
+- Categories/products/schemes/requirements endpoints return seeded data.
+- Product-quality business profile links product; process-management profile resolves Track 2.
+- Applicability only returns supplied schemes and exact provider/fallback metadata.
+- Invalid transitions, UUIDs, upload type/size and validation use the shared envelope.
+
+### Required end-to-end API paths
+
+- Track 1: select Fresh Fruit Cordial → profile → applicability → choose SLS scheme/version → requirements → process/evidence → clarification → complete → source-linked result.
+- Track 2 domestic: profile → GMP/HACCP/ISO decisions → selected scheme assessment → result.
+- Track 2 export/supermarket: different deterministic applicability tier ordering and distinct result requirements.
+- Cross-scheme question/evidence/requirement IDs return a safe validation/conflict error.
+- Re-running completion is idempotent and catalogue changes do not mutate stored results.
+- PDF response matches stored result/version and contains the disclaimer.
 
 ## Frontend component tests
 
-Vitest, Testing Library, and jsdom cover conditional profile Other input, exactly five process controls and the three-step rule, evidence “I do not have this” behavior, provider/fallback labels, accessible polarity icons and text, confidence bands, defensive unknown polarity, result sections/cost/disclaimer, loading/duplicate prevention, and API validation display.
+Maintain existing profile/process/evidence/result/provider/polarity/error/loading tests. Add:
 
-## Local end-to-end happy path
+- API-driven track chips and empty/error fallback;
+- category/product selection and Track 2 direct entry;
+- applicability tier grouping, recommended path, source/reference expander, provider/fallback, and unverified banner;
+- scheme/version requirement overview;
+- requirement-tagged evidence and unavailable behavior;
+- dynamic scheme categories instead of legacy fixed categories;
+- grouped cost types/payers and source dates;
+- My Assessments stale-link handling and PDF download state.
 
-Playwright runs against local frontend/backend in mock mode. It starts at `/`, loads or enters the chilli-paste workflow, reaches the result, and verifies a numeric readiness score, at least one confirmed strength, at least one gap, an LKR cost range, and the non-certification disclaimer. The backend integration flow is also executable without a browser through `scripts/check_local.sh`.
+All state treatments require visible text/icon, keyboard access, and mobile layout coverage where supported.
 
-## Failure scenarios
+## Browser E2E
 
-- Database unavailable at `/ready`.
-- Invalid UUID or missing assessment.
-- Refresh at every page and direct access to a future page.
-- Duplicate submission and invalid state transition.
-- Missing conditional Other text, fewer than three process steps, unassigned question answer.
-- Oversized, unsupported, extension/MIME-mismatched, and traversal-like filename uploads.
-- Unresolved evidence request before analysis.
-- Gemini timeout, invalid JSON, unknown whitelisted ID, retry, fallback enabled/disabled.
-- Missing catalogue price or invalid requirement configuration.
-- Result requested before completion.
+Run against real FastAPI, PostgreSQL, migrations, deterministic seed, Next.js, and Mock AI:
 
-## Manual demo checklist
+1. Fresh Fruit Cordial/SLS canonical sample to result.
+2. Manual Track 1 evidence path with at least one support/concern/unclear observation and confidence/provider label.
+3. Track 2 domestic flow.
+4. Track 2 export/supermarket flow, proving HACCP/ISO recommendations differ appropriately.
+5. Refresh/resume at Hub/evidence/result and browser-local My Assessments when implemented.
 
-1. Start PostgreSQL, migrate/seed, backend, and frontend using documented commands.
-2. Confirm landing content, single primary action, disclaimer, mobile layout, and completion-time estimate.
-3. Start a blank assessment; submit one invalid profile and confirm field feedback.
-4. Complete profile, observe AI loading, and see two-to-five adaptive MCQs.
-5. Confirm five process inputs, enter at least three, and continue.
-6. Upload a supported small image/PDF if requested; mark other slots unavailable; reject an unsupported file.
-7. Confirm three-to-five clarification questions and complete.
-8. Inspect separate readiness/completeness, six categories, strengths/gaps/unknowns, roadmap costs/gains/projections, and disclaimer.
-9. Refresh and confirm result recovery.
-10. Load the sample from landing and result pages and confirm the same completed workflow shape.
+The current chilli-paste browser test stays until the new canonical sample replaces it; then it moves to legacy regression or is retired deliberately.
 
-## CI and production-delivery checks
+## Failure and safety scenarios
 
-- CI repeats backend format/lint/type/test and frontend audit/lint/type/component/build gates on every pull request and main push.
-- CI runs the Playwright chilli-paste happy path against real FastAPI, Next.js, PostgreSQL, Alembic, and deterministic mock AI processes.
-- Both production Dockerfiles must build from clean contexts; production Compose must interpolate and validate using the example environment.
-- Deployment is eligible only after successful main-branch push CI and uses the exact tested commit as both GHCR application image tags.
-- Before public release, validate Nginx TLS configuration, Certbot dry-run renewal, private service port isolation, persistent volume names, pre-deploy backup hashes, explicit migration/seed completion, and application rollback without volume deletion.
-- The public smoke check covers `/`, `/api/v1/health`, `/api/v1/ready`, the sample result, one strength, one gap, one LKR range, and the certification disclaimer.
-- Quarterly restore drills verify both PostgreSQL and upload archives on a non-production host.
-- Terraform changes run `terraform fmt -check -recursive` and `terraform validate`; provider selections remain locked in `.terraform.lock.hcl`.
-- Before every Terraform apply, review the plan for the expected single EC2/EBS/EIP topology, exact OIDC subject, instance-scoped SSM permission, and absence of application secrets or unexpected paid services.
-- After apply, verify SSM connectivity, encrypted EBS, IMDSv2, 80/443-only ingress, DNS/EIP alignment, protected host environment ownership, certificate issuance, GitHub environment outputs, and the unchanged public sample workflow.
+- Database/catalogue unavailable or unseeded.
+- No schemes for a product/track; invalid track filter; missing product/profile/scheme/version.
+- Model returns unknown scheme/question/evidence/requirement/source IDs, malformed JSON, or fabricated fields.
+- Gemini timeout/invalid response with fallback enabled and disabled.
+- Prompt-injection text in PDF/image metadata.
+- Unsupported, oversized, signature-mismatched, traversal-like or cross-assessment uploads.
+- Unverified content accidentally rendered without warning.
+- Missing/invalid weight total or catalogue price.
+- Catalogue update while an assessment is in progress.
+- Migration failure, insufficient disk, unhealthy release, rollback, and restore.
+
+## Manual acceptance checklist
+
+1. Confirm Home shows both tracks from API data and the readiness disclaimer.
+2. Complete Track 1 selection/profile/applicability and inspect recommended-path grounding.
+3. Confirm the Hub shows the selected scheme/version and unverified/verified state.
+4. Inspect only that scheme’s requirements, sources and clauses.
+5. Upload supported synthetic evidence, mark one unavailable, and reject an invalid file.
+6. Confirm observation polarity, confidence, provider/fallback and source context.
+7. Complete clarification/result and inspect status separation, scheme categories, grouped costs, gains, projections and disclaimer.
+8. Export the PDF and compare it to the stored UI result.
+9. Complete Track 2 domestic and export cases and confirm distinct recommendations/requirements.
+10. Refresh/resume and verify no credentials, prompts, raw evidence or internal errors are exposed.
+
+## CI and release gates
+
+- Backend Ruff, mypy, pytest, audit and Bandit.
+- Frontend audit, ESLint, TypeScript, Vitest and production build.
+- PostgreSQL browser E2E with Mock AI.
+- Alembic upgrade from empty and production-like previous schema plus idempotent seed/import.
+- Terraform formatting/validation, clean production image builds and Compose interpolation.
+- Pre-deploy backup, immutable tested SHA, explicit migration/import, public HTTPS health and workflow smoke, rollback without volume deletion.
+- Periodic off-host backup/restore rehearsal.
+
+No failing or skipped critical gate may be bypassed to deploy.
