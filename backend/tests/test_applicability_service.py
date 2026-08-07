@@ -166,12 +166,8 @@ async def test_track2_export_manufacturer_gets_iso_recommended(db: Session) -> N
 
     # For export+supermarket: HACCP must be market_required
     if "SLS_HACCP" in decision_map:
-        assert decision_map["SLS_HACCP"].tier == "market_required", (
-            f"Expected market_required for HACCP, got {decision_map['SLS_HACCP'].tier}"
-        )
+        assert decision_map["SLS_HACCP"].tier == "market_required"
 
     # For export market: ISO 22000 must be recommended
     if "ISO_22000" in decision_map:
-        assert decision_map["ISO_22000"].tier == "recommended", (
-            f"Expected recommended for ISO 22000 given export market, got {decision_map['ISO_22000'].tier}"
-        )
+        assert decision_map["ISO_22000"].tier == "recommended"
