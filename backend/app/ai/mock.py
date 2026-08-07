@@ -132,9 +132,7 @@ class MockAIProvider:
         targets_export = "export" in market
 
         # Determine track context from supplied scheme IDs
-        is_process_track = any(
-            sid in supplied_ids for sid in ("SLS_GMP", "SLS_HACCP", "ISO_22000")
-        )
+        is_process_track = any(sid in supplied_ids for sid in ("SLS_GMP", "SLS_HACCP", "ISO_22000"))
 
         for scheme in schemes:
             sid = scheme["id"]
@@ -303,19 +301,13 @@ class MockAIProvider:
 
         # Build overall reasoning for the response
         if is_process_track:
-            overall = (
-                "Based on your business profile, GMP Certification is recommended as your foundation. "
-            )
+            overall = "Based on your business profile, GMP Certification is recommended as your foundation. "
             if targets_formal_market:
                 overall += "HACCP Certification is required for your supermarket or export market targets. "
             if targets_export:
-                overall += (
-                    "ISO 22000:2018 is strongly recommended to meet your export market requirements."
-                )
+                overall += "ISO 22000:2018 is strongly recommended to meet your export market requirements."
             else:
-                overall += (
-                    "ISO 22000 is available as an optional international standard if you plan to export."
-                )
+                overall += "ISO 22000 is available as an optional international standard if you plan to export."
         else:
             overall = (
                 "Based on the submitted business profile and product, two certification "

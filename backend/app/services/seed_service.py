@@ -942,7 +942,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             mandatory_tier=MandatoryTier.MARKET_REQUIRED,
             applicability_rule={
                 "market": ["supermarket", "institutional", "export"],
-                "mandatory_note": "Required by all major Sri Lankan supermarket chains, government institutional food contracts, and most export markets. Prerequisite for ISO 22000."
+                "mandatory_note": "Required by all major Sri Lankan supermarket chains, government institutional food contracts, and most export markets. Prerequisite for ISO 22000.",
             },
             category_weights=haccp_weights,
             summary="HACCP (Hazard Analysis and Critical Control Points) certification issued by SLSI. A science-based systematic approach to identifying and controlling food safety hazards. Required by supermarkets, hotels, and all export markets.",
@@ -1197,7 +1197,6 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             )
         )
 
-
     haccp_costs = [
         (
             "COST_HACCP_SLSI_FEE",
@@ -1309,7 +1308,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             mandatory_tier=MandatoryTier.OPTIONAL,
             applicability_rule={
                 "market": ["export"],
-                "note": "Strongly recommended for export to regulated markets (EU, US, AU, Middle East). Internationally recognised FSMS standard. Builds on HACCP and GMP."
+                "note": "Strongly recommended for export to regulated markets (EU, US, AU, Middle East). Internationally recognised FSMS standard. Builds on HACCP and GMP.",
             },
             category_weights=iso_weights,
             summary="ISO 22000:2018 specifies requirements for a Food Safety Management System (FSMS). It integrates GMP, HACCP, and management system requirements. Required or strongly preferred by most regulated export markets and global retail buyers.",
@@ -1585,7 +1584,6 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 active=True,
             )
         )
-
 
     iso_costs = [
         (
