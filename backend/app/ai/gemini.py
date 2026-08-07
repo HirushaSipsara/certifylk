@@ -86,9 +86,7 @@ class GeminiAIProvider:
                 "x-goog-request-id"
             )
             suffix = f" (request {request_id})" if request_id else ""
-            raise GeminiProviderError(
-                f"Gemini returned HTTP {response.status_code}{suffix}"
-            )
+            raise GeminiProviderError(f"Gemini returned HTTP {response.status_code}{suffix}")
 
         try:
             data = response.json()

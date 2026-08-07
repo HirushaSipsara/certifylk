@@ -17,6 +17,7 @@ def require_clean_model_text(value: str) -> str:
         raise ValueError("Model text must not be empty")
     return cleaned
 
+
 ProcessTag = Literal[
     "receiving",
     "supplier_control",

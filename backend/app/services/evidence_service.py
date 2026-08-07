@@ -153,9 +153,7 @@ async def analyze_uploaded_evidence(
                 data_base64=base64.b64encode(data).decode("ascii"),
             )
         )
-    request_requirements = {
-        item.request_id: set(item.requirement_ids) for item in evidence_inputs
-    }
+    request_requirements = {item.request_id: set(item.requirement_ids) for item in evidence_inputs}
     allowed_requirements = {
         requirement_id
         for requirement_ids in request_requirements.values()

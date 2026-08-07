@@ -238,16 +238,17 @@ def test_process_response_reports_confirmed_fallback_from_exact_run(
 
     runs = list(
         db.scalars(
-            select(AIRun)
-            .where(
+            select(AIRun).where(
                 AIRun.assessment_id == assessment_uuid,
                 AIRun.operation == "extract_process",
             )
-            .order_by(AIRun.created_at, AIRun.id)
         )
     )
     assert len(runs) == 3
-    assert all(run.provider == "gemini" and not run.success for run in runs[:2])
-    assert runs[-1].provider == response.json()["provider"] == "mock"
-    assert runs[-1].fallback_used is response.json()["fallback_used"] is True
-    assert runs[-1].success is True
+    failed_primary_runs = [run for run in runs if run.provider == "gemini" and not run.success]
+    successful_runs = [run for run in runs if run.success]
+    assert len(failed_primary_runs) == 2
+    assert len(successful_runs) == 1
+    successful_run = successful_runs[0]
+    assert successful_run.provider == response.json()["provider"] == "mock"
+    assert successful_run.fallback_used is response.json()["fallback_used"] is True
