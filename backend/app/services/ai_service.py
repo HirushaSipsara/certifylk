@@ -85,9 +85,10 @@ async def run_with_validation(
     call: Callable[[AIProvider], Awaitable[OutputT]],
     validate: Callable[[OutputT], None] | None = None,
     settings: Settings | None = None,
+    provider_override: AIProvider | None = None,
 ) -> AIExecutionResult[OutputT]:
     config = settings or get_settings()
-    primary = get_ai_provider(config)
+    primary = provider_override or get_ai_provider(config)
     attempts = 2 if primary.name == "gemini" else 1
     last_error: Exception | None = None
     for _ in range(attempts):

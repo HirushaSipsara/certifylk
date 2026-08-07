@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    Assessment,
+    AssessmentQuestion,
     AssessmentResult,
     Category,
     CertificationBody,
@@ -14,7 +16,7 @@ from app.models import (
     SchemeRequirement,
     SourceDocument,
 )
-from app.models.enums import AssessmentStatus
+from app.models.enums import AssessmentStatus, QuestionPage
 from app.services.assessment_service import create_assessment
 from app.services.result_service import generate_scheme_result, serialize_result
 from app.services.seed_service import seed_initial_knowledge_base
@@ -28,6 +30,18 @@ async def test_historical_snapshot_immutability(db_session: Session):
     assessment = create_assessment(db_session)
     assessment.scheme_id = "SLS_MARK_CORDIAL"
     assessment.status = AssessmentStatus.READY_TO_SCORE
+    question = db_session.query(QuestionBank).first()
+    assert question is not None
+    db_session.add(
+        AssessmentQuestion(
+            assessment_id=assessment.id,
+            question_id=question.id,
+            page=QuestionPage.CLARIFICATION,
+            display_order=1,
+            answered=True,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
     db_session.flush()
 
     initial_result = await generate_scheme_result(db_session, assessment)

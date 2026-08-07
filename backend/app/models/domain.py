@@ -592,4 +592,3 @@ class SchemeCostItem(Base):
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_reviewed: Mapped[date] = mapped_column(Date, nullable=False)
     is_quote_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-

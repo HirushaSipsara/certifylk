@@ -236,8 +236,6 @@ def upgrade() -> None:
         sa.Column("gaps", sa.JSON(), nullable=False),
         sa.Column("unknowns", sa.JSON(), nullable=False),
         sa.Column("cost_summary", sa.JSON(), nullable=False),
-        sa.Column("roadmap_snapshot", sa.JSON(), nullable=False),
-        sa.Column("scheme_id", sa.String(64), nullable=True),
         sa.Column("scoring_version", sa.String(30), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -246,17 +244,21 @@ def upgrade() -> None:
         sa.UniqueConstraint("assessment_id"),
     )
     op.create_index("ix_assessment_results_assessment_id", "assessment_results", ["assessment_id"])
-    op.create_index("ix_assessment_results_scheme_id", "assessment_results", ["scheme_id"])
 
     op.create_table(
         "roadmap_items",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("result_id", sa.Uuid(), nullable=False),
+        sa.Column("assessment_id", sa.Uuid(), nullable=False),
         sa.Column("recommendation_id", sa.String(64), nullable=False),
-        sa.Column("priority", sa.Integer(), nullable=False),
-        sa.Column("expected_gain", sa.Numeric(6, 3), nullable=False),
-        sa.Column("projected_score", sa.Integer(), nullable=False),
-        sa.Column("explanation", sa.String(500), nullable=False),
+        sa.Column("display_order", sa.Integer(), nullable=False),
+        sa.Column("priority_tier", sa.Integer(), nullable=False),
+        sa.Column("expected_gain", sa.Numeric(7, 3), nullable=False),
+        sa.Column("projected_score_raw", sa.Numeric(8, 4), nullable=False),
+        sa.Column("cost_snapshot", sa.JSON(), nullable=False),
+        sa.Column("explanation", sa.String(1000), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["assessment_id"], ["assessments.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["recommendation_id"], ["recommendations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["result_id"], ["assessment_results.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -268,22 +270,21 @@ def upgrade() -> None:
     op.create_table(
         "ai_runs",
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("assessment_id", sa.Uuid(), nullable=False),
-        sa.Column("operation", sa.String(64), nullable=False),
+        sa.Column("assessment_id", sa.Uuid(), nullable=True),
+        sa.Column("operation", sa.String(80), nullable=False),
         sa.Column("provider", sa.String(30), nullable=False),
-        sa.Column("model", sa.String(80), nullable=False),
-        sa.Column("input_payload", sa.JSON(), nullable=False),
-        sa.Column("output_payload", sa.JSON(), nullable=False),
-        sa.Column("tokens_used", sa.Integer(), nullable=True),
+        sa.Column("model", sa.String(100), nullable=False),
         sa.Column("latency_ms", sa.Integer(), nullable=False),
+        sa.Column("success", sa.Boolean(), nullable=False),
         sa.Column("fallback_used", sa.Boolean(), nullable=False, server_default="0"),
         sa.Column("error_message", sa.String(1000), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["assessment_id"], ["assessments.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["assessment_id"], ["assessments.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_ai_runs_assessment_id", "ai_runs", ["assessment_id"])
     op.create_index("ix_ai_runs_operation", "ai_runs", ["operation"])
+    op.create_index("ix_ai_runs_operation_created", "ai_runs", ["operation", "created_at"])
 
 
 def downgrade() -> None:

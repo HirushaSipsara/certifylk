@@ -38,6 +38,12 @@ def db() -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
+def db_session(db: Session) -> Session:
+    """Compatibility alias for service-level integration tests."""
+    return db
+
+
+@pytest.fixture()
 def client(db: Session) -> Generator[TestClient, None, None]:
     def override_db() -> Generator[Session, None, None]:
         yield db

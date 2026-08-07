@@ -127,7 +127,9 @@ def build_evidence_plan(db: Session, assessment: Assessment) -> list[EvidenceReq
                 request = EvidenceRequest(
                     assessment_id=assessment.id,
                     evidence_type=f"ev_{req.id.lower()}",
-                    kind=EvidenceKind.DOCUMENT if "doc" in req.category_label.lower() else EvidenceKind.PHOTO,
+                    kind=EvidenceKind.DOCUMENT
+                    if "doc" in req.category_label.lower()
+                    else EvidenceKind.PHOTO,
                     title=f"Evidence for {req.title}",
                     requirement_ids=[req.id],
                     required=req.safety_critical,

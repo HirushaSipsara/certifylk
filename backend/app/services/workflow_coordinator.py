@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import Assessment, EvidenceFile, EvidenceRequest
 from app.models.enums import CertificationTrack
 from app.schemas.ai import ApplicabilityDecisionOutput
-from app.schemas.assessment import ClarificationInput, ProcessInput
+from app.schemas.assessment import ClarificationInput, ProcessInput, ProfileInput
 from app.services.applicability_service import run_applicability_agent
 from app.services.assessment_service import create_assessment, get_assessment
 from app.services.clarification_service import save_clarification_answers
@@ -28,7 +28,7 @@ from app.services.process_service import (
     extract_structured_process,
     save_adaptive_answers,
 )
-from app.services.profile_service import update_assessment_profile
+from app.services.profile_service import save_profile_answers
 from app.services.result_service import generate_result, generate_scheme_result
 from app.storage import StorageProvider
 
@@ -37,8 +37,8 @@ class AssessmentWorkflowCoordinator:
     """Typed application service for coordinating assessment lifecycle."""
 
     @staticmethod
-    def create_assessment(db: Session, product_id: uuid.UUID | None = None) -> Assessment:
-        return create_assessment(db, product_id=product_id)
+    def create_assessment(db: Session) -> Assessment:
+        return create_assessment(db)
 
     @staticmethod
     def get_assessment(db: Session, assessment_id: uuid.UUID) -> Assessment:
@@ -47,7 +47,7 @@ class AssessmentWorkflowCoordinator:
     @staticmethod
     def update_profile(db: Session, assessment_id: uuid.UUID, data: dict[str, Any]) -> Assessment:
         assessment = get_assessment(db, assessment_id)
-        return update_assessment_profile(db, assessment, data)
+        return save_profile_answers(db, assessment, ProfileInput.model_validate(data))
 
     @staticmethod
     async def run_applicability(

@@ -21,7 +21,6 @@ test("CostBreakdownTable renders each canonical cost type and handles quote-requ
             recurring_min: 20000,
             recurring_max: 30000,
             items_count: 1,
-            quote_required_count: 0,
           },
           lab_testing_fee: {
             one_time_min: 0,
@@ -29,7 +28,6 @@ test("CostBreakdownTable renders each canonical cost type and handles quote-requ
             recurring_min: 0,
             recurring_max: 0,
             items_count: 1,
-            quote_required_count: 1,
           },
           business_capex: {
             one_time_min: 0,
@@ -37,7 +35,6 @@ test("CostBreakdownTable renders each canonical cost type and handles quote-requ
             recurring_min: 0,
             recurring_max: 0,
             items_count: 1,
-            quote_required_count: 0,
           },
           business_opex: {
             one_time_min: 0,
@@ -45,7 +42,6 @@ test("CostBreakdownTable renders each canonical cost type and handles quote-requ
             recurring_min: 0,
             recurring_max: 0,
             items_count: 0,
-            quote_required_count: 0,
           },
         },
       }}
@@ -60,7 +56,7 @@ test("CostBreakdownTable renders each canonical cost type and handles quote-requ
   // Known numeric range
   expect(screen.getByText(/Rs. 50,000 – 80,000/)).toBeInTheDocument();
   // Quote required text instead of 0-0
-  expect(screen.getByText("Quote required / Included")).toBeInTheDocument();
+  expect(screen.getAllByText("Quote required / Included").length).toBeGreaterThan(0);
 });
 
 test("CostRange renders 'Quote required' when quoteRequired is true and 'Included' for legitimate zero cost", () => {

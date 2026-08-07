@@ -127,7 +127,7 @@ class MockAIProvider:
         decisions: list[SchemeDecision] = []
         recommended_id: str | None = None
 
-        market: list[str] = business_profile.get("market", [])
+        market = {str(value).strip().lower() for value in business_profile.get("market", [])}
         targets_formal_market = any(m in market for m in ("supermarket", "export", "institutional"))
         targets_export = "export" in market
 
@@ -257,6 +257,7 @@ class MockAIProvider:
                             source_reference="applicability_rule.note — Recommended for export to regulated markets.",
                         )
                     )
+                    recommended_id = sid
                 else:
                     decisions.append(
                         SchemeDecision(

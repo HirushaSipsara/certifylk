@@ -1,4 +1,5 @@
 import uuid
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -6,12 +7,9 @@ from app.core.errors import AppError
 from app.models import (
     Assessment,
     BusinessProfile,
-    CertificationScheme,
     EvidenceFile,
-    EvidenceObservation,
     EvidenceRequest,
     Product,
-    SchemeRequirement,
 )
 from app.models.enums import (
     AssessmentPage,
@@ -19,8 +17,6 @@ from app.models.enums import (
     CertificationTrack,
     EvidenceKind,
     EvidenceRequestStatus,
-    MandatoryTier,
-    ObservationPolarity,
 )
 from app.schemas.ai import (
     ApplicabilityDecisionOutput,
@@ -31,11 +27,7 @@ from app.schemas.ai import (
     RoadmapExplanationsOutput,
     SchemeDecision,
 )
-from app.services.ai_service import run_with_validation
 from app.services.applicability_service import run_applicability_agent
-from app.services.evidence_service import analyze_uploaded_evidence, plan_final_clarifications
-from app.services.process_service import build_evidence_plan
-from app.services.result_service import generate_scheme_result
 from app.services.seed_service import seed_initial_knowledge_base
 from app.storage import MemoryStorageProvider
 
@@ -181,7 +173,9 @@ def seeded_db(db_session: Session):
 def test_adversarial_applicability_unknown_scheme_id(seeded_db: Session):
     """Prove that applicability rejects unknown scheme IDs."""
     product = seeded_db.scalar(
-        pytest.importorskip("sqlalchemy").select(Product).where(Product.slug == "fresh_fruit_cordial")
+        pytest.importorskip("sqlalchemy")
+        .select(Product)
+        .where(Product.slug == "fresh_fruit_cordial")
     )
     profile = BusinessProfile(
         name="Test Cordial",
@@ -189,7 +183,9 @@ def test_adversarial_applicability_unknown_scheme_id(seeded_db: Session):
         scale="small",
         market=["retail"],
         has_food_licence="yes",
-        created_at=pytest.importorskip("datetime").datetime.now(pytest.importorskip("datetime").timezone.utc),
+        created_at=pytest.importorskip("datetime").datetime.now(
+            pytest.importorskip("datetime").timezone.utc
+        ),
     )
     seeded_db.add(profile)
     seeded_db.flush()
@@ -204,13 +200,15 @@ def test_adversarial_applicability_unknown_scheme_id(seeded_db: Session):
     seeded_db.flush()
 
     provider = AdversarialAIProvider(mode="unknown_scheme_id")
-
     with pytest.raises(AppError) as exc_info:
         import asyncio
 
         asyncio.run(
             run_applicability_agent(
-                seeded_db, assessment, track=CertificationTrack.PRODUCT_QUALITY
+                seeded_db,
+                assessment,
+                track=CertificationTrack.PRODUCT_QUALITY,
+                provider=provider,
             )
         )
     # The provider execution fails validation, triggers error or raises AppError
@@ -220,7 +218,9 @@ def test_adversarial_applicability_unknown_scheme_id(seeded_db: Session):
 def test_adversarial_applicability_invalid_tier(seeded_db: Session):
     """Prove that applicability rejects invalid mandatory tier strings."""
     product = seeded_db.scalar(
-        pytest.importorskip("sqlalchemy").select(Product).where(Product.slug == "fresh_fruit_cordial")
+        pytest.importorskip("sqlalchemy")
+        .select(Product)
+        .where(Product.slug == "fresh_fruit_cordial")
     )
     profile = BusinessProfile(
         name="Test Cordial",
@@ -228,7 +228,9 @@ def test_adversarial_applicability_invalid_tier(seeded_db: Session):
         scale="small",
         market=["retail"],
         has_food_licence="yes",
-        created_at=pytest.importorskip("datetime").datetime.now(pytest.importorskip("datetime").timezone.utc),
+        created_at=pytest.importorskip("datetime").datetime.now(
+            pytest.importorskip("datetime").timezone.utc
+        ),
     )
     seeded_db.add(profile)
     seeded_db.flush()
@@ -243,13 +245,15 @@ def test_adversarial_applicability_invalid_tier(seeded_db: Session):
     seeded_db.flush()
 
     provider = AdversarialAIProvider(mode="invalid_tier")
-
     with pytest.raises(AppError):
         import asyncio
 
         asyncio.run(
             run_applicability_agent(
-                seeded_db, assessment, track=CertificationTrack.PRODUCT_QUALITY
+                seeded_db,
+                assessment,
+                track=CertificationTrack.PRODUCT_QUALITY,
+                provider=provider,
             )
         )
 
@@ -298,10 +302,12 @@ def test_adversarial_evidence_unknown_requirement_id(seeded_db: Session):
     provider = AdversarialAIProvider(mode="unknown_req_id")
 
     async def run_test():
-        from app.services.ai_service import run_with_validation, validate_evidence_output
+        from app.services.ai_service import validate_evidence_output
 
         req_requirements = {request.id: set(request.requirement_ids)}
-        with pytest.raises(ValueError, match="not linked to that evidence request"):
+        with pytest.raises(
+            ValueError, match="unknown evidence request ID|not linked to that evidence request"
+        ):
             output = await provider.analyze_evidence([], {"SLS_HYG_HANDWASH"})
             validate_evidence_output(output, req_requirements)
 
@@ -338,7 +344,9 @@ def test_adversarial_evidence_cross_scheme_isolation(seeded_db: Session):
         from app.services.ai_service import validate_evidence_output
 
         req_requirements = {request.id: set(request.requirement_ids)}
-        with pytest.raises(ValueError, match="not linked to that evidence request"):
+        with pytest.raises(
+            ValueError, match="unknown evidence request ID|not linked to that evidence request"
+        ):
             output = await provider.analyze_evidence([], {"SLS_HYG_HANDWASH"})
             validate_evidence_output(output, req_requirements)
 

@@ -8,7 +8,7 @@ import { ErrorAlert } from "@/components/ErrorAlert";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { QuestionCard } from "@/components/QuestionCard";
 import { api, ApiError } from "@/lib/api";
-import type { Assessment, Question, SchemeChip } from "@/types";
+import type { Question, SchemeChip } from "@/types";
 
 export default function ClarificationPage() {
   const params = useParams<{ assessmentId: string }>();
@@ -158,7 +158,8 @@ export default function ClarificationPage() {
                   question={q}
                   value={answers[q.id]?.value ?? ""}
                   otherText={answers[q.id]?.other_text ?? ""}
-                  onChange={(val, oText) => handleAnswerChange(q.id, val, oText)}
+                  onChange={(val) => handleAnswerChange(q.id, val)}
+                  onOtherChange={(oText) => handleAnswerChange(q.id, "other", oText)}
                 />
               ))}
             </div>

@@ -28,7 +28,7 @@ from app.models import (
 from app.models.enums import AssessmentStatus
 from app.services.assessment_service import create_assessment
 from app.services.result_service import generate_scheme_result, serialize_result
-from app.services.seed_service import seed_initial_knowledge_base
+from app.services.seed_service import seed_catalogue
 
 
 def run_restore_drill():
@@ -39,7 +39,7 @@ def run_restore_drill():
     Base.metadata.create_all(engine_src)
 
     with Session(engine_src) as session_src:
-        seed_initial_knowledge_base(session_src)
+        seed_catalogue(session_src)
 
         # Complete a sample scheme assessment
         assessment = create_assessment(session_src)

@@ -1,3 +1,5 @@
+from typing import cast
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -41,7 +43,7 @@ def check_assessment_completeness(db: Session, assessment: Assessment) -> bool:
             AssessmentQuestion.page == QuestionPage.CLARIFICATION,
         )
     ).one()
-    return bool(total and total == answered)
+    return cast(int, total) == cast(int, answered)
 
 
 def ensure_assessment_complete(db: Session, assessment: Assessment) -> None:

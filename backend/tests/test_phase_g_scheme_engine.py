@@ -1,21 +1,21 @@
-import pytest
+import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
+
+import pytest
 from sqlalchemy.orm import Session
 
 from app.models import (
     Assessment,
+    AssessmentQuestion,
     CertificationScheme,
-    EvidenceExpectation,
-    SchemeCostItem,
+    QuestionBank,
     SchemeRequirement,
 )
-from app.models.enums import AssessmentStatus, RequirementStatus
+from app.models.enums import AssessmentStatus, QuestionPage, RequirementStatus
 from app.services.result_service import (
     EvaluatedRequirement,
-    _scheme_cost_summary,
-    _scheme_priority,
     generate_scheme_result,
-    serialize_result,
 )
 from app.services.seed_service import seed_initial_knowledge_base
 
@@ -31,12 +31,15 @@ async def test_all_active_schemes_category_weights_sum_to_100(db_session: Sessio
     for scheme in schemes:
         assert scheme.category_weights is not None
         total_weight = sum(Decimal(str(w)) for w in scheme.category_weights.values())
-        assert total_weight == Decimal("100"), f"Scheme {scheme.id} category weights sum to {total_weight}, expected 100"
+        assert total_weight == Decimal("100"), (
+            f"Scheme {scheme.id} category weights sum to {total_weight}, expected 100"
+        )
 
 
 def select_active_schemes():
     from sqlalchemy import select
-    return select(CertificationScheme).where(CertificationScheme.active == True)
+
+    return select(CertificationScheme).where(CertificationScheme.active)
 
 
 @pytest.mark.asyncio
@@ -46,11 +49,7 @@ async def test_scheme_requirement_weights_sum_to_category_weight(db_session: Ses
 
     schemes = list(db_session.scalars(select_active_schemes()))
     for scheme in schemes:
-        reqs = list(
-            db_session.scalars(
-                select_requirements_by_scheme(scheme.id)
-            )
-        )
+        reqs = list(db_session.scalars(select_requirements_by_scheme(scheme.id)))
         by_category: dict[str, Decimal] = {}
         for req in reqs:
             cat = req.category_label
@@ -65,6 +64,7 @@ async def test_scheme_requirement_weights_sum_to_category_weight(db_session: Ses
 
 def select_requirements_by_scheme(scheme_id: str):
     from sqlalchemy import select
+
     return select(SchemeRequirement).where(SchemeRequirement.scheme_id == scheme_id)
 
 
@@ -76,31 +76,36 @@ async def test_not_applicable_excluded_from_denominator(db_session: Session):
     req_active = EvaluatedRequirement(
         requirement_id="r1",
         title="Active Requirement",
-        category_label="Hygiene & Sanitation",
+        category="Hygiene & Sanitation",
         weight=Decimal("10.0"),
         safety_critical=False,
         status=RequirementStatus.CONFIRMED,
         multiplier=Decimal("1.0"),
+        evidence_references=[],
+        rationale="confirmed",
     )
     req_na = EvaluatedRequirement(
         requirement_id="r2",
         title="NA Requirement",
-        category_label="Hygiene & Sanitation",
+        category="Hygiene & Sanitation",
         weight=Decimal("10.0"),
         safety_critical=False,
         status=RequirementStatus.NOT_APPLICABLE,
         multiplier=Decimal("0.0"),
+        evidence_references=[],
+        rationale="not applicable",
     )
 
     # Hygiene & Sanitation category has 20 points configured
     # With req_na excluded from denominator, earned points (10/10) * 20 = 20 points
     evaluations = [req_active, req_na]
-    from app.services.result_service import _evaluate_scheme_categories
-    cat_weights = {"Hygiene & Sanitation": 20}
-    cat_scores = _evaluate_scheme_categories(evaluations, cat_weights)
+    from app.services.scoring_engine import calculate_category_scores
 
-    hyg_score = next(c for c in cat_scores if c.category == "Hygiene & Sanitation")
-    assert hyg_score.score == Decimal("20.0000")
+    cat_weights = {"Hygiene & Sanitation": 20}
+    cat_scores = calculate_category_scores(evaluations, cat_weights)
+
+    hyg_score = next(c for c in cat_scores if c["category"] == "Hygiene & Sanitation")
+    assert hyg_score["score_raw"] == Decimal("20.0000")
 
 
 @pytest.mark.asyncio
@@ -109,11 +114,23 @@ async def test_scheme_version_and_catalogue_revision_freezing(db_session: Sessio
     seed_initial_knowledge_base(db_session)
 
     assessment = Assessment(
-        id="test-freeze-assessment",
+        id=uuid.uuid4(),
         status=AssessmentStatus.READY_TO_SCORE,
         scheme_id="SLS_MARK_CORDIAL",
     )
     db_session.add(assessment)
+    question = db_session.query(QuestionBank).first()
+    assert question is not None
+    db_session.add(
+        AssessmentQuestion(
+            assessment_id=assessment.id,
+            question_id=question.id,
+            page=QuestionPage.CLARIFICATION,
+            display_order=1,
+            answered=True,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
     db_session.flush()
 
     result = await generate_scheme_result(db_session, assessment)

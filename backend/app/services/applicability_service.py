@@ -10,6 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.ai import AIProvider
 from app.core.errors import AppError, NotFoundError
 from app.models import Assessment, BusinessProfile
 from app.models.enums import CertificationTrack
@@ -89,7 +90,9 @@ def _validate_applicability_output(
     allowed_tiers = {"mandatory", "market_required", "recommended", "optional"}
     for d in output.decisions:
         if d.tier not in allowed_tiers:
-            raise ValueError(f"Invalid mandatory tier '{d.tier}' returned for scheme '{d.scheme_id}'")
+            raise ValueError(
+                f"Invalid mandatory tier '{d.tier}' returned for scheme '{d.scheme_id}'"
+            )
 
 
 async def run_applicability_agent(
@@ -97,6 +100,7 @@ async def run_applicability_agent(
     assessment: Assessment,
     *,
     track: CertificationTrack | None = None,
+    provider: AIProvider | None = None,
 ) -> ApplicabilityDecisionOutput:
     """Run the Applicability Reasoning Agent for a given assessment.
 
@@ -170,6 +174,7 @@ async def run_applicability_agent(
             business_profile_dict, product_dict, scheme_payloads
         ),
         validate=validate,
+        provider_override=provider,
     )
 
     decision = result.output

@@ -572,6 +572,76 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             )
         )
 
+    caa_req_data = [
+        (
+            "CAA_LABEL_INFO",
+            "Labelling Compliance",
+            "Required label information is prepared",
+            "Product labels should include the required identity, ingredients, net contents, dates, and manufacturer details for review by the relevant authority.",
+            40.0,
+            True,
+            {
+                "profile_field": "label_readiness",
+                "confirmed": ["complete"],
+                "partial": ["some_details"],
+                "gap": ["name_only"],
+            },
+            1,
+        ),
+        (
+            "CAA_PRODUCT_DETAILS",
+            "Product Standards",
+            "Product information and formulation records are available",
+            "Maintain a product description and formulation record that can be presented during registration or inspection.",
+            30.0,
+            False,
+            {
+                "profile_field": "product_records",
+                "confirmed": ["available"],
+                "partial": ["partial"],
+                "gap": ["none"],
+            },
+            2,
+        ),
+        (
+            "CAA_BUSINESS_REG",
+            "Business Registration",
+            "Food business registration evidence is available",
+            "Keep current business and local food-authority registration evidence for the manufacturing premises.",
+            30.0,
+            True,
+            {
+                "profile_field": "has_food_licence",
+                "confirmed": ["yes"],
+                "partial": ["not_sure"],
+                "gap": ["no"],
+            },
+            3,
+        ),
+    ]
+    for rid, cat_lbl, title, desc, weight, safety, rule, dorder in caa_req_data:
+        db.merge(
+            SchemeRequirement(
+                id=rid,
+                scheme_id="CAA_FOOD_REG",
+                category_label=cat_lbl,
+                title=title,
+                description=desc,
+                weight=Decimal(str(weight)),
+                safety_critical=safety,
+                source_document="Food Act No. 26 of 1980 / CAA guidance (draft)",
+                source_document_id="SRC_CAA_FOOD_REG_DRAFT",
+                clause_reference="Verification pending primary source review",
+                source_url="https://www.caa.gov.lk",
+                content_verified=False,
+                standard_version="draft-2026-08",
+                effective_date=REVIEWED,
+                evaluation_rule=rule,
+                display_order=dorder,
+                active=True,
+            )
+        )
+
     # 8 Cost items
     cost_items = [
         (
@@ -1809,6 +1879,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             )
         )
 
+    _normalize_scheme_requirement_weights(db)
     _seed_evidence_expectations(db)
 
     db.commit()
@@ -1817,6 +1888,11 @@ def seed_catalogue(db: Session) -> dict[str, int]:
         "questions": len(QUESTION_BANK),
         "recommendations": len(RECOMMENDATIONS),
     }
+
+
+def seed_initial_knowledge_base(db: Session) -> dict[str, int]:
+    """Backward-compatible name used by older tests and operational scripts."""
+    return seed_catalogue(db)
 
 
 def _evidence_kind_for_requirement(requirement: SchemeRequirement) -> str:
@@ -1829,7 +1905,30 @@ def _evidence_kind_for_requirement(requirement: SchemeRequirement) -> str:
         return "document"
     if any(term in text for term in ("label", "packaging", "storage", "premises", "facility")):
         return "photo"
-    return "declaration"
+    return "document"
+
+
+def _normalize_scheme_requirement_weights(db: Session) -> None:
+    """Keep seeded requirement weights aligned with each scheme's category contract."""
+    schemes = list(
+        db.scalars(select(CertificationScheme).where(CertificationScheme.active.is_(True)))
+    )
+    for scheme in schemes:
+        requirements = list(
+            db.scalars(
+                select(SchemeRequirement)
+                .where(SchemeRequirement.scheme_id == scheme.id, SchemeRequirement.active.is_(True))
+                .order_by(SchemeRequirement.display_order)
+            )
+        )
+        for category, target in scheme.category_weights.items():
+            members = [item for item in requirements if item.category_label == category]
+            if not members:
+                continue
+            current = sum((Decimal(item.weight) for item in members), Decimal("0"))
+            difference = Decimal(str(target)) - current
+            if difference:
+                members[-1].weight = Decimal(members[-1].weight) + difference
 
 
 def _seed_evidence_expectations(db: Session) -> None:

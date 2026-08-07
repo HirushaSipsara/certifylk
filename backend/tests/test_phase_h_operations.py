@@ -1,11 +1,5 @@
-import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-
-
-def test_health_endpoint_response_schema():
+def test_health_endpoint_response_schema(client):
     """Verify GET /api/v1/health returns status, service, version, and release_sha without exposing secrets."""
-    client = TestClient(app)
     response = client.get("/api/v1/health")
     assert response.status_code == 200
 
@@ -20,9 +14,8 @@ def test_health_endpoint_response_schema():
     assert keys == {"status", "service", "version", "release_sha"}
 
 
-def test_ready_endpoint_database_liveness():
+def test_ready_endpoint_database_liveness(client):
     """Verify GET /api/v1/ready returns database liveness state."""
-    client = TestClient(app)
     response = client.get("/api/v1/ready")
     assert response.status_code == 200
 

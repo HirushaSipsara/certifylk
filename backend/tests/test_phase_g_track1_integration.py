@@ -1,7 +1,8 @@
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Assessment, CertificationScheme, Product, SchemeRequirement
+from app.models import AssessmentQuestion, CertificationScheme, Product, SchemeRequirement
 from app.models.enums import AssessmentStatus
 from app.services.assessment_service import create_assessment
 from app.services.evidence_service import (
@@ -40,7 +41,7 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
         "business_type": "Formal Enterprise",
         "scale": "Small",
         "market": ["Domestic Supermarkets"],
-        "product_id": product.id if product else "PROD_CORDIAL",
+        "product_id": str(product.id) if product else "PROD_CORDIAL",
         "product_name": "Fresh Fruit Cordial",
     }
     db_session.flush()
@@ -48,7 +49,11 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     assert assessment.scheme_id == "SLS_MARK_CORDIAL"
 
     # Verify all scheme requirements belong to SLS_MARK_CORDIAL
-    scheme_req_ids = {r.id for r in scheme.requirements}
+    scheme_req_ids = set(
+        db_session.scalars(
+            select(SchemeRequirement.id).where(SchemeRequirement.scheme_id == scheme.id)
+        )
+    )
 
     # 2. Save production process steps & extract structured process
     save_process_steps(
@@ -62,6 +67,7 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
             "Storage and local retail distribution",
         ],
     )
+    assessment.status = AssessmentStatus.PROCESS_COMPLETE
     await extract_structured_process(db_session, assessment)
 
     # 3. Build scheme evidence plan
@@ -71,17 +77,25 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     # Assert evidence expectation requirement IDs belong to selected scheme
     for req in requests:
         for r_id in req.requirement_ids:
-            assert r_id in scheme_req_ids, f"Evidence request requirement {r_id} does not belong to scheme {scheme.id}"
+            assert r_id in scheme_req_ids, (
+                f"Evidence request requirement {r_id} does not belong to scheme {scheme.id}"
+            )
 
     # 4. Submit evidence (mark unavailable) & analyze evidence
-    mark_evidence_unavailable(db_session, assessment, requests[0].id)
+    for request in requests:
+        mark_evidence_unavailable(db_session, assessment, request)
     await analyze_uploaded_evidence(db_session, assessment, MemoryStorageProvider())
 
     # 5. Build clarification plan and explicitly verify clarification state handling
     clarification_plan = await plan_final_clarifications(db_session, assessment)
+    for assigned in db_session.scalars(
+        select(AssessmentQuestion).where(AssessmentQuestion.assessment_id == assessment.id)
+    ):
+        assigned.answered = True
+    db_session.flush()
 
     # Verify clarification question IDs belong strictly to candidate question bank
-    for q in clarification_plan.questions:
+    for q in clarification_plan:
         assert q.id is not None
 
     # Assert valid state transition after clarification planning

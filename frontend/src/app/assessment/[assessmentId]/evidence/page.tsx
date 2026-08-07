@@ -10,7 +10,7 @@ import { ErrorAlert } from "@/components/ErrorAlert";
 import { EvidenceObservationList } from "@/components/EvidenceObservationList";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { api, ApiError } from "@/lib/api";
-import type { Assessment, EvidenceObservation, EvidenceRequest, SchemeChip } from "@/types";
+import type { AIExecutionMetadata, EvidenceObservation, EvidenceRequest, SchemeChip } from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
@@ -20,7 +20,7 @@ export default function EvidencePage() {
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [requests, setRequests] = useState<EvidenceRequest[]>([]);
   const [observations, setObservations] = useState<EvidenceObservation[]>([]);
-  const [analysisProvider, setAnalysisProvider] = useState<{ provider: string; fallback_used: boolean } | null>(null);
+  const [analysisProvider, setAnalysisProvider] = useState<AIExecutionMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -89,10 +89,7 @@ export default function EvidencePage() {
     try {
       const result = await api.analyzeEvidence(assessmentId);
       setObservations(result.observations ?? []);
-      setAnalysisProvider({
-        provider: result.provider,
-        fallback_used: result.fallback_used,
-      });
+      setAnalysisProvider(result);
       setReviewMode(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Evidence analysis failed. Please try again.");
@@ -179,10 +176,10 @@ export default function EvidencePage() {
                 </p>
               </div>
               {analysisProvider && (
-                <AIAnalysisStatus
-                  provider={analysisProvider.provider}
-                  fallbackUsed={analysisProvider.fallback_used}
-                />
+                  <AIAnalysisStatus
+                    provider={analysisProvider.provider}
+                    fallback_used={analysisProvider.fallback_used}
+                  />
               )}
             </div>
 
@@ -241,11 +238,6 @@ export default function EvidencePage() {
                         )}
                       </div>
                       <h3 className="text-lg font-bold text-ink mt-1">{request.title}</h3>
-                      {request.requirement_ids && request.requirement_ids.length > 0 && (
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">
-                          Requirements: {request.requirement_ids.join(", ")}
-                        </p>
-                      )}
                     </div>
 
                     {/* Actions */}

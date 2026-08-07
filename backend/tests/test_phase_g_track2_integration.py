@@ -1,13 +1,15 @@
+import uuid
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models import Assessment, BusinessProfile, Product
+from app.models import BusinessProfile, SchemeRequirement
 from app.models.enums import AssessmentStatus
 from app.services.ai_service import MockAIProvider
 from app.services.applicability_service import run_applicability_agent
 from app.services.assessment_service import create_assessment
 from app.services.process_service import build_evidence_plan
-from app.services.result_service import generate_scheme_result, serialize_result
 from app.services.seed_service import seed_initial_knowledge_base
 
 
@@ -19,40 +21,42 @@ async def test_track2_domestic_vs_export_applicability(db_session: Session):
 
     # Case A: Domestic Supermarket Case
     profile_domestic = BusinessProfile(
-        id="bp_domestic",
+        id=uuid.uuid4(),
         name="Domestic Foods",
         business_type="Sole Proprietorship",
         scale="Micro",
         market=["Domestic Supermarkets"],
         existing_certifications=[],
         has_food_licence="yes",
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(profile_domestic)
 
     assessment_dom = create_assessment(db_session)
-    assessment_dom.profile_id = profile_domestic.id
+    assessment_dom.business_profile_id = profile_domestic.id
     db_session.flush()
 
-    res_dom = await run_applicability_agent(db_session, assessment_dom.id, provider=provider)
+    res_dom = await run_applicability_agent(db_session, assessment_dom, provider=provider)
     assert res_dom.recommended_path_scheme_id in {"SLS_GMP", "SLS_HACCP"}
 
     # Case B: Export Case
     profile_export = BusinessProfile(
-        id="bp_export",
+        id=uuid.uuid4(),
         name="Lanka Export Foods Ltd",
         business_type="Formal Enterprise",
         scale="Medium",
         market=["Export"],
         existing_certifications=["SLS_GMP", "SLS_HACCP"],
         has_food_licence="yes",
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(profile_export)
 
     assessment_exp = create_assessment(db_session)
-    assessment_exp.profile_id = profile_export.id
+    assessment_exp.business_profile_id = profile_export.id
     db_session.flush()
 
-    res_exp = await run_applicability_agent(db_session, assessment_exp.id, provider=provider)
+    res_exp = await run_applicability_agent(db_session, assessment_exp, provider=provider)
     assert res_exp.recommended_path_scheme_id == "ISO_22000"
 
 
@@ -65,18 +69,16 @@ async def test_track2_gmp_vs_iso22000_isolation(db_session: Session):
     assessment_iso = create_assessment(db_session)
     assessment_iso.scheme_id = "ISO_22000"
     assessment_iso.profile_data = {"name": "Export Factory", "scale": "Medium"}
+    assessment_iso.process_analysis = {"stages": [{"stage": "production"}]}
+    assessment_iso.status = AssessmentStatus.PROCESS_COMPLETE
     db_session.flush()
 
     requests = build_evidence_plan(db_session, assessment_iso)
     assert len(requests) > 0
 
     # Ensure all evidence requests belong to ISO_22000 requirements
-    from app.models import SchemeRequirement
-    iso_req_ids = set(
-        db_session.scalars(
-            select_scheme_req_ids("ISO_22000")
-        )
-    )
+
+    iso_req_ids = set(db_session.scalars(select_scheme_req_ids("ISO_22000")))
     for req in requests:
         for r_id in req.requirement_ids:
             assert r_id in iso_req_ids, f"Requirement {r_id} does not belong to ISO_22000"
@@ -84,4 +86,5 @@ async def test_track2_gmp_vs_iso22000_isolation(db_session: Session):
 
 def select_scheme_req_ids(scheme_id: str):
     from sqlalchemy import select
+
     return select(SchemeRequirement.id).where(SchemeRequirement.scheme_id == scheme_id)

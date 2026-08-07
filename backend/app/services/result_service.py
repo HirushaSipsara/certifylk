@@ -523,7 +523,9 @@ async def _scheme_roadmap_snapshot(
                 raise ValueError("Roadmap explanations must match supplied scheme cost IDs")
 
         try:
-            execution = await run_with_validation(db, assessment.id, "explain_roadmap", call, validate)
+            execution = await run_with_validation(
+                db, assessment.id, "explain_roadmap", call, validate
+            )
             explanations = {
                 item.recommendation_id: item.explanation for item in execution.output.explanations
             }
@@ -588,14 +590,24 @@ def _scheme_cost_summary(snapshots: list[dict[str, object]]) -> dict[str, object
         by_type[ctype]["items_count"] = cast(int, by_type[ctype]["items_count"]) + 1
 
         if is_quote:
-            by_type[ctype]["quote_required_count"] = cast(int, by_type[ctype]["quote_required_count"]) + 1
+            by_type[ctype]["quote_required_count"] = (
+                cast(int, by_type[ctype]["quote_required_count"]) + 1
+            )
         else:
             ot = cast(dict[str, object], item["one_time_cost"])
             rec = cast(dict[str, object], item["recurring_cost"])
-            by_type[ctype]["one_time_min"] = cast(int, by_type[ctype]["one_time_min"]) + _snapshot_int(ot["min"])
-            by_type[ctype]["one_time_max"] = cast(int, by_type[ctype]["one_time_max"]) + _snapshot_int(ot["max"])
-            by_type[ctype]["recurring_min"] = cast(int, by_type[ctype]["recurring_min"]) + _snapshot_int(rec["min"])
-            by_type[ctype]["recurring_max"] = cast(int, by_type[ctype]["recurring_max"]) + _snapshot_int(rec["max"])
+            by_type[ctype]["one_time_min"] = cast(
+                int, by_type[ctype]["one_time_min"]
+            ) + _snapshot_int(ot["min"])
+            by_type[ctype]["one_time_max"] = cast(
+                int, by_type[ctype]["one_time_max"]
+            ) + _snapshot_int(ot["max"])
+            by_type[ctype]["recurring_min"] = cast(
+                int, by_type[ctype]["recurring_min"]
+            ) + _snapshot_int(rec["min"])
+            by_type[ctype]["recurring_max"] = cast(
+                int, by_type[ctype]["recurring_max"]
+            ) + _snapshot_int(rec["max"])
 
     overall_one_time_min = sum(cast(int, sub["one_time_min"]) for sub in by_type.values())
     overall_one_time_max = sum(cast(int, sub["one_time_max"]) for sub in by_type.values())

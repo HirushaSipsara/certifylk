@@ -23,8 +23,22 @@ def upgrade() -> None:
     if "is_quote_required" not in columns:
         op.add_column(
             "scheme_cost_items",
-            sa.Column("is_quote_required", sa.Boolean(), server_default="false", nullable=False),
+            sa.Column("is_quote_required", sa.Boolean(), server_default=sa.false(), nullable=False),
         )
+    elif conn.dialect.name == "postgresql":
+        # Make upgrades from the short-lived 0004 schema safe and explicit.
+        op.execute(
+            sa.text(
+                "UPDATE scheme_cost_items "
+                "SET is_quote_required = FALSE WHERE is_quote_required IS NULL"
+            )
+        )
+        op.alter_column("scheme_cost_items", "is_quote_required", nullable=False)
+
+    # The application owns the Python default; do not leave an implicit SQL
+    # price/zero heuristic or a permanent server default behind.
+    if conn.dialect.name == "postgresql":
+        op.alter_column("scheme_cost_items", "is_quote_required", server_default=None)
 
 
 def downgrade() -> None:

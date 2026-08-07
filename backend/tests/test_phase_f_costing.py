@@ -1,20 +1,25 @@
-import pytest
-from datetime import date
+import uuid
+from datetime import date, datetime, timezone
 from decimal import Decimal
+
+import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
     Assessment,
+    AssessmentQuestion,
     CertificationScheme,
     Product,
+    QuestionBank,
     SchemeCostItem,
 )
 from app.models.enums import (
     AssessmentStatus,
     CostType,
+    QuestionPage,
     RequirementStatus,
 )
-from app.schemas.ai import RoadmapExplanationOutput, RoadmapExplanationsOutput
 from app.services.result_service import (
     EvaluatedRequirement,
     _scheme_cost_summary,
@@ -105,12 +110,24 @@ async def test_cross_scheme_cost_isolation(db_session: Session):
     product = db_session.query(Product).first()
 
     assessment_a = Assessment(
-        id="test-scheme-isolation-assessment",
+        id=uuid.uuid4(),
         status=AssessmentStatus.READY_TO_SCORE,
         scheme_id="SLS_MARK_CORDIAL",
-        profile={"product_id": product.id if product else "PROD_CORDIAL"},
+        profile_data={"product_id": str(product.id) if product else "PROD_CORDIAL"},
     )
     db_session.add(assessment_a)
+    question = db_session.query(QuestionBank).first()
+    assert question is not None
+    db_session.add(
+        AssessmentQuestion(
+            assessment_id=assessment_a.id,
+            question_id=question.id,
+            page=QuestionPage.CLARIFICATION,
+            display_order=1,
+            answered=True,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
     db_session.flush()
 
     result = await generate_scheme_result(db_session, assessment_a)
@@ -131,11 +148,13 @@ async def test_expected_gain_non_double_counting_concrete_fixture(db_session: Se
     req1 = EvaluatedRequirement(
         requirement_id="req_r1",
         title="Critical Sanitation Requirement R1",
-        category_label="Hygiene & Sanitation",
+        category="Hygiene & Sanitation",
         weight=Decimal("5.0"),
         safety_critical=True,
         status=RequirementStatus.GAP,
         multiplier=Decimal("0"),
+        evidence_references=[],
+        rationale="gap",
     )
 
     c1 = SchemeCostItem(
@@ -173,7 +192,7 @@ async def test_expected_gain_non_double_counting_concrete_fixture(db_session: Se
     )
 
     assessment = Assessment(
-        id="test-gain-ceiling-assessment",
+        id=uuid.uuid4(),
         status=AssessmentStatus.COMPLETED,
         scheme_id=scheme.id,
     )
@@ -205,12 +224,24 @@ async def test_ai_cost_firewall(db_session: Session):
     product = db_session.query(Product).first()
 
     assessment = Assessment(
-        id="test-ai-firewall-assessment",
+        id=uuid.uuid4(),
         status=AssessmentStatus.READY_TO_SCORE,
         scheme_id="SLS_MARK_CORDIAL",
-        profile={"product_id": product.id if product else "PROD_CORDIAL"},
+        profile_data={"product_id": str(product.id) if product else "PROD_CORDIAL"},
     )
     db_session.add(assessment)
+    question = db_session.query(QuestionBank).first()
+    assert question is not None
+    db_session.add(
+        AssessmentQuestion(
+            assessment_id=assessment.id,
+            question_id=question.id,
+            page=QuestionPage.CLARIFICATION,
+            display_order=1,
+            answered=True,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
     db_session.flush()
 
     result = await generate_scheme_result(db_session, assessment)
@@ -229,18 +260,14 @@ async def test_legacy_chilli_paste_regression(db_session: Session):
     """Verify legacy scheme_id == null assessment scores exactly 32.0000 raw / 32 displayed."""
     seed_initial_knowledge_base(db_session)
 
-    legacy_assessment = Assessment(
-        id="test-legacy-regression-assessment",
-        status=AssessmentStatus.READY_TO_SCORE,
-        scheme_id=None,  # Legacy generic assessment
-    )
-    db_session.add(legacy_assessment)
-    db_session.flush()
+    from app.models import AssessmentResult
+    from app.services.sample_service import build_sample_assessment
 
-    # Legacy complete uses result_service get_result or legacy engine
-    # In result_service.py, assessments with scheme_id == None fallback to legacy engine
-    from app.services.result_service import calculate_assessment_result
-    result = calculate_assessment_result(db_session, legacy_assessment)
+    legacy_assessment = await build_sample_assessment(db_session)
+    result = db_session.scalar(
+        select(AssessmentResult).where(AssessmentResult.assessment_id == legacy_assessment.id)
+    )
+    assert result is not None
 
     assert str(result.overall_score_raw) == "32.0000"
     assert result.overall_score == 32

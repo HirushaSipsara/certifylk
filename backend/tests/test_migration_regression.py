@@ -1,57 +1,77 @@
+"""PostgreSQL-only regression coverage for the historical Alembic sequence.
+
+Set ``TEST_POSTGRES_URL`` to a disposable PostgreSQL database when running this
+test locally or in the migration CI job. The normal unit suite intentionally
+does not invent a database server.
+"""
+
 import os
-import tempfile
+from pathlib import Path
 
 import pytest
-from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, inspect, text
 
-from app.models import SchemeCostItem
-from app.services.seed_service import seed_initial_knowledge_base
+from alembic import command
+
+POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 
 
-def test_clean_database_migration_and_seed_regression():
-    """Verify that a fresh clean database can migrate from base to head and seed data without NotNullViolation."""
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
-        db_path = tmp.name
+@pytest.mark.skipif(
+    not POSTGRES_URL, reason="TEST_POSTGRES_URL must point to a disposable PostgreSQL DB"
+)
+def test_postgres_historical_migration_sequence_and_seed() -> None:
+    assert POSTGRES_URL is not None
+    engine = create_engine(POSTGRES_URL)
+    backend_dir = Path(__file__).resolve().parents[1]
+    config = Config(str(backend_dir / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", POSTGRES_URL)
+    config.set_main_option("script_location", str(backend_dir / "alembic"))
 
-    try:
-        db_url = f"sqlite:///{db_path}"
-        engine = create_engine(db_url)
+    command.downgrade(config, "base")
+    inspector = inspect(engine)
+    assert "scheme_cost_items" not in inspector.get_table_names()
 
-        # Configure Alembic to run against the fresh database
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        alembic_ini = os.path.join(backend_dir, "alembic.ini")
-        alembic_cfg = Config(alembic_ini)
-        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
-        alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    command.upgrade(config, "20260805_0001")
+    assert "scheme_cost_items" not in inspect(engine).get_table_names()
 
-        # Run migration upgrade head from base
-        command.upgrade(alembic_cfg, "head")
+    command.upgrade(config, "20260807_0002")
+    columns = {column["name"] for column in inspect(engine).get_columns("scheme_cost_items")}
+    assert "scheme_cost_items" in inspect(engine).get_table_names()
+    assert "is_quote_required" not in columns
 
-        # Run demo seed on the migrated database
-        with Session(engine) as session:
-            seed_initial_knowledge_base(session)
+    command.upgrade(config, "20260807_0003")
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                text("SELECT count(*) FROM scheme_cost_items WHERE scheme_id = 'SLS_MARK_CORDIAL'")
+            ).scalar_one()
+            > 0
+        )
 
-            # Assert scheme_cost_items exist and is_quote_required is populated
-            items = session.query(SchemeCostItem).all()
-            assert len(items) > 0
-            for item in items:
-                assert item.is_quote_required is not None
-                assert isinstance(item.is_quote_required, bool)
+    command.upgrade(config, "20260807_0004")
+    command.upgrade(config, "20260807_0005")
+    columns = {column["name"] for column in inspect(engine).get_columns("scheme_cost_items")}
+    assert "is_quote_required" in columns
+    assert (
+        next(
+            column
+            for column in inspect(engine).get_columns("scheme_cost_items")
+            if column["name"] == "is_quote_required"
+        )["nullable"]
+        is False
+    )
 
-            # Assert explicitly quote-required items
-            quote_req_count = session.scalar(
-                select(func.count(SchemeCostItem.id)).where(SchemeCostItem.is_quote_required.is_(True))
-            )
-            priced_count = session.scalar(
-                select(func.count(SchemeCostItem.id)).where(SchemeCostItem.is_quote_required.is_(False))
-            )
-            assert priced_count > 0
-            assert quote_req_count is not None
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                text(
+                    "SELECT count(*) FROM scheme_cost_items "
+                    "WHERE scheme_id = 'SLS_MARK_CORDIAL' AND is_quote_required = FALSE"
+                )
+            ).scalar_one()
+            > 0
+        )
 
-    finally:
-        if os.path.exists(db_path):
-            os.remove(db_path)
-
+    command.upgrade(config, "head")
+    command.upgrade(config, "head")

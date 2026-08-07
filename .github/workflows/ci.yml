@@ -19,6 +19,20 @@ jobs:
     name: Backend checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: certifylk
+          POSTGRES_USER: certifylk
+          POSTGRES_PASSWORD: certifylk-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U certifylk -d certifylk"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,6 +59,7 @@ jobs:
         working-directory: backend
         env:
           AI_PROVIDER: mock
+          TEST_POSTGRES_URL: postgresql+psycopg://certifylk:certifylk-ci@127.0.0.1:5432/certifylk
         run: python -m pytest
       - name: Audit Python dependencies
         working-directory: backend

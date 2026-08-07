@@ -24,7 +24,6 @@ test("Canonical Fresh Fruit Cordial sample displays readiness score indicator, c
               recurring_min: 20000,
               recurring_max: 30000,
               items_count: 1,
-              quote_required_count: 0,
             },
           },
         }}
