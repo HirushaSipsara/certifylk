@@ -654,19 +654,81 @@ def seed_catalogue(db: Session) -> dict[str, int]:
         ))
 
     gmp_costs = [
-        ("COST_GMP_SLSI_FEE", "GMP_SLSI_APPLICATION", "SLSI GMP Certification fee", CostType.CERTIFYING_BODY_FEE, 40000, 120000, 20000, 60000, "SLSI GMP fee schedule (estimate). Varies by production scale."),
-        ("COST_GMP_GAP", "GMP_GAP_ASSESSMENT", "GMP gap assessment by consultant", CostType.BUSINESS_CAPEX, 30000, 75000, 0, 0, "One-off engagement with food safety consultant to identify gaps."),
-        ("COST_GMP_DOC_SETUP", "GMP_DOC_SETUP", "GMP documentation system setup", CostType.BUSINESS_CAPEX, 5000, 20000, 0, 2000, "Templates, record books, and labelling for GMP records."),
-        ("COST_GMP_TRAINING", "GMP_TRAINING", "GMP staff training programme", CostType.BUSINESS_CAPEX, 15000, 50000, 5000, 20000, "On-site training sessions for production staff on GMP requirements."),
-        ("COST_GMP_AUDIT", "GMP_AUDIT", "SLSI annual GMP surveillance audit", CostType.CERTIFYING_BODY_FEE, 0, 0, 20000, 60000, "Annual SLSI audit fee to maintain GMP certification."),
+        (
+            "COST_GMP_SLSI_FEE",
+            "GMP_SLSI_APPLICATION",
+            "SLSI GMP Certification fee",
+            CostType.CERTIFYING_BODY_FEE,
+            40000,
+            120000,
+            20000,
+            60000,
+            "SLSI GMP fee schedule (estimate). Varies by production scale.",
+        ),
+        (
+            "COST_GMP_GAP",
+            "GMP_GAP_ASSESSMENT",
+            "GMP gap assessment by consultant",
+            CostType.BUSINESS_CAPEX,
+            30000,
+            75000,
+            0,
+            0,
+            "One-off engagement with food safety consultant to identify gaps.",
+        ),
+        (
+            "COST_GMP_DOC_SETUP",
+            "GMP_DOC_SETUP",
+            "GMP documentation system setup",
+            CostType.BUSINESS_CAPEX,
+            5000,
+            20000,
+            0,
+            2000,
+            "Templates, record books, and labelling for GMP records.",
+        ),
+        (
+            "COST_GMP_TRAINING",
+            "GMP_TRAINING",
+            "GMP staff training programme",
+            CostType.BUSINESS_CAPEX,
+            15000,
+            50000,
+            5000,
+            20000,
+            "On-site training sessions for production staff on GMP requirements.",
+        ),
+        (
+            "COST_GMP_AUDIT",
+            "GMP_AUDIT",
+            "SLSI annual GMP surveillance audit",
+            CostType.CERTIFYING_BODY_FEE,
+            0,
+            0,
+            20000,
+            60000,
+            "Annual SLSI audit fee to maintain GMP certification.",
+        ),
     ]
 
     for cid, aref, title, ctype, ot_min, ot_max, rec_min, rec_max, note in gmp_costs:
-        db.merge(SchemeCostItem(
-            id=cid, scheme_id="SLS_GMP", action_ref=aref, title=title, cost_type=ctype,
-            one_time_min=ot_min, one_time_max=ot_max, recurring_min=rec_min, recurring_max=rec_max,
-            currency="LKR", source_note=note, effective_date=REVIEWED, last_reviewed=REVIEWED,
-        ))
+        db.merge(
+            SchemeCostItem(
+                id=cid,
+                scheme_id="SLS_GMP",
+                action_ref=aref,
+                title=title,
+                cost_type=ctype,
+                one_time_min=ot_min,
+                one_time_max=ot_max,
+                recurring_min=rec_min,
+                recurring_max=rec_max,
+                currency="LKR",
+                source_note=note,
+                effective_date=REVIEWED,
+                last_reviewed=REVIEWED,
+            )
+        )
 
     # ── HACCP Certification ───────────────────────────────────────────────────
     haccp_weights = {
@@ -732,20 +794,92 @@ def seed_catalogue(db: Session) -> dict[str, int]:
         ))
 
     haccp_costs = [
-        ("COST_HACCP_SLSI_FEE", "HACCP_CERTIFICATION", "SLSI HACCP Certification fee", CostType.CERTIFYING_BODY_FEE, 60000, 180000, 30000, 90000, "SLSI HACCP certification fee (estimate). Varies by product range and scale."),
-        ("COST_HACCP_CONSULTANT", "HACCP_CONSULTANT", "HACCP plan development by consultant", CostType.BUSINESS_CAPEX, 75000, 200000, 0, 0, "Qualified food safety consultant to develop the full HACCP plan including hazard analysis and CCP studies."),
-        ("COST_HACCP_TRAINING", "HACCP_TRAINING", "HACCP Level 2 training for team", CostType.BUSINESS_CAPEX, 25000, 75000, 10000, 30000, "Recognised HACCP training programme (e.g. SLSI, SRI, or equivalent). Include annual refresher."),
-        ("COST_HACCP_LAB", "HACCP_LAB_TESTING", "Product and environmental microbiological testing", CostType.LAB_TESTING_FEE, 50000, 150000, 25000, 75000, "Baseline and periodic microbiological verification testing at SLSI-accredited laboratory."),
-        ("COST_HACCP_EQUIP", "HACCP_MONITORING_EQUIP", "CCP monitoring equipment (calibrated thermometers, pH meters)", CostType.BUSINESS_CAPEX, 20000, 60000, 5000, 15000, "Food-grade, calibrated monitoring instruments for each CCP."),
-        ("COST_HACCP_AUDIT", "HACCP_AUDIT", "Annual SLSI HACCP surveillance audit", CostType.CERTIFYING_BODY_FEE, 0, 0, 30000, 90000, "Annual SLSI audit required to maintain HACCP certification status."),
+        (
+            "COST_HACCP_SLSI_FEE",
+            "HACCP_CERTIFICATION",
+            "SLSI HACCP Certification fee",
+            CostType.CERTIFYING_BODY_FEE,
+            60000,
+            180000,
+            30000,
+            90000,
+            "SLSI HACCP certification fee (estimate). Varies by product range and scale.",
+        ),
+        (
+            "COST_HACCP_CONSULTANT",
+            "HACCP_CONSULTANT",
+            "HACCP plan development by consultant",
+            CostType.BUSINESS_CAPEX,
+            75000,
+            200000,
+            0,
+            0,
+            "Qualified food safety consultant to develop the full HACCP plan including hazard analysis and CCP studies.",
+        ),
+        (
+            "COST_HACCP_TRAINING",
+            "HACCP_TRAINING",
+            "HACCP Level 2 training for team",
+            CostType.BUSINESS_CAPEX,
+            25000,
+            75000,
+            10000,
+            30000,
+            "Recognised HACCP training programme (e.g. SLSI, SRI, or equivalent). Include annual refresher.",
+        ),
+        (
+            "COST_HACCP_LAB",
+            "HACCP_LAB_TESTING",
+            "Product and environmental microbiological testing",
+            CostType.LAB_TESTING_FEE,
+            50000,
+            150000,
+            25000,
+            75000,
+            "Baseline and periodic microbiological verification testing at SLSI-accredited laboratory.",
+        ),
+        (
+            "COST_HACCP_EQUIP",
+            "HACCP_MONITORING_EQUIP",
+            "CCP monitoring equipment (calibrated thermometers, pH meters)",
+            CostType.BUSINESS_CAPEX,
+            20000,
+            60000,
+            5000,
+            15000,
+            "Food-grade, calibrated monitoring instruments for each CCP.",
+        ),
+        (
+            "COST_HACCP_AUDIT",
+            "HACCP_AUDIT",
+            "Annual SLSI HACCP surveillance audit",
+            CostType.CERTIFYING_BODY_FEE,
+            0,
+            0,
+            30000,
+            90000,
+            "Annual SLSI audit required to maintain HACCP certification status.",
+        ),
     ]
 
     for cid, aref, title, ctype, ot_min, ot_max, rec_min, rec_max, note in haccp_costs:
-        db.merge(SchemeCostItem(
-            id=cid, scheme_id="SLS_HACCP", action_ref=aref, title=title, cost_type=ctype,
-            one_time_min=ot_min, one_time_max=ot_max, recurring_min=rec_min, recurring_max=rec_max,
-            currency="LKR", source_note=note, effective_date=REVIEWED, last_reviewed=REVIEWED,
-        ))
+        db.merge(
+            SchemeCostItem(
+                id=cid,
+                scheme_id="SLS_HACCP",
+                action_ref=aref,
+                title=title,
+                cost_type=ctype,
+                one_time_min=ot_min,
+                one_time_max=ot_max,
+                recurring_min=rec_min,
+                recurring_max=rec_max,
+                currency="LKR",
+                source_note=note,
+                effective_date=REVIEWED,
+                last_reviewed=REVIEWED,
+            )
+        )
 
     # ── ISO 22000:2018 Food Safety Management ─────────────────────────────────
     iso_weights = {
@@ -816,21 +950,103 @@ def seed_catalogue(db: Session) -> dict[str, int]:
         ))
 
     iso_costs = [
-        ("COST_ISO_CB_INITIAL", "ISO_CERTIFICATION_INITIAL", "IAF-accredited certification body — initial certification audit", CostType.CERTIFYING_BODY_FEE, 200000, 500000, 0, 0, "Stage 1 (document review) + Stage 2 (site audit) by an accredited CB. Fee varies by CB and company size."),
-        ("COST_ISO_GAP", "ISO_GAP_ASSESSMENT", "ISO 22000 gap assessment", CostType.BUSINESS_CAPEX, 75000, 200000, 0, 0, "Initial gap analysis by qualified food safety consultant against ISO 22000:2018 requirements."),
-        ("COST_ISO_FSMS_CONSULTANT", "ISO_FSMS_CONSULTANT", "FSMS implementation consultant", CostType.BUSINESS_CAPEX, 150000, 400000, 0, 0, "Consultant to develop FSMS documentation, hazard analysis, and HACCP plan aligned to ISO 22000."),
-        ("COST_ISO_TRAINING", "ISO_TRAINING", "ISO 22000 Lead Implementer or Internal Auditor training", CostType.BUSINESS_CAPEX, 50000, 150000, 15000, 40000, "Formal training for FSMS team leader and internal auditors. Include periodic refresher."),
-        ("COST_ISO_LAB", "ISO_LAB_TESTING", "Product and process verification laboratory testing", CostType.LAB_TESTING_FEE, 75000, 200000, 40000, 100000, "Annual product and environmental testing required for HACCP verification within ISO 22000."),
-        ("COST_ISO_SURVEILLANCE", "ISO_SURVEILLANCE_AUDIT", "Annual ISO 22000 surveillance audit", CostType.CERTIFYING_BODY_FEE, 0, 0, 100000, 250000, "Annual surveillance audit by IAF-accredited CB to maintain ISO 22000 certification."),
-        ("COST_ISO_RECERT", "ISO_RECERTIFICATION", "ISO 22000 recertification audit (3-year cycle)", CostType.CERTIFYING_BODY_FEE, 0, 0, 50000, 150000, "Full recertification audit every 3 years. Amortised as annual recurring cost."),
+        (
+            "COST_ISO_CB_INITIAL",
+            "ISO_CERTIFICATION_INITIAL",
+            "IAF-accredited certification body — initial certification audit",
+            CostType.CERTIFYING_BODY_FEE,
+            200000,
+            500000,
+            0,
+            0,
+            "Stage 1 (document review) + Stage 2 (site audit) by an accredited CB. Fee varies by CB and company size.",
+        ),
+        (
+            "COST_ISO_GAP",
+            "ISO_GAP_ASSESSMENT",
+            "ISO 22000 gap assessment",
+            CostType.BUSINESS_CAPEX,
+            75000,
+            200000,
+            0,
+            0,
+            "Initial gap analysis by qualified food safety consultant against ISO 22000:2018 requirements.",
+        ),
+        (
+            "COST_ISO_FSMS_CONSULTANT",
+            "ISO_FSMS_CONSULTANT",
+            "FSMS implementation consultant",
+            CostType.BUSINESS_CAPEX,
+            150000,
+            400000,
+            0,
+            0,
+            "Consultant to develop FSMS documentation, hazard analysis, and HACCP plan aligned to ISO 22000.",
+        ),
+        (
+            "COST_ISO_TRAINING",
+            "ISO_TRAINING",
+            "ISO 22000 Lead Implementer or Internal Auditor training",
+            CostType.BUSINESS_CAPEX,
+            50000,
+            150000,
+            15000,
+            40000,
+            "Formal training for FSMS team leader and internal auditors. Include periodic refresher.",
+        ),
+        (
+            "COST_ISO_LAB",
+            "ISO_LAB_TESTING",
+            "Product and process verification laboratory testing",
+            CostType.LAB_TESTING_FEE,
+            75000,
+            200000,
+            40000,
+            100000,
+            "Annual product and environmental testing required for HACCP verification within ISO 22000.",
+        ),
+        (
+            "COST_ISO_SURVEILLANCE",
+            "ISO_SURVEILLANCE_AUDIT",
+            "Annual ISO 22000 surveillance audit",
+            CostType.CERTIFYING_BODY_FEE,
+            0,
+            0,
+            100000,
+            250000,
+            "Annual surveillance audit by IAF-accredited CB to maintain ISO 22000 certification.",
+        ),
+        (
+            "COST_ISO_RECERT",
+            "ISO_RECERTIFICATION",
+            "ISO 22000 recertification audit (3-year cycle)",
+            CostType.CERTIFYING_BODY_FEE,
+            0,
+            0,
+            50000,
+            150000,
+            "Full recertification audit every 3 years. Amortised as annual recurring cost.",
+        ),
     ]
 
     for cid, aref, title, ctype, ot_min, ot_max, rec_min, rec_max, note in iso_costs:
-        db.merge(SchemeCostItem(
-            id=cid, scheme_id="ISO_22000", action_ref=aref, title=title, cost_type=ctype,
-            one_time_min=ot_min, one_time_max=ot_max, recurring_min=rec_min, recurring_max=rec_max,
-            currency="LKR", source_note=note, effective_date=REVIEWED, last_reviewed=REVIEWED,
-        ))
+        db.merge(
+            SchemeCostItem(
+                id=cid,
+                scheme_id="ISO_22000",
+                action_ref=aref,
+                title=title,
+                cost_type=ctype,
+                one_time_min=ot_min,
+                one_time_max=ot_max,
+                recurring_min=rec_min,
+                recurring_max=rec_max,
+                currency="LKR",
+                source_note=note,
+                effective_date=REVIEWED,
+                last_reviewed=REVIEWED,
+            )
+        )
 
     db.commit()
     return {

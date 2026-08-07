@@ -89,7 +89,6 @@ def test_api_applicable_schemes_route(client: TestClient, db: Session) -> None:
 
 
 # ── Track 2 — Process Management applicability ──────────────────────────────
-
 @pytest.mark.asyncio
 async def test_track2_domestic_manufacturer(db: Session) -> None:
     """Domestic-only food manufacturer: GMP recommended, HACCP recommended, ISO optional."""

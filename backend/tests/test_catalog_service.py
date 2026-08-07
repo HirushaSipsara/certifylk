@@ -63,7 +63,6 @@ def test_list_schemes_for_product(db: Session) -> None:
 
 
 # ── Track 2 — Process Management ─────────────────────────────────────────────
-
 def test_track2_schemes_seeded(db: Session) -> None:
     """Track 2 schemes GMP, HACCP, ISO 22000 must all be seeded and active."""
     pm_schemes = list_schemes(db, track=CertificationTrack.PROCESS_MANAGEMENT)
