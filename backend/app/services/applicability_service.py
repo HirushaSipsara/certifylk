@@ -86,11 +86,14 @@ async def run_applicability_agent(
     db: Session,
     assessment: Assessment,
     *,
-    track: CertificationTrack = CertificationTrack.PRODUCT_QUALITY,
+    track: CertificationTrack | None = None,
 ) -> ApplicabilityDecisionOutput:
     """Run the Applicability Reasoning Agent for a given assessment.
 
-    - Loads all active schemes from the DB for the product's track.
+    - Infers track from the assessment when not supplied:
+        - product_id is set  → PRODUCT_QUALITY (Track 1)
+        - product_id is None → PROCESS_MANAGEMENT (Track 2)
+    - Loads all active schemes from the DB for the resolved track.
     - Sends business profile + product context + scheme catalogue to the AI.
     - Validates that the AI only returns supplied scheme IDs.
     - Persists the decision in assessment.profile_data['applicability_decision'].
@@ -106,6 +109,14 @@ async def run_applicability_agent(
     business_profile = db.get(BusinessProfile, assessment.business_profile_id)
     if business_profile is None:
         raise NotFoundError("Business profile not found.")
+
+    # Infer track when not explicitly supplied
+    if track is None:
+        track = (
+            CertificationTrack.PRODUCT_QUALITY
+            if assessment.product_id is not None
+            else CertificationTrack.PROCESS_MANAGEMENT
+        )
 
     product_id_str = str(assessment.product_id) if assessment.product_id else None
     schemes = list_schemes_for_product(db, product_id_str, track)

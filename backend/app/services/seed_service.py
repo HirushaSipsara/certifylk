@@ -184,6 +184,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             display_order=1,
         )
     )
+    db.flush()
 
     caa_weights = {
         "Labelling Compliance": 40,
@@ -210,25 +211,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             display_order=2,
         )
     )
-
-    db.merge(
-        CertificationScheme(
-            id="ISO_22000",
-            name="ISO 22000 Food Safety Management",
-            short_code="ISO_22000",
-            track=CertificationTrack.PROCESS_MANAGEMENT,
-            body_id="ISO",
-            product_id=None,
-            mandatory_tier=MandatoryTier.OPTIONAL,
-            applicability_rule={"market": ["export"], "note": "Required for EU/US export markets."},
-            category_weights={},
-            summary="International food safety management system standard. Typically required for export to regulated markets. Coming soon in CertifyLK.",
-            typical_timeline_days=540,
-            source_url="https://www.iso.org/iso-22000-food-safety-management.html",
-            active=False,
-            display_order=1,
-        )
-    )
+    db.flush()
 
     # 21 SLS Mark Requirements
     sls_req_data = [
@@ -639,6 +622,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             display_order=1,
         )
     )
+    db.flush()  # ensure scheme row is written before FK-dependent children
 
     gmp_reqs = [
         ("GMP_PREM_DESIGN", "Premises & Facilities", "Hygienic facility design and layout", "Production areas must be designed to prevent contamination. Traffic flows must separate raw material receipt, processing, packaging, and dispatch. Floors, walls, and ceilings must be of smooth, cleanable construction.", 7.0, False, "SLSI GMP Guidelines", "Section 3.1 — Premises Design", 1),
@@ -714,6 +698,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             display_order=2,
         )
     )
+    db.flush()  # ensure scheme row is written before FK-dependent children
 
     haccp_reqs = [
         ("HACCP_TEAM", "HACCP Foundations", "Designated HACCP team with defined roles", "A multi-disciplinary HACCP team must be appointed. At least one member must have formal HACCP training. Roles and responsibilities must be documented.", 5.0, False, "Codex Alimentarius CAC/RCP 1-1969 / SLSI HACCP Guidelines", "Principle 0 — HACCP Team", 1),
@@ -795,6 +780,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
             display_order=3,
         )
     )
+    db.flush()  # ensure scheme row is written before FK-dependent children
 
     iso_reqs = [
         ("ISO_CTX_SCOPE", "Organizational Context", "Defined FSMS scope and organizational context", "The scope of the Food Safety Management System must be defined, including the products, processes, and sites covered. Internal and external factors relevant to food safety must be identified (ISO 22000 Clause 4.1–4.3).", 5.0, False, "ISO 22000:2018", "Clause 4.1–4.3 — Context and Scope", 1),
