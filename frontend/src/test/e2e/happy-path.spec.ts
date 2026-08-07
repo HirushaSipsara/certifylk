@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("one-click Fresh Fruit Cordial sample reaches the readiness roadmap", async ({ page }) => {
   await page.goto("/");
   const sampleResponsePromise = page.waitForResponse((response) =>
-    response.url().endsWith("/assessments/sample") && response.request().method() === "POST",
+    response.url().includes("/assessments/sample") && response.request().method() === "POST",
   );
   await page.getByRole("button", { name: /Load Sample Report/ }).click();
   const sampleResponse = await sampleResponsePromise;
