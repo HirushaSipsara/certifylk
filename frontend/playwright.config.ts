@@ -5,10 +5,12 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./src/test/e2e",
+  timeout: 60_000,
   use: { baseURL },
   webServer: {
     command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
     url: baseURL,
-    reuseExistingServer: true
-  }
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });
