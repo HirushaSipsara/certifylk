@@ -5,9 +5,9 @@ against a specified base URL (defaulting to https://certifylk.duckdns.org or loc
 """
 
 import argparse
+import json
 import sys
 import urllib.request
-import json
 
 
 def run_smoke_checks(base_url: str) -> None:
@@ -18,7 +18,10 @@ def run_smoke_checks(base_url: str) -> None:
     health_res = urllib.request.urlopen(f"{api_url}/health", timeout=10)
     assert health_res.status == 200, f"Health check failed with status {health_res.status}"
     health_data = json.loads(health_res.read().decode())
-    print(f"  [PASS] Health check: status={health_data.get('status')}, version={health_data.get('version')}, sha={health_data.get('release_sha')}")
+    print(
+        f"  [PASS] Health check: status={health_data.get('status')}, "
+        f"version={health_data.get('version')}, sha={health_data.get('release_sha')}"
+    )
 
     # 2. Ready check
     ready_res = urllib.request.urlopen(f"{api_url}/ready", timeout=10)
@@ -41,14 +44,19 @@ def run_smoke_checks(base_url: str) -> None:
     assert "roadmap" in result_data
     assert "cost_summary" in result_data
     assert "disclaimer" in result_data
-    print(f"  [PASS] Canonical sample result verified: score={result_data['overall_score']}, scheme={result_data.get('scheme_id')}")
+    print(
+        f"  [PASS] Canonical sample result verified: score={result_data['overall_score']}, "
+        f"scheme={result_data.get('scheme_id')}"
+    )
 
     print("All production smoke checks PASSED successfully.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run CertifyLK production smoke tests")
-    parser.add_argument("--base-url", default="https://certifylk.duckdns.org", help="Base URL of production application")
+    parser.add_argument(
+        "--base-url", default="https://certifylk.duckdns.org", help="Base URL of production application"
+    )
     args = parser.parse_args()
 
     try:
@@ -60,3 +68,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

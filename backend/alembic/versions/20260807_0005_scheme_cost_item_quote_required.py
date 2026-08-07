@@ -17,11 +17,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "scheme_cost_items",
-        sa.Column("is_quote_required", sa.Boolean(), server_default="false", nullable=False),
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("scheme_cost_items")}
+    if "is_quote_required" not in columns:
+        op.add_column(
+            "scheme_cost_items",
+            sa.Column("is_quote_required", sa.Boolean(), server_default="false", nullable=False),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("scheme_cost_items", "is_quote_required")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("scheme_cost_items")}
+    if "is_quote_required" in columns:
+        op.drop_column("scheme_cost_items", "is_quote_required")

@@ -17,11 +17,10 @@ export default function EvidencePage() {
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [requests, setRequests] = useState<EvidenceRequest[]>([]);
   const [observations, setObservations] = useState<EvidenceObservation[]>([]);
-  const [analysisProvider, setAnalysisProvider] = useState<{ provider: string; fallback_used: bool } | null>(null);
+  const [analysisProvider, setAnalysisProvider] = useState<{ provider: string; fallback_used: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -34,7 +33,6 @@ export default function EvidencePage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-        setAssessment(a);
         setRequests(a.evidence_requests ?? []);
 
         // Load linked scheme
@@ -154,6 +152,7 @@ export default function EvidencePage() {
             Stage 3 of 5 · Evidence Upload
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Evidence Collection</h1>
+          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
             Provide photos or documents matching the requirement expectations below, or mark items unavailable.
           </p>

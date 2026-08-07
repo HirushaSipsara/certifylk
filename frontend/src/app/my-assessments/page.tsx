@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { ErrorAlert } from "@/components/ErrorAlert";
 import { getRememberedAssessments, removeRememberedAssessment } from "@/lib/api";
 import type { SavedAssessmentMeta } from "@/lib/assessment-storage";
 

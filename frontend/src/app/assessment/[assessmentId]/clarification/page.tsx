@@ -15,7 +15,6 @@ export default function ClarificationPage() {
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, { value: string; other_text?: string }>>({});
@@ -29,7 +28,6 @@ export default function ClarificationPage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-        setAssessment(a);
 
         // Fetch linked scheme
         const schemes = await api.listSchemes();
@@ -139,6 +137,7 @@ export default function ClarificationPage() {
             Stage 4 of 5 · Clarifications
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Final Clarifications</h1>
+          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
             Answer these specific questions to resolve remaining requirement uncertainties for your selected certification scheme.
           </p>

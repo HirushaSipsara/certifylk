@@ -14,7 +14,6 @@ export default function ProcessPage() {
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [steps, setSteps] = useState<string[]>(["", "", "", "", ""]);
@@ -29,7 +28,6 @@ export default function ProcessPage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-        setAssessment(a);
 
         // Pre-fill existing steps if present
         if (a.process_steps && a.process_steps.length > 0) {
