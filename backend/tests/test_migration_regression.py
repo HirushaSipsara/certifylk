@@ -10,10 +10,15 @@ from pathlib import Path
 
 import pytest
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import sessionmaker
 
 from alembic import command
 from app.core.config import get_settings
+from app.db.session import get_db
+from app.main import app
+from app.services.seed_service import seed_initial_knowledge_base
 
 POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 
@@ -54,6 +59,7 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
 
     command.upgrade(config, "20260807_0004")
     command.upgrade(config, "20260807_0005")
+    command.upgrade(config, "20260807_0006")
     columns = {column["name"] for column in inspect(engine).get_columns("scheme_cost_items")}
     assert "is_quote_required" in columns
     assert (
@@ -76,5 +82,47 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
             > 0
         )
 
+    observation_columns = {
+        column["name"] for column in inspect(engine).get_columns("evidence_observations")
+    }
+    assert {"scheme_id", "scheme_requirement_id"}.issubset(observation_columns)
+
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with session_factory() as session:
+        seed_initial_knowledge_base(session)
+
+    def override_db():
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            sample = client.post("/api/v1/assessments/sample")
+            assert sample.status_code == 201, sample.text
+            sample_body = sample.json()
+            assert sample_body["status"] == "completed"
+            result = client.get(f"/api/v1/assessments/{sample_body['id']}/result")
+            assert result.status_code == 200, result.text
+            assert result.json()["overall_score"] == 32
+    finally:
+        app.dependency_overrides.clear()
+
     command.upgrade(config, "head")
     command.upgrade(config, "head")
+
+    critical_columns = {
+        "assessments": {"scheme_id", "scheme_version", "catalogue_revision"},
+        "assessment_results": {
+            "roadmap_snapshot",
+            "scheme_id",
+            "scheme_version",
+            "catalogue_revision",
+        },
+        "requirement_evaluations": {"scheme_id", "scheme_requirement_id"},
+        "scheme_cost_items": {"is_quote_required"},
+        "evidence_observations": {"scheme_id", "scheme_requirement_id"},
+    }
+    for table, required in critical_columns.items():
+        actual = {column["name"] for column in inspect(engine).get_columns(table)}
+        assert required.issubset(actual), f"Missing columns in {table}: {required - actual}"

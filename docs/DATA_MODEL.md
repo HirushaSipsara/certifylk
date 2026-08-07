@@ -22,7 +22,7 @@ PostgreSQL is the source of truth. UUIDs identify assessment-owned data; stable 
 - **assessment_answers** — UUID, assessment FK, page/key/value JSON, timestamp; unique per assessment/page/key.
 - **process_steps** — UUID, assessment FK, position 1–5, raw text, normalized stage/tags/confidence, timestamps.
 - **question_bank** and **assessment_questions** — approved questions/options/tags/affected legacy requirement IDs and per-assessment assignments.
-- **evidence_requests**, **evidence_files**, **evidence_observations** — requested type/kind/legacy requirement references, generated storage metadata, and validated observation polarity/confidence/provider.
+- **evidence_requests**, **evidence_files**, **evidence_observations** — requested type/kind/legacy requirement references, generated storage metadata, and validated observation polarity/confidence/provider. Evidence observations also carry nullable `scheme_id` and `scheme_requirement_id` foreign keys for certificate-specific grounding; legacy observations may leave both fields null.
 - **requirements**, **recommendations**, **cost_items** — legacy global deterministic catalogue still used by the current scoring workflow.
 - **requirement_evaluations** — statuses for legacy or scheme requirements. `requirement_id` stores the displayed requirement ID; `scheme_id` and `scheme_requirement_id` are populated for certificate-specific results.
 - **assessment_results** — raw/display score, evidence completeness, category/result/cost snapshots, optional scheme/version/revision snapshot, and `roadmap_snapshot` for scheme-specific roadmap items.
