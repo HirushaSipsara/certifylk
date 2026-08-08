@@ -112,7 +112,7 @@ async def generate_result(db: Session, assessment: Assessment) -> AssessmentResu
         {
             "id": str(item.id),
             "requirement_id": item.requirement_id,
-            "polarity": item.polarity.value,
+            "polarity": item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity),
             "confidence": Decimal(item.confidence),
         }
         for item in observations
@@ -261,7 +261,7 @@ async def generate_scheme_result(db: Session, assessment: Assessment) -> Assessm
         {
             "id": str(item.id),
             "requirement_id": item.requirement_id,
-            "polarity": item.polarity.value,
+            "polarity": item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity),
             "confidence": Decimal(item.confidence),
         }
         for item in observations

@@ -285,7 +285,7 @@ async def evidence_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str,
                 id=item.id,
                 evidence_request_id=item.evidence_request_id,
                 requirement_id=item.requirement_id,
-                polarity=item.polarity.value,
+                polarity=item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity),
                 text=item.text,
                 confidence=float(item.confidence),
             )

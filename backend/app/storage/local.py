@@ -45,7 +45,12 @@ class LocalStorageProvider:
         return size
 
     def open_file(self, storage_key: str) -> BinaryIO:
-        return self.resolve_path(storage_key).open("rb")
+        try:
+            return self.resolve_path(storage_key).open("rb")
+        except FileNotFoundError as exc:
+            raise AppError(
+                "file_not_found", f"Storage file '{storage_key}' not found.", 404
+            ) from exc
 
     def delete_file(self, storage_key: str) -> None:
         path = self.resolve_path(storage_key)

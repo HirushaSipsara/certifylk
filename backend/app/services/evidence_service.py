@@ -71,7 +71,11 @@ def store_upload(
     storage: StorageProvider,
 ) -> EvidenceFile:
     validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence upload")
-    if request.status != EvidenceRequestStatus.REQUESTED:
+    if request.status not in {
+        EvidenceRequestStatus.REQUESTED,
+        EvidenceRequestStatus.UPLOADED,
+        EvidenceRequestStatus.UNAVAILABLE,
+    }:
         raise TransitionError("This evidence request has already been resolved.")
     extension = validate_upload(
         filename=filename,
@@ -79,6 +83,20 @@ def store_upload(
         data=data,
         kind=request.kind,
     )
+    existing_file = db.scalar(
+        select(EvidenceFile).where(
+            EvidenceFile.assessment_id == assessment.id,
+            EvidenceFile.evidence_request_id == request.id,
+        )
+    )
+    if existing_file is not None:
+        try:
+            storage.delete_file(existing_file.storage_key)
+        except Exception:
+            pass
+        db.delete(existing_file)
+        db.flush()
+
     key = generate_safe_storage_key(storage, assessment.id, request.id, extension)
     storage.save_file(key, io.BytesIO(data))
     evidence_file = EvidenceFile(
@@ -108,8 +126,24 @@ def mark_evidence_unavailable(
     validate_page_transition(
         assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Mark evidence unavailable"
     )
-    if request.status != EvidenceRequestStatus.REQUESTED:
+    if request.status not in {
+        EvidenceRequestStatus.REQUESTED,
+        EvidenceRequestStatus.UPLOADED,
+        EvidenceRequestStatus.UNAVAILABLE,
+    }:
         raise TransitionError("This evidence request has already been resolved.")
+    existing_file = db.scalar(
+        select(EvidenceFile).where(
+            EvidenceFile.assessment_id == assessment.id,
+            EvidenceFile.evidence_request_id == request.id,
+        )
+    )
+    if existing_file is not None:
+        try:
+            storage.delete_file(existing_file.storage_key)
+        except Exception:
+            pass
+        db.delete(existing_file)
     request.status = EvidenceRequestStatus.UNAVAILABLE
     db.commit()
     return request
@@ -120,7 +154,28 @@ async def analyze_uploaded_evidence(
     assessment: Assessment,
     storage: StorageProvider,
 ) -> PersistedEvidenceAnalysis:
-    validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence analysis")
+    validate_page_transition(
+        assessment,
+        {AssessmentStatus.EVIDENCE_PENDING, AssessmentStatus.EVIDENCE_COMPLETE},
+        "Evidence analysis",
+    )
+    if assessment.status == AssessmentStatus.EVIDENCE_COMPLETE:
+        existing_observations = list(
+            db.scalars(
+                select(EvidenceObservation)
+                .where(EvidenceObservation.assessment_id == assessment.id)
+                .order_by(EvidenceObservation.created_at)
+            )
+        )
+        return PersistedEvidenceAnalysis(
+            observations=existing_observations,
+            execution=AIExecutionResult(
+                output=EvidenceAnalysisOutput(observations=[]),
+                provider="persisted",
+                fallback_used=False,
+            ),
+        )
+
     requests = list(
         db.scalars(
             select(EvidenceRequest)
@@ -139,8 +194,11 @@ async def analyze_uploaded_evidence(
         evidence_file = file_by_request.get(request.id)
         if evidence_file is None:
             continue
-        with storage.open_file(evidence_file.storage_key) as source:
-            data = source.read()
+        try:
+            with storage.open_file(evidence_file.storage_key) as source:
+                data = source.read()
+        except AppError:
+            continue
         evidence_inputs.append(
             EvidenceInput(
                 request_id=request.id,
@@ -205,6 +263,7 @@ def merge_evidence_observations(
     now = datetime.now(timezone.utc)
     for item in output.observations:
         evidence_file = file_by_request.get(item.evidence_request_id)
+        raw_polarity = item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity)
         observation = EvidenceObservation(
             assessment_id=assessment.id,
             evidence_request_id=item.evidence_request_id,
@@ -212,9 +271,9 @@ def merge_evidence_observations(
             requirement_id=item.requirement_id,
             scheme_id=assessment.scheme_id,
             scheme_requirement_id=item.requirement_id if assessment.scheme_id else None,
-            polarity=ObservationPolarity(item.polarity),
+            polarity=ObservationPolarity(raw_polarity),
             text=item.text,
-            confidence=item.confidence,
+            confidence=round(Decimal(str(item.confidence)), 4),
             provider="validated_ai",
             created_at=now,
         )
