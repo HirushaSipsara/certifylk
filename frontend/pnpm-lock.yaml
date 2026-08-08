@@ -1,1 +1,3 @@
-# Stale pnpm lockfile removed. CertifyLK uses npm and package-lock.json exclusively.
+# Stale pnpm lockfile — CertifyLK uses npm exclusively
+# This file is kept as an empty placeholder to avoid git conflicts
+# The authoritative lockfile is frontend/package-lock.json
