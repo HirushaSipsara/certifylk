@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  ArrowRight,
+  Factory,
+  FolderClock,
+  PackageCheck,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
+import { EmptyState } from "@/components/EmptyState";
+import { NoticeBanner } from "@/components/NoticeBanner";
+import { PageHeader } from "@/components/PageHeader";
+import { PageShell } from "@/components/PageShell";
 import { getRememberedAssessments, removeRememberedAssessment } from "@/lib/api";
 import type { SavedAssessmentMeta } from "@/lib/assessment-storage";
 
@@ -22,103 +34,105 @@ export default function MyAssessmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-sand">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg group-hover:text-emerald-600 transition-colors">
-              CertifyLK
-            </span>
+    <PageShell maxWidth="5xl">
+      <PageHeader
+        title="My assessments"
+        description="Browser-local guest assessment recovery. Assessments started on this browser are listed below."
+        actions={
+          <Link href="/" className="btn-primary">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New assessment
           </Link>
-          <Link
-            href="/education"
-            className="text-sm font-medium text-slate-600 hover:text-emerald-700 transition-colors"
-          >
-            📖 Understand Certification
-          </Link>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="max-w-5xl mx-auto px-5 py-10 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-ink">My Assessments</h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Browser-local guest assessment recovery. Assessments started on this browser are remembered below.
-          </p>
-        </div>
+      <NoticeBanner title="Saved on this browser" tone="info" className="mt-6">
+        CertifyLK guest assessments do not require an account or login. Your saved assessment IDs
+        are stored locally in this browser&apos;s storage.
+      </NoticeBanner>
 
-        {/* Notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 leading-relaxed">
-          🔒 <strong>Saved on this browser:</strong> CertifyLK guest assessments do not require an account or login. Your saved assessment IDs are stored locally in your browser&apos;s local storage.
-        </div>
-
-        {loading ? (
-          <div className="py-12 text-center text-slate-500">Loading saved assessments…</div>
-        ) : assessments.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center">
-            <div className="text-4xl mb-3">📋</div>
-            <h2 className="text-lg font-bold text-ink mb-2">No saved assessments found</h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
-              You haven&apos;t started any readiness assessments on this browser yet. Select a track on the home page to begin.
-            </p>
-            <Link
-              href="/"
-              className="inline-block bg-leaf text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-ink transition-colors"
-            >
-              Start New Assessment →
+      {loading ? (
+        <div className="py-16 text-center text-sm text-slate">Loading saved assessments…</div>
+      ) : assessments.length === 0 ? (
+        <EmptyState
+          className="mt-8"
+          icon={FolderClock}
+          title="No saved assessments found"
+          description="You have not started any readiness assessments on this browser yet. Select a track on the home page to begin."
+          action={
+            <Link href="/" className="btn-primary">
+              Start new assessment
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {assessments.map((item) => (
-              <div
+          }
+        />
+      ) : (
+        <ul className="mt-8 space-y-4">
+          {assessments.map((item) => {
+            const isTrack2 = item.track === "process_management";
+            const TrackIcon = isTrack2 ? Factory : PackageCheck;
+            return (
+              <li
                 key={item.id}
-                className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+                className="card flex flex-col justify-between gap-4 !p-5 sm:flex-row sm:items-center"
               >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
-                        item.track === "process_management"
-                          ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                          : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      }`}
-                    >
-                      {item.track === "process_management" ? "Process & System" : "Product Quality"}
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">#{item.id.slice(0, 8)}</span>
+                <div className="flex min-w-0 gap-4">
+                  <span
+                    className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:inline-flex ${
+                      isTrack2 ? "bg-accent-600 text-white" : "bg-leaf text-white"
+                    }`}
+                  >
+                    <TrackIcon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                          isTrack2
+                            ? "border-accent-200 bg-accent-50 text-accent-700"
+                            : "border-brand-200 bg-brand-50 text-brand-800"
+                        }`}
+                      >
+                        {isTrack2 ? "Process and System" : "Product Quality"}
+                      </span>
+                      <span className="font-mono text-xs text-slate-400">
+                        #{item.id.slice(0, 8)}
+                      </span>
+                    </div>
+                    <h3 className="truncate text-base font-semibold text-ink">
+                      {item.schemeName ?? item.productName ?? "Readiness Assessment"}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Last accessed: {new Date(item.lastSeenAt).toLocaleDateString()} at{" "}
+                      {new Date(item.lastSeenAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
                   </div>
-                  <h3 className="text-base font-bold text-ink">
-                    {item.schemeName ?? item.productName ?? "Readiness Assessment"}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Last accessed: {new Date(item.lastSeenAt).toLocaleDateString()} at{" "}
-                    {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
                 </div>
-
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   <Link
                     href={`/assessment/${item.id}/hub`}
-                    className="bg-leaf text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-ink transition-colors"
+                    className="btn-primary px-4 py-2"
                   >
-                    Resume →
+                    Resume
                   </Link>
                   <button
                     type="button"
                     onClick={() => handleRemove(item.id)}
-                    className="text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-300 px-3 py-2 rounded-xl transition-colors"
+                    aria-label="Remove saved assessment"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-coral/40 hover:bg-coral/5 hover:text-coral"
                   >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                     Remove
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </PageShell>
   );
 }

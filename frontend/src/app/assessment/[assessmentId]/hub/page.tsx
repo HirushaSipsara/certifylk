@@ -3,41 +3,41 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import {
+  Factory,
+  Cog,
+  FileText,
+  MessagesSquare,
+  BarChart3,
+  Check,
+  ArrowRight,
+  Lock,
+  Award,
+  CalendarClock,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 import { api, ApiError } from "@/lib/api";
 import type { Assessment, SchemeChip } from "@/types";
+import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
+import { TierBadge } from "@/components/TierBadge";
+import { VerificationWarning } from "@/components/VerificationWarning";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 
-// ── Status helpers ────────────────────────────────────────────────────────────
-
-const STEPS = [
-  { id: "profile", label: "Business Profile", icon: "🏭" },
-  { id: "process", label: "Production Process", icon: "⚙️" },
-  { id: "evidence", label: "Evidence Upload", icon: "📄" },
-  { id: "clarification", label: "Clarifications", icon: "💬" },
-  { id: "result", label: "Readiness Report", icon: "📊" },
-] as const;
+const STEPS: { id: string; label: string; description: string; icon: LucideIcon }[] = [
+  { id: "profile", label: "Business Profile", description: "Tell us about your operation", icon: Factory },
+  { id: "process", label: "Production Process", description: "Map your production steps", icon: Cog },
+  { id: "evidence", label: "Evidence Upload", description: "Share supporting documents", icon: FileText },
+  { id: "clarification", label: "Clarifications", description: "Answer a few follow-ups", icon: MessagesSquare },
+  { id: "result", label: "Readiness Report", description: "Your scored readiness summary", icon: BarChart3 },
+];
 
 const PAGE_ORDER = ["profile", "process", "evidence", "clarification", "result"];
 
 function stepIndex(page: string): number {
   return PAGE_ORDER.indexOf(page);
 }
-
-function tierBadge(tier: string) {
-  const map: Record<string, { label: string; cls: string }> = {
-    mandatory: { label: "Mandatory by law", cls: "bg-red-100 text-red-800 border-red-200" },
-    market_required: { label: "Market required", cls: "bg-amber-100 text-amber-800 border-amber-200" },
-    recommended: { label: "Recommended", cls: "bg-blue-100 text-blue-800 border-blue-200" },
-    optional: { label: "Optional", cls: "bg-gray-100 text-gray-700 border-gray-200" },
-  };
-  const { label, cls } = map[tier] ?? { label: tier, cls: "bg-gray-100 text-gray-700 border-gray-200" };
-  return (
-    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
-      {label}
-    </span>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AssessmentHubPage() {
   const params = useParams<{ assessmentId: string }>();
@@ -54,10 +54,8 @@ export default function AssessmentHubPage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (!cancelled) setAssessment(a);
-        // Try to load schemes to find the linked one
         const schemes = await api.listSchemes();
         const linked = schemes.find((s) => {
-          // Check if the profile_data contains a linked scheme
           const profileData = a.profile as Record<string, unknown>;
           const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
           return appDec?.recommended_path_scheme_id === s.id;
@@ -72,31 +70,32 @@ export default function AssessmentHubPage() {
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [assessmentId]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fffaf0]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Loading your assessment…</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <LoadingState message="Loading your assessment…" />
       </div>
     );
   }
 
   if (error || !assessment) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fffaf0] p-6">
-        <div className="max-w-md text-center">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h1 className="text-xl font-semibold text-gray-800 mb-2">Assessment not found</h1>
-          <p className="text-gray-500 mb-6">{error ?? "This assessment could not be loaded."}</p>
-          <Link href="/" className="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
-            Start new assessment
-          </Link>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface p-6">
+        <EmptyState
+          icon={BarChart3}
+          title="Assessment not found"
+          description={error ?? "This assessment could not be loaded."}
+          action={
+            <Link href="/" className="btn-primary">
+              Start new assessment
+            </Link>
+          }
+        />
       </div>
     );
   }
@@ -105,126 +104,119 @@ export default function AssessmentHubPage() {
   const isCompleted = assessment.status === "completed";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fffaf0] via-[#f0faf5] to-[#e8f5f0]">
-      {/* ── Header ── */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg group-hover:text-emerald-600 transition-colors">
-              CertifyLK
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-mono hidden sm:block">
-              #{assessmentId.slice(0, 8)}
+    <div className="min-h-screen bg-surface">
+      <FlowHeader
+        maxWidth="5xl"
+        trailing={
+          <>
+            <span className="hidden sm:block">
+              <AssessmentIdChip id={assessmentId} />
             </span>
             {isCompleted && (
-              <Link
-                href={`/assessment/${assessmentId}/result`}
-                className="bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors"
-              >
-                View Report
+              <Link href={`/assessment/${assessmentId}/result`} className="btn-primary px-4 py-2 text-sm">
+                View report
               </Link>
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* ── Page title ── */}
+      <main className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-emerald-900">
-            Assessment Hub
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-leaf">Assessment hub</p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            Track your readiness progress
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            Track your progress through each step of the readiness assessment.
+          <p className="mt-2 max-w-2xl text-slate-600">
+            Work through each step at your own pace. Your answers are saved as you go.
           </p>
         </div>
 
-        {/* ── Certificate chip (if scheme linked) ── */}
         {scheme && (
-          <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-5 flex items-start gap-4">
-            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl shrink-0">
-              🏅
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h2 className="text-base font-semibold text-emerald-900">{scheme.name}</h2>
-                {tierBadge(scheme.mandatory_tier)}
+          <div className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mist text-leaf">
+              <Award className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-ink">{scheme.name}</h2>
+                <TierBadge tier={scheme.mandatory_tier} />
               </div>
-              <p className="text-sm text-gray-500 line-clamp-2">{scheme.summary}</p>
+              <p className="line-clamp-2 text-sm text-slate-600">{scheme.summary}</p>
               {scheme.typical_timeline_days && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                  <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                   Typical timeline: ~{Math.round(scheme.typical_timeline_days / 30)} months
                 </p>
               )}
             </div>
             <Link
               href={`/assessment/${assessmentId}/hub/requirements`}
-              className="text-sm text-emerald-600 hover:text-emerald-800 whitespace-nowrap font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-leaf transition-colors hover:text-leaf-dark"
             >
-              View requirements →
+              View requirements
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </div>
         )}
 
-        {/* ── Step progress ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-              Assessment Steps
+        <section className="card overflow-hidden p-0">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Assessment steps
             </h2>
           </div>
-          <div className="divide-y divide-gray-50">
+          <ol className="divide-y divide-slate-100">
             {STEPS.map((step, idx) => {
               const done = idx < currentStep || isCompleted;
               const active = idx === currentStep && !isCompleted;
               const locked = idx > currentStep && !isCompleted;
+              const StepIcon = step.icon;
 
               return (
-                <div
+                <li
                   key={step.id}
                   className={`flex items-center gap-4 px-5 py-4 transition-colors ${
-                    active ? "bg-emerald-50" : done ? "hover:bg-gray-50" : ""
+                    active ? "bg-mist/60" : done ? "hover:bg-slate-50" : ""
                   }`}
                 >
-                  {/* Status icon */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 ${
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
                       done
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-leaf text-white"
                         : active
-                        ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-400"
-                        : "bg-gray-100 text-gray-400"
+                          ? "bg-mist text-leaf ring-2 ring-leaf/40"
+                          : "bg-slate-100 text-slate-400"
                     }`}
                   >
-                    {done ? "✓" : step.icon}
-                  </div>
+                    {done ? (
+                      <Check className="h-5 w-5" aria-hidden="true" />
+                    ) : (
+                      <StepIcon className="h-5 w-5" aria-hidden="true" />
+                    )}
+                  </span>
 
-                  {/* Label */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p
-                      className={`text-sm font-medium ${
-                        done ? "text-emerald-700" : active ? "text-emerald-900" : "text-gray-400"
+                      className={`text-sm font-semibold ${
+                        done ? "text-ink" : active ? "text-ink" : "text-slate-400"
                       }`}
                     >
                       {step.label}
                     </p>
-                    {active && (
-                      <p className="text-xs text-emerald-500 mt-0.5">In progress</p>
-                    )}
+                    <p className={`mt-0.5 text-xs ${active ? "text-leaf" : "text-slate-400"}`}>
+                      {active ? "In progress" : step.description}
+                    </p>
                   </div>
 
-                  {/* CTA */}
                   {(active || done) && step.id !== "result" && (
                     <Link
                       href={`/assessment/${assessmentId}/${step.id}`}
                       id={`hub-step-${step.id}`}
-                      className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                         active
-                          ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
-                          : "border-gray-200 text-gray-500 hover:text-emerald-700 hover:border-emerald-200"
+                          ? "border-leaf bg-leaf text-white hover:bg-leaf-dark"
+                          : "border-slate-200 text-slate-600 hover:border-leaf/40 hover:text-leaf"
                       }`}
                     >
                       {active ? "Continue" : "Review"}
@@ -234,29 +226,30 @@ export default function AssessmentHubPage() {
                     <Link
                       href={`/assessment/${assessmentId}/result`}
                       id="hub-step-result"
-                      className="text-sm px-3 py-1.5 rounded-lg border bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-leaf bg-leaf px-3.5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-leaf-dark"
                     >
-                      View Report
+                      View report
                     </Link>
                   )}
                   {locked && (
-                    <span className="text-xs text-gray-300">Locked</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-300">
+                      <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                      Locked
+                    </span>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
-        </div>
+          </ol>
+        </section>
 
-        {/* ── Disclaimer ── */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <p className="text-xs text-amber-700 leading-relaxed">
-            <strong>Educational tool only.</strong> CertifyLK is a readiness preparation tool, not a certification
-            issuer, auditor, or official inspection body. All requirement content referencing SLS standards is
-            approximate and has not been independently verified against the purchased SLSI standard text. Consult
-            the Sri Lanka Standards Institution (SLSI) for official certification requirements.
-          </p>
-        </div>
+        <VerificationWarning>
+          <strong className="font-semibold">Educational tool only.</strong> CertifyLK is a readiness
+          preparation tool, not a certification issuer, auditor, or official inspection body. All requirement
+          content referencing SLS standards is approximate and has not been independently verified against the
+          purchased SLSI standard text. Consult the Sri Lanka Standards Institution (SLSI) for official
+          certification requirements.
+        </VerificationWarning>
       </main>
     </div>
   );

@@ -18,7 +18,7 @@ test("one-click Fresh Fruit Cordial sample reaches the readiness roadmap", async
   await expect(page.getByText("Possible gaps")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Estimated Cost Summary (LKR)" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Prioritized Action Roadmap" })).toBeVisible();
-  await expect(page.getByText(/Draft \/ Educational Certification Content/)).toBeVisible();
+  await expect(page.getByText(/Draft educational content/i)).toBeVisible();
   await expect(page.getByText(/does not issue, guarantee, or replace SLS certification/i)).toBeVisible();
 });
 
@@ -55,13 +55,13 @@ test("AI applicability flow recommends a scheme and shows grounded requirements"
   expect((await applicabilityResponse).ok()).toBeTruthy();
 
   await expect(page.getByRole("heading", { name: "Your applicable certificates" })).toBeVisible();
-  await expect(page.getByText(/AI Assessment · mock · primary mode/)).toBeVisible();
+  await expect(page.getByText("Analyzed by Mock AI")).toBeVisible();
   await expect(page.getByText("Recommended starting point")).toBeVisible();
   await expect(page.getByText("Source reference").first()).toBeVisible();
 
   await page.getByRole("link", { name: /Start assessment for/ }).click();
-  await expect(page.getByRole("heading", { name: "Assessment Hub" })).toBeVisible();
-  await page.getByRole("link", { name: "View requirements →" }).click();
+  await expect(page.getByRole("heading", { name: "Track your readiness progress" })).toBeVisible();
+  await page.getByRole("link", { name: /View requirements/ }).click();
   await expect(page.getByRole("heading", { name: "Scheme Requirements" })).toBeVisible();
   await expect(page.getByText("Content not independently verified")).toBeVisible();
   await expect(page.getByText(/Educational tool only/)).toBeVisible();

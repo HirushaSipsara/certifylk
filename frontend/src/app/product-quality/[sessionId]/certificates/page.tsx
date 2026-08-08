@@ -3,33 +3,29 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowRight, Check, ChevronDown, Clock, Cpu, Sparkles } from "lucide-react";
+
+import { AIAnalysisStatus } from "@/components/AIAnalysisStatus";
+import { FlowHeader, FlowSteps } from "@/components/FlowHeader";
+import { LoadingState } from "@/components/LoadingState";
+import { NoticeBanner } from "@/components/NoticeBanner";
+import { TierBadge } from "@/components/TierBadge";
+import { VerificationWarning } from "@/components/VerificationWarning";
 import { api, ApiError } from "@/lib/api";
 import type { ApplicabilityResult, SchemeDecision } from "@/types";
 
-function TierBadge({ tier }: { tier: string }) {
-  const map: Record<string, { label: string; cls: string; icon: string }> = {
-    mandatory: { label: "Mandatory by law", cls: "bg-red-100 text-red-800 border-red-200", icon: "⚖️" },
-    market_required: { label: "Market required", cls: "bg-amber-100 text-amber-800 border-amber-200", icon: "🏪" },
-    recommended: { label: "Recommended", cls: "bg-blue-100 text-blue-800 border-blue-200", icon: "⭐" },
-    optional: { label: "Optional", cls: "bg-gray-100 text-gray-600 border-gray-200", icon: "💡" },
-  };
-  const { label, cls, icon } = map[tier] ?? map.optional;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
-      {icon} {label}
-    </span>
-  );
-}
+const STEPS = ["Choose product", "Business profile", "Certificates"];
 
 function ConfidenceBar({ confidence }: { confidence: number }) {
   const pct = Math.round(confidence * 100);
-  const color = confidence >= 0.85 ? "bg-emerald-500" : confidence >= 0.6 ? "bg-amber-400" : "bg-gray-300";
+  const color =
+    confidence >= 0.85 ? "bg-leaf" : confidence >= 0.6 ? "bg-amber-400" : "bg-slate-300";
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+      <span className="w-8 text-right text-xs text-slate-400">{pct}%</span>
     </div>
   );
 }
@@ -50,67 +46,75 @@ function DecisionCard({
 
   return (
     <div
-      className={`rounded-2xl border-2 overflow-hidden transition-all ${
-        isRecommended
-          ? "border-emerald-400 shadow-md shadow-emerald-100"
-          : "border-gray-200 shadow-sm"
+      className={`overflow-hidden rounded-2xl border transition-all ${
+        isRecommended ? "border-leaf shadow-card" : "border-slate-200 shadow-soft"
       }`}
     >
-      {isRecommended && (
-        <div className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-2">
-          <span>✓</span> Recommended starting point
+      {isRecommended ? (
+        <div className="flex items-center gap-2 bg-leaf px-4 py-1.5 text-xs font-bold text-white">
+          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          Recommended starting point
         </div>
-      )}
+      ) : null}
       <div className="bg-white p-5">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <h3 className="font-semibold text-gray-900 text-sm">{decision.scheme_name}</h3>
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-ink">{decision.scheme_name}</h3>
               <TierBadge tier={decision.tier} />
             </div>
-            <p className="text-xs text-gray-500 mb-2">{decision.body_name}</p>
+            <p className="mb-2 text-xs text-slate">{decision.body_name}</p>
             <ConfidenceBar confidence={decision.confidence} />
           </div>
           <button
             id={`expand-${decision.scheme_id}`}
+            type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-sm"
+            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-50 hover:text-ink"
             aria-expanded={expanded}
+            aria-label={expanded ? "Collapse details" : "Expand details"}
           >
-            {expanded ? "▲" : "▼"}
+            <ChevronDown
+              className={`h-5 w-5 transition-transform ${expanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
           </button>
         </div>
 
-        {expanded && (
-          <div className="mt-4 space-y-3 border-t border-gray-50 pt-4">
-            {decision.summary && (
-              <p className="text-sm text-gray-600 leading-relaxed">{decision.summary}</p>
-            )}
-            <div className="bg-emerald-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-emerald-800 mb-1">AI reasoning</p>
-              <p className="text-xs text-emerald-700 leading-relaxed">{decision.reasoning}</p>
+        {expanded ? (
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+            {decision.summary ? (
+              <p className="text-sm leading-relaxed text-slate">{decision.summary}</p>
+            ) : null}
+            <div className="rounded-xl bg-leaf/5 p-3">
+              <p className="mb-1 text-xs font-semibold text-leaf-dark">AI reasoning</p>
+              <p className="text-xs leading-relaxed text-slate">{decision.reasoning}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-1">Source reference</p>
-              <p className="text-xs text-gray-500 leading-relaxed">{decision.source_reference}</p>
+            <div className="rounded-xl bg-mist p-3">
+              <p className="mb-1 text-xs font-semibold text-ink">Source reference</p>
+              <p className="text-xs leading-relaxed text-slate">{decision.source_reference}</p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-400">
-              {months && <span>⏱ ~{months} month{months !== 1 ? "s" : ""} typical timeline</span>}
-            </div>
+            {months ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />~{months} month
+                {months !== 1 ? "s" : ""} typical timeline
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {isRecommended && (
+        {isRecommended ? (
           <div className="mt-4">
             <Link
               id="start-assessment-btn"
               href={`/assessment/${assessmentId}/hub`}
-              className="block w-full text-center bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors"
+              className="btn-primary w-full"
             >
-              Start assessment for {decision.scheme_name} →
+              Start assessment for {decision.scheme_name}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -130,7 +134,9 @@ export default function CertificatesPage() {
       const data = await api.runApplicabilityAgent(assessmentId);
       setResult(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to analyse your profile. Please try again.");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to analyse your profile. Please try again.",
+      );
     } finally {
       setLoading(false);
       setRetrying(false);
@@ -151,55 +157,35 @@ export default function CertificatesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fffaf0] via-[#f0faf5] to-[#e8f5f0]">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg">CertifyLK</span>
-          </Link>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-xs font-bold">1</span>
-            <span>→</span>
-            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-xs font-bold">2</span>
-            <span>→</span>
-            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">3</span>
-            <span className="text-emerald-700 font-medium hidden sm:inline">Your certificates</span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-surface">
+      <FlowHeader trailing={<FlowSteps steps={STEPS} current={3} tone="leaf" />} />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-12 h-12 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-            <p className="text-emerald-800 font-medium text-sm">
-              AI is analysing your profile…
-            </p>
-            <p className="text-gray-400 text-xs max-w-xs text-center">
-              The applicability agent is reviewing your product, business profile, and target markets against
-              the certification catalogue.
-            </p>
-          </div>
+          <LoadingState
+            message="AI is analysing your profile…"
+            detail="The applicability agent is reviewing your product, business profile, and target markets against the certification catalogue."
+          />
         ) : error ? (
-          <div className="text-center py-16 space-y-4">
-            <div className="text-4xl">⚠️</div>
-            <h1 className="text-lg font-semibold text-gray-800">Something went wrong</h1>
-            <p className="text-gray-500 text-sm">{error}</p>
-            <div className="flex gap-3 justify-center">
+          <div className="card mx-auto max-w-md space-y-4 text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+              <Sparkles className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <div>
+              <h1 className="text-lg font-semibold text-ink">Something went wrong</h1>
+              <p className="mt-1 text-sm text-slate">{error}</p>
+            </div>
+            <div className="flex justify-center gap-3">
               <button
                 id="retry-applicability"
+                type="button"
                 onClick={retry}
                 disabled={retrying}
-                className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                className="btn-primary"
               >
                 {retrying ? "Retrying…" : "Try again"}
               </button>
-              <Link
-                href="/"
-                className="border border-gray-200 text-gray-600 px-6 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors"
-              >
+              <Link href="/" className="btn-secondary">
                 Start over
               </Link>
             </div>
@@ -207,44 +193,41 @@ export default function CertificatesPage() {
         ) : result ? (
           <>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-emerald-900">
-                Your applicable certificates
-              </h1>
-              <p className="text-gray-500 mt-2 text-sm leading-relaxed max-w-2xl">
-                Based on your product and business profile, the AI has identified the following certification
-                requirements. Start with the recommended path.
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-leaf-dark">
+                Track 1 · Product Quality
+              </span>
+              <h1 className="section-title mt-3">Your applicable certificates</h1>
+              <p className="section-lead">
+                Based on your product and business profile, the AI has identified the following
+                certification requirements. Start with the recommended path.
               </p>
             </div>
 
             {/* AI reasoning overview */}
-            <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-5">
+            <div className="card !p-5">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-base shrink-0">
-                  🤖
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-emerald-800 mb-1">
-                    AI Assessment · {result.provider} ·{" "}
-                    {result.fallback_used ? "fallback mode" : "primary mode"}
-                  </p>
-                  <p className="text-sm text-gray-600 leading-relaxed">{result.overall_reasoning}</p>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-leaf/10 text-leaf">
+                  <Cpu className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <div className="mb-1.5">
+                    <AIAnalysisStatus
+                      provider={result.provider}
+                      fallback_used={result.fallback_used}
+                    />
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate">{result.overall_reasoning}</p>
                 </div>
               </div>
             </div>
 
             {/* Unverified content banner */}
-            {result.has_unverified_content && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
-                <span className="text-amber-500 text-lg shrink-0">⚠️</span>
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Requirement content not independently verified</p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    The requirement details for this scheme are derived from publicly available SLSI guidance.
-                    They have not been verified against the purchased SLSI standard text.
-                  </p>
-                </div>
-              </div>
-            )}
+            {result.has_unverified_content ? (
+              <VerificationWarning>
+                The requirement details for this scheme are derived from publicly available SLSI
+                guidance. They have not been verified against the purchased SLSI standard text.
+              </VerificationWarning>
+            ) : null}
 
             {/* Decision cards */}
             <div className="space-y-4">
@@ -259,13 +242,12 @@ export default function CertificatesPage() {
             </div>
 
             {/* Disclaimer */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-xs text-amber-700 leading-relaxed">
-                <strong>Disclaimer:</strong> These decisions are AI-generated observations for readiness planning
-                purposes only. They do not constitute legal advice, official certification decisions, or an audit
-                finding. Certification applicability must be confirmed with SLSI, CAA, or the relevant issuing body.
-              </p>
-            </div>
+            <NoticeBanner tone="warning">
+              <strong>Disclaimer:</strong> These decisions are AI-generated observations for
+              readiness planning purposes only. They do not constitute legal advice, official
+              certification decisions, or an audit finding. Certification applicability must be
+              confirmed with SLSI, CAA, or the relevant issuing body.
+            </NoticeBanner>
           </>
         ) : null}
       </main>

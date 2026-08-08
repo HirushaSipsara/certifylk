@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 
 import { ErrorAlert } from "@/components/ErrorAlert";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { LoadingState } from "@/components/LoadingState";
+import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { QuestionCard } from "@/components/QuestionCard";
 import { api, ApiError } from "@/lib/api";
 import type { Question, SchemeChip } from "@/types";
@@ -107,29 +109,19 @@ export default function ClarificationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sand">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Preparing clarification questions…</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <LoadingState message="Preparing clarification questions…" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-sand">
+    <div className="min-h-screen bg-surface">
       {submitting && <LoadingOverlay message="Executing deterministic evaluation & creating cost-aware roadmap…" />}
-
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Link href={`/assessment/${assessmentId}/hub`} className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg">CertifyLK</span>
-          </Link>
-          <span className="text-xs font-mono text-slate-400">#{assessmentId.slice(0, 8)}</span>
-        </div>
-      </header>
+      <FlowHeader
+        maxWidth="4xl"
+        trailing={<AssessmentIdChip id={assessmentId} />}
+      />
 
       <main className="max-w-3xl mx-auto px-5 py-10 space-y-8">
         <div>

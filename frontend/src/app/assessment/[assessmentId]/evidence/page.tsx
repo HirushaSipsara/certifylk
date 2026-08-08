@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-import { AIAnalysisStatus } from "@/components/AIAnalysisStatus";
 import { ErrorAlert } from "@/components/ErrorAlert";
-
-import { EvidenceObservationList } from "@/components/EvidenceObservationList";
+import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { LoadingState } from "@/components/LoadingState";
+import { EvidenceUploadCard } from "@/components/EvidenceUploadCard";
 import { api, ApiError } from "@/lib/api";
-import type { AIExecutionMetadata, EvidenceObservation, EvidenceRequest, SchemeChip } from "@/types";
+import type { EvidenceRequest, SchemeChip } from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
@@ -19,13 +19,10 @@ export default function EvidencePage() {
 
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [requests, setRequests] = useState<EvidenceRequest[]>([]);
-  const [observations, setObservations] = useState<EvidenceObservation[]>([]);
-  const [analysisProvider, setAnalysisProvider] = useState<AIExecutionMetadata | null>(null);
   const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [busyItem, setBusyItem] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [reviewMode, setReviewMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,9 +30,8 @@ export default function EvidencePage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-        setRequests(a.evidence_requests ?? []);
 
-        // Load linked scheme
+        // Fetch linked scheme
         const schemes = await api.listSchemes();
         const linked = schemes.find((s) => {
           const profileData = a.profile as Record<string, unknown>;
@@ -43,9 +39,28 @@ export default function EvidencePage() {
           return appDec?.recommended_path_scheme_id === s.id;
         });
         if (!cancelled && linked) setScheme(linked);
+
+        // Fetch evidence plan
+        try {
+          const plan = await api.evidencePlan(assessmentId) as { requests?: EvidenceRequest[] };
+          if (!cancelled && plan.requests) {
+            setRequests(plan.requests);
+            if (plan.requests.length === 0) {
+              // No evidence required — advance to evidence analysis & clarifications
+              await api.analyzeEvidence(assessmentId);
+              router.push(`/assessment/${assessmentId}/clarification`);
+              return;
+            }
+          }
+        } catch {
+          // If evidence requests already generated, fetch them from assessment
+          if (a.evidence_requests && a.evidence_requests.length > 0) {
+            setRequests(a.evidence_requests);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Failed to load evidence requests.");
+          setError(err instanceof ApiError ? err.message : "Failed to load evidence plan.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -55,248 +70,124 @@ export default function EvidencePage() {
     return () => {
       cancelled = true;
     };
-  }, [assessmentId]);
+  }, [assessmentId, router]);
 
-  async function handleFileUpload(requestId: string, file: File) {
+  async function handleUpload(requestId: string, file: File) {
+    setBusyItem(requestId);
     setError(null);
-    setUploadingId(requestId);
     try {
       await api.uploadEvidence(assessmentId, requestId, file);
-      // Reload assessment state
-      const updated = await api.getAssessment(assessmentId);
-      setRequests(updated.evidence_requests ?? []);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: "uploaded" as const } : r
+        )
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to upload file.");
     } finally {
-      setUploadingId(null);
+      setBusyItem(null);
     }
   }
 
-  async function handleMarkUnavailable(requestId: string) {
+  async function handleUnavailable(requestId: string) {
+    setBusyItem(requestId);
     setError(null);
     try {
       await api.markUnavailable(assessmentId, requestId);
-      const updated = await api.getAssessment(assessmentId);
-      setRequests(updated.evidence_requests ?? []);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: "unavailable" as const } : r
+        )
+      );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to mark evidence as unavailable.");
-    }
-  }
-
-  async function handleAnalyzeEvidence() {
-    setError(null);
-    setAnalyzing(true);
-    try {
-      const result = await api.analyzeEvidence(assessmentId);
-      setObservations(result.observations ?? []);
-      setAnalysisProvider(result);
-      setReviewMode(true);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Evidence analysis failed. Please try again.");
+      setError(err instanceof ApiError ? err.message : "Failed to mark item as unavailable.");
     } finally {
-      setAnalyzing(false);
+      setBusyItem(null);
     }
   }
 
-  async function handleContinueToClarifications() {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
+
+    // Verify all requested items have been uploaded or marked unavailable
+    const pending = requests.filter((r) => r.status === "requested");
+    if (pending.length > 0) {
+      setError("Please upload a file or click 'I do not have this' for every requested item before continuing.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const plan = await api.clarificationPlan(assessmentId);
-      if (plan.questions && plan.questions.length > 0) {
-        router.push(`/assessment/${assessmentId}/clarification`);
-      } else {
-        // If no clarification questions required, proceed directly to completion
-        await api.complete(assessmentId);
-        router.push(`/assessment/${assessmentId}/result`);
-      }
+      await api.analyzeEvidence(assessmentId);
+      router.push(`/assessment/${assessmentId}/clarification`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to prepare clarification plan.");
+      setError(err instanceof ApiError ? err.message : "Failed to analyze evidence.");
+      setSubmitting(false);
     }
   }
-
-  const allResolved = requests.length > 0 && requests.every((r) => r.status !== "requested");
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sand">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Loading evidence requests…</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <LoadingState message="Loading evidence checklist…" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-sand">
-      {analyzing && <LoadingOverlay message="Analyzing uploaded evidence against scheme requirements…" />}
+    <div className="min-h-screen bg-surface">
+      {submitting && (
+        <LoadingOverlay message="Analyzing photo and document evidence observations against scheme rules…" />
+      )}
+      <FlowHeader
+        maxWidth="4xl"
+        trailing={<AssessmentIdChip id={assessmentId} />}
+      />
 
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Link href={`/assessment/${assessmentId}/hub`} className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg">CertifyLK</span>
-          </Link>
-          <span className="text-xs font-mono text-slate-400">#{assessmentId.slice(0, 8)}</span>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-5 py-10 space-y-8">
-        {/* Header Title */}
+      <main className="max-w-3xl mx-auto px-5 py-10 space-y-8">
         <div>
           <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-100 px-3 py-1 rounded-full">
             Stage 3 of 5 · Evidence Upload
           </span>
-          <h1 className="text-3xl font-bold text-ink mt-3">Evidence Collection</h1>
+          <h1 className="text-3xl font-bold text-ink mt-3">Evidence &amp; Documentation</h1>
           {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
-            Provide photos or documents matching the requirement expectations below, or mark items unavailable.
+            Upload photos of your workspace, labels, water test reports, or mark items currently unavailable.
           </p>
-        </div>
-
-        {/* Draft Warning Banner */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <span className="text-amber-500 text-lg shrink-0">⚠️</span>
-          <div className="text-xs text-amber-900 leading-relaxed">
-            <strong>Draft / educational requirement catalogue:</strong> Evidence expectations and observations are for readiness preparation only. CertifyLK does not issue official compliance findings.
-          </div>
         </div>
 
         {error && <ErrorAlert message={error} />}
 
-        {/* Review Mode vs Upload Mode */}
-        {reviewMode ? (
-          <div className="bg-white rounded-3xl border border-emerald-200 p-8 space-y-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-ink">Evidence Analysis Observations</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Observations extracted by grounded AI analysis over supplied evidence.
-                </p>
-              </div>
-              {analysisProvider && (
-                  <AIAnalysisStatus
-                    provider={analysisProvider.provider}
-                    fallback_used={analysisProvider.fallback_used}
-                  />
-              )}
-            </div>
-
-            <EvidenceObservationList observations={observations} />
-
-            <div className="flex items-center justify-between pt-6 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setReviewMode(false)}
-                className="text-sm text-slate-600 hover:text-slate-900 border border-slate-200 px-4 py-2 rounded-xl"
-              >
-                ← Back to Uploads
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleContinueToClarifications()}
-                className="bg-leaf text-white font-bold px-8 py-3.5 rounded-2xl hover:bg-ink transition-colors text-sm shadow-card"
-              >
-                Continue to Clarifications →
-              </button>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-4">
+            {requests.map((req) => (
+              <EvidenceUploadCard
+                key={req.id}
+                request={req}
+                busy={busyItem === req.id}
+                onUpload={(file) => handleUpload(req.id, file)}
+                onUnavailable={() => handleUnavailable(req.id)}
+              />
+            ))}
           </div>
-        ) : (
-          <div className="space-y-6">
-            {requests.map((request) => {
-              const isUploaded = request.status === "uploaded" || request.status === "analyzed";
-              const isUnavailable = request.status === "unavailable";
-              const isUploading = uploadingId === request.id;
 
-              return (
-                <div
-                  key={request.id}
-                  className={`bg-white rounded-3xl border p-6 sm:p-8 transition-all shadow-sm ${
-                    isUploaded
-                      ? "border-emerald-300 bg-emerald-50/20"
-                      : isUnavailable
-                      ? "border-slate-200 bg-slate-50/50"
-                      : "border-slate-200"
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          {request.kind === "photo" ? "📷 Photo" : "📄 Document"}
-                        </span>
-                        {isUploaded && (
-                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            ✓ Uploaded
-                          </span>
-                        )}
-                        {isUnavailable && (
-                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                            Unavailable
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-bold text-ink mt-1">{request.title}</h3>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      {request.status === "requested" && (
-                        <>
-                          <label
-                            className={`cursor-pointer bg-leaf text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-ink transition-colors ${
-                              isUploading ? "opacity-50 pointer-events-none" : ""
-                            }`}
-                          >
-                            {isUploading ? "Uploading…" : "Upload File"}
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp,application/pdf"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) void handleFileUpload(request.id, file);
-                              }}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => void handleMarkUnavailable(request.id)}
-                            className="text-xs text-slate-500 hover:text-slate-800 border border-slate-200 px-3 py-2.5 rounded-xl transition-colors"
-                          >
-                            I do not have this
-                          </button>
-                        </>
-                      )}
-
-                      {(isUploaded || isUnavailable) && (
-                        <span className="text-xs text-slate-500 font-medium">
-                          {isUploaded ? "Ready for analysis" : "Marked unavailable"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Run Analysis Action */}
-            <div className="flex items-center justify-between pt-6 border-t border-slate-200">
-              <Link href={`/assessment/${assessmentId}/hub`} className="text-sm text-slate-500 hover:text-slate-800">
-                ← Back to Hub
-              </Link>
-              <button
-                type="button"
-                disabled={!allResolved || analyzing}
-                onClick={() => void handleAnalyzeEvidence()}
-                className="bg-leaf text-white font-bold px-8 py-4 rounded-2xl hover:bg-ink transition-colors disabled:opacity-40 text-sm shadow-card"
-              >
-                Analyze Evidence &amp; Review Observations →
-              </button>
-            </div>
+          <div className="flex items-center justify-between pt-4">
+            <Link
+              href={`/assessment/${assessmentId}/process`}
+              className="text-sm text-slate-500 hover:text-slate-800"
+            >
+              ← Back to Process
+            </Link>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-leaf text-white font-bold px-8 py-4 rounded-2xl hover:bg-ink transition-colors disabled:opacity-50 text-sm shadow-card"
+            >
+              Analyze Evidence &amp; Continue →
+            </button>
           </div>
-        )}
+        </form>
       </main>
     </div>
   );
