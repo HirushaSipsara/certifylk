@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { ArrowRight, Boxes, Check, PackageSearch } from "lucide-react";
+
+import { ErrorAlert } from "@/components/ErrorAlert";
+import { FlowHeader, FlowSteps } from "@/components/FlowHeader";
+import { Spinner } from "@/components/LoadingState";
 import { api, ApiError } from "@/lib/api";
 import type { Category, Product } from "@/types";
+
+const STEPS = ["Choose product", "Business profile", "Certificates"];
 
 export default function SelectProductPage() {
   const router = useRouter();
@@ -18,10 +24,23 @@ export default function SelectProductPage() {
 
   useEffect(() => {
     let cancelled = false;
-    api.listCategories()
-      .then((cats) => { if (!cancelled) { setCategories(cats); setLoading(false); } })
-      .catch((err) => { if (!cancelled) { setError(err instanceof ApiError ? err.message : "Failed to load categories."); setLoading(false); } });
-    return () => { cancelled = true; };
+    api
+      .listCategories()
+      .then((cats) => {
+        if (!cancelled) {
+          setCategories(cats);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load categories.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onCategorySelect(cat: Category) {
@@ -41,142 +60,161 @@ export default function SelectProductPage() {
     setCreating(true);
     setError(null);
     try {
-      // Create a new assessment to hold this session
       const { id } = await api.createAssessment();
-      // Navigate to business profile page with the session and product
-      router.push(
-        `/product-quality/${id}/business-profile?product=${selectedProduct.slug}`
-      );
+      router.push(`/product-quality/${id}/business-profile?product=${selectedProduct.slug}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to start assessment. Please try again.");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to start assessment. Please try again.",
+      );
       setCreating(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fffaf0] via-[#f0faf5] to-[#e8f5f0]">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg">CertifyLK</span>
-          </Link>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">1</span>
-            <span className="text-emerald-700 font-medium">Choose product</span>
-            <span>→</span>
-            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-xs font-bold">2</span>
-            <span className="hidden sm:inline">Business profile</span>
-            <span className="hidden sm:inline">→</span>
-            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 items-center justify-center text-xs font-bold hidden sm:flex">3</span>
-            <span className="hidden sm:inline">Certificates</span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-surface">
+      <FlowHeader trailing={<FlowSteps steps={STEPS} current={1} tone="leaf" />} />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-emerald-900">
-            What product do you manufacture?
-          </h1>
-          <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-            Select your product category, then your specific product. We&apos;ll use this to find the right
-            certification schemes and requirements for you.
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-leaf-dark">
+            Track 1 · Product Quality
+          </span>
+          <h1 className="section-title mt-3">What product do you manufacture?</h1>
+          <p className="section-lead">
+            Select your product category, then your specific product. We&apos;ll use this to find the
+            right certification schemes and requirements for you.
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-4">
-            {error}
-          </div>
-        )}
+        {error ? <ErrorAlert message={error} /> : null}
 
         {/* Category grid */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Step 1 — Select category
-          </h2>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-leaf text-xs font-bold text-white">
+              1
+            </span>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate">
+              Select category
+            </h2>
+          </div>
           {loading ? (
-            <div className="flex items-center gap-3 text-sm text-gray-400">
-              <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-3 text-sm text-slate">
+              <Spinner className="text-leaf" />
               Loading categories…
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  id={`cat-${cat.slug}`}
-                  onClick={() => void onCategorySelect(cat)}
-                  className={`text-left p-5 rounded-2xl border-2 transition-all ${
-                    selectedCategory?.id === cat.id
-                      ? "border-emerald-500 bg-emerald-50 shadow-md"
-                      : "border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm"
-                  }`}
-                >
-                  <div className="text-2xl mb-2">🏭</div>
-                  <div className="font-semibold text-gray-800 text-sm">{cat.name}</div>
-                  {cat.description && (
-                    <div className="text-xs text-gray-400 mt-1 line-clamp-2">{cat.description}</div>
-                  )}
-                </button>
-              ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {categories.map((cat) => {
+                const active = selectedCategory?.id === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    id={`cat-${cat.slug}`}
+                    type="button"
+                    onClick={() => void onCategorySelect(cat)}
+                    aria-pressed={active}
+                    className={`flex flex-col rounded-2xl border p-5 text-left transition-all ${
+                      active
+                        ? "border-leaf bg-leaf/5 shadow-card"
+                        : "border-slate-200 bg-white hover:border-leaf/40 hover:shadow-soft"
+                    }`}
+                  >
+                    <span
+                      className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${
+                        active ? "bg-leaf text-white" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <Boxes className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm font-semibold text-ink">{cat.name}</span>
+                    {cat.description ? (
+                      <span className="mt-1 line-clamp-2 text-xs text-slate">{cat.description}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>
 
         {/* Product list */}
-        {selectedCategory && (
+        {selectedCategory ? (
           <section>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Step 2 — Select product
-            </h2>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-leaf text-xs font-bold text-white">
+                2
+              </span>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate">
+                Select product
+              </h2>
+            </div>
             {products.length === 0 ? (
-              <div className="flex items-center gap-3 text-sm text-gray-400">
-                <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center gap-3 text-sm text-slate">
+                <Spinner className="text-leaf" />
                 Loading products…
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {products.map((prod) => (
-                  <button
-                    key={prod.id}
-                    id={`prod-${prod.slug}`}
-                    onClick={() => setSelectedProduct(prod)}
-                    className={`text-left p-5 rounded-2xl border-2 transition-all ${
-                      selectedProduct?.id === prod.id
-                        ? "border-emerald-500 bg-emerald-50 shadow-md"
-                        : "border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm"
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">🍶</div>
-                    <div className="font-semibold text-gray-800 text-sm">{prod.name}</div>
-                    {prod.description && (
-                      <div className="text-xs text-gray-400 mt-1 line-clamp-3">{prod.description}</div>
-                    )}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {products.map((prod) => {
+                  const active = selectedProduct?.id === prod.id;
+                  return (
+                    <button
+                      key={prod.id}
+                      id={`prod-${prod.slug}`}
+                      type="button"
+                      onClick={() => setSelectedProduct(prod)}
+                      aria-pressed={active}
+                      className={`relative flex flex-col rounded-2xl border p-5 text-left transition-all ${
+                        active
+                          ? "border-leaf bg-leaf/5 shadow-card"
+                          : "border-slate-200 bg-white hover:border-leaf/40 hover:shadow-soft"
+                      }`}
+                    >
+                      {active ? (
+                        <span className="absolute right-4 top-4 inline-flex h-5 w-5 items-center justify-center rounded-full bg-leaf text-white">
+                          <Check className="h-3 w-3" aria-hidden="true" />
+                        </span>
+                      ) : null}
+                      <span
+                        className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${
+                          active ? "bg-leaf text-white" : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        <PackageSearch className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="text-sm font-semibold text-ink">{prod.name}</span>
+                      {prod.description ? (
+                        <span className="mt-1 line-clamp-3 text-xs text-slate">
+                          {prod.description}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>
-        )}
+        ) : null}
 
-        {/* CTA */}
         <div className="flex justify-end pt-2">
           <button
             id="select-product-continue"
+            type="button"
             disabled={!selectedProduct || creating}
             onClick={() => void onContinue()}
-            className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="btn-primary px-8"
           >
             {creating ? (
               <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Spinner className="text-white" />
                 Starting…
               </>
             ) : (
-              "Continue →"
+              <>
+                Continue
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </>
             )}
           </button>
         </div>

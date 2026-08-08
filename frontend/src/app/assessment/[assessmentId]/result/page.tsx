@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { FileDown, Sparkles } from "lucide-react";
 
 import { CategoryScoreList } from "@/components/CategoryScoreList";
 import { CostBreakdownTable } from "@/components/CostBreakdownTable";
@@ -12,6 +13,8 @@ import { EvidenceSummary } from "@/components/EvidenceSummary";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { ReadinessScoreCard } from "@/components/ReadinessScoreCard";
 import { RoadmapChecklist } from "@/components/RoadmapChecklist";
+import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
+import { VerificationWarning } from "@/components/VerificationWarning";
 import { api, rememberAssessment } from "@/lib/api";
 import type { AssessmentResult } from "@/types";
 
@@ -69,7 +72,7 @@ export default function ResultPage() {
   if (!result && !error) return <LoadingOverlay message="Loading your readiness roadmap…" />;
 
   return (
-    <main className="min-h-screen bg-sand px-4 py-8 sm:py-12 print:bg-white print:p-0">
+    <main className="min-h-screen bg-surface print:bg-white print:p-0">
       {busy && (
         <LoadingOverlay
           message={
@@ -80,47 +83,37 @@ export default function ResultPage() {
         />
       )}
 
-      <div className="mx-auto max-w-5xl space-y-8">
-        {/* Header */}
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-slate-200 pb-6 print:border-b-2">
+      <FlowHeader
+        maxWidth="5xl"
+        trailing={
+          <div className="flex items-center gap-2">
+            <AssessmentIdChip id={assessmentId} />
+            <Link href="/" className="btn-primary hidden px-4 py-2 text-sm sm:inline-flex print:hidden">
+              Start new assessment
+            </Link>
+          </div>
+        }
+      />
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+        <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end print:border-b-2">
           <div>
-            <div className="flex items-center gap-2">
-              <Link href="/" className="font-bold text-leaf text-xl print:no-underline">
-                CertifyLK
-              </Link>
-              <span className="text-xs bg-emerald-100 text-emerald-900 font-semibold px-2.5 py-0.5 rounded-full">
-                Readiness Indicator
-              </span>
-            </div>
-            <h1 className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-ink">
-              Readiness Report &amp; Action Roadmap
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-leaf">Readiness indicator</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+              Readiness report &amp; action roadmap
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              An explainable preparation snapshot derived from DB-sourced scheme requirements.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              An explainable preparation snapshot derived from database-sourced scheme requirements.
             </p>
           </div>
-
           <div className="flex flex-wrap gap-2 print:hidden">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-            >
-              🖨️ Export PDF / Print
+            <button type="button" onClick={handlePrint} className="btn-secondary px-4 py-2 text-sm">
+              <FileDown className="h-4 w-4" aria-hidden="true" />
+              Export / print
             </button>
-            <button
-              type="button"
-              onClick={() => void loadSample()}
-              className="rounded-xl border border-leaf bg-white px-4 py-2 text-sm font-bold text-leaf hover:bg-emerald-50 transition-colors"
-            >
-              Sample Report
+            <button type="button" onClick={() => void loadSample()} className="btn-secondary px-4 py-2 text-sm">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Sample report
             </button>
-            <Link
-              href="/"
-              className="rounded-xl bg-leaf px-4 py-2 text-sm font-bold text-white hover:bg-ink transition-colors"
-            >
-              Start New Assessment
-            </Link>
           </div>
         </header>
 
@@ -129,12 +122,9 @@ export default function ResultPage() {
         {result && (
           <>
             {/* Draft Content Warning */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-              <span className="text-amber-500 text-lg shrink-0">⚠️</span>
-              <div className="text-xs text-amber-900 leading-relaxed">
-                <strong>Draft / Educational Certification Content:</strong> Requirement descriptions and cost snapshots are derived from publicly available SLSI guidance and have not been independently verified against official SLSI standard texts (`content_verified=false`). Use this report for readiness preparation only, not as official certification, legal advice, or an audit guarantee.
-              </div>
-            </div>
+            <VerificationWarning title="Draft educational content">
+              Requirement descriptions and cost snapshots are derived from publicly available SLSI guidance and have not been independently verified against official SLSI standard texts. Use this report for readiness preparation only, not as official certification, legal advice, or an audit guarantee.
+            </VerificationWarning>
 
             {/* Score Overview */}
             <ReadinessScoreCard

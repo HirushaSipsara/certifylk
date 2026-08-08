@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+
 import { ErrorAlert } from "@/components/ErrorAlert";
+import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { LoadingState } from "@/components/LoadingState";
+import { ProcessStepList, type ProcessFormValues } from "@/components/ProcessStepList";
 import { QuestionCard } from "@/components/QuestionCard";
 import { api, ApiError } from "@/lib/api";
 import type { Question, SchemeChip } from "@/types";
@@ -16,11 +21,21 @@ export default function ProcessPage() {
 
   const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [steps, setSteps] = useState<string[]>(["", "", "", "", ""]);
   const [answers, setAnswers] = useState<Record<string, { value: string; other_text?: string }>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<ProcessFormValues>({
+    defaultValues: {
+      steps: ["", "", "", "", ""],
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -29,14 +44,14 @@ export default function ProcessPage() {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
 
-        // Pre-fill existing steps if present
-        if (a.process_steps && a.process_steps.length > 0) {
-          const loadedSteps = a.process_steps.map((s) => s.text);
-          while (loadedSteps.length < 5) loadedSteps.push("");
-          setSteps(loadedSteps.slice(0, 5));
+        // Pre-fill existing steps if already saved
+        if (a.process?.steps && a.process.steps.length >= 3) {
+          const prefill = [...a.process.steps];
+          while (prefill.length < 5) prefill.push("");
+          setValue("steps", prefill.slice(0, 5) as [string, string, string, string, string]);
         }
 
-        // Fetch schemes to find linked scheme
+        // Fetch linked scheme
         const schemes = await api.listSchemes();
         const linked = schemes.find((s) => {
           const profileData = a.profile as Record<string, unknown>;
@@ -45,18 +60,21 @@ export default function ProcessPage() {
         });
         if (!cancelled && linked) setScheme(linked);
 
-        // Fetch adaptive questions if profile is complete
+        // Fetch adaptive questions
         try {
           const plan = await api.adaptivePlan(assessmentId);
           if (!cancelled && plan.questions) {
             setQuestions(plan.questions);
           }
         } catch {
-          // If adaptive plan is not ready yet, continue with step input
+          // If adaptive plan already fetched, fallback to assigned questions if present
+          if (a.assigned_questions && a.assigned_questions.length > 0) {
+            setQuestions(a.assigned_questions);
+          }
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Failed to load assessment.");
+          setError(err instanceof ApiError ? err.message : "Failed to load production process step.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -66,15 +84,7 @@ export default function ProcessPage() {
     return () => {
       cancelled = true;
     };
-  }, [assessmentId]);
-
-  function handleStepChange(index: number, value: string) {
-    setSteps((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
-    });
-  }
+  }, [assessmentId, setValue]);
 
   function handleAnswerChange(questionId: string, value: string, otherText?: string) {
     setAnswers((prev) => ({
@@ -83,140 +93,90 @@ export default function ProcessPage() {
     }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(formValues: ProcessFormValues) {
     setError(null);
-
-    // Validate at least 3 steps contain text
-    const nonEntries = steps.filter((s) => s.trim().length > 0);
-    if (nonEntries.length < 3) {
-      setError("Please describe at least 3 main steps of your manufacturing process.");
+    const validSteps = formValues.steps.map((s) => s.trim()).filter(Boolean);
+    if (validSteps.length < 3) {
+      setError("Please describe at least 3 main production steps in your manufacturing process.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // 1. Save process steps & adaptive answers
-      const adaptivePayload = Object.entries(answers).map(([qId, val]) => ({
+      const adaptiveAnswers = Object.entries(answers).map(([qId, val]) => ({
         question_id: qId,
         value: val.value,
         other_text: val.other_text ?? null,
       }));
 
       await api.saveProcess(assessmentId, {
-        steps,
-        adaptive_answers: adaptivePayload,
+        steps: validSteps,
+        adaptive_answers: adaptiveAnswers,
       });
 
-      // 2. Extract structured process stages
       await api.analyzeProcess(assessmentId);
-
-      // 3. Create scheme-bound evidence plan
-      await api.evidencePlan(assessmentId);
-
-      // 4. Continue to evidence upload
       router.push(`/assessment/${assessmentId}/evidence`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to save process information.");
+      setError(err instanceof ApiError ? err.message : "Failed to save production process.");
       setSubmitting(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sand">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Loading process form…</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <LoadingState message="Loading process step questions…" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-sand">
-      {submitting && <LoadingOverlay message="Analyzing manufacturing process & preparing evidence plan…" />}
-
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Link href={`/assessment/${assessmentId}/hub`} className="flex items-center gap-2 group">
-            <span className="text-2xl">🍃</span>
-            <span className="font-bold text-emerald-800 text-lg">CertifyLK</span>
-          </Link>
-          <span className="text-xs font-mono text-slate-400">#{assessmentId.slice(0, 8)}</span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-surface">
+      {submitting && (
+        <LoadingOverlay message="Analyzing manufacturing process steps & preparing evidence requirements…" />
+      )}
+      <FlowHeader
+        maxWidth="4xl"
+        trailing={<AssessmentIdChip id={assessmentId} />}
+      />
 
       <main className="max-w-3xl mx-auto px-5 py-10 space-y-8">
-        {/* Scheme Context Header */}
-        {scheme && (
-          <div className="bg-white rounded-2xl border border-emerald-200 p-4 flex items-center justify-between shadow-sm">
-            <div>
-              <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
-                Target Certification Standard
-              </span>
-              <h2 className="text-base font-bold text-ink">{scheme.name}</h2>
-            </div>
-            <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-full border border-emerald-200">
-              {scheme.short_code}
-            </span>
-          </div>
-        )}
-
         <div>
-          <h1 className="text-3xl font-bold text-ink">Production Process</h1>
+          <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-100 px-3 py-1 rounded-full">
+            Stage 2 of 5 · Production Process
+          </span>
+          <h1 className="text-3xl font-bold text-ink mt-3">Manufacturing &amp; Process Steps</h1>
+          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
-            Describe the main steps of your manufacturing process from raw ingredient receiving to finished product storage.
+            Describe your step-by-step production flow from raw materials receipt to final packaging and storage.
           </p>
         </div>
 
         {error && <ErrorAlert message={error} />}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Step Inputs */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          {/* Production Steps */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-sm">
-            <h2 className="text-lg font-bold text-ink border-b border-slate-100 pb-3">
-              Manufacturing Steps (5 Steps)
-            </h2>
-            <p className="text-xs text-slate-500">
-              Enter at least 3 sequential production steps (e.g. 1. Receiving fruit, 2. Washing &amp; peeling, 3. Cooking, 4. Bottling, 5. Storage).
-            </p>
-
-            <div className="space-y-4">
-              {steps.map((stepText, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-sm flex items-center justify-center shrink-0">
-                    {idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={stepText}
-                    onChange={(e) => handleStepChange(idx, e.target.value)}
-                    placeholder={`Step ${idx + 1} (e.g. ${
-                      idx === 0
-                        ? "Receiving raw materials"
-                        : idx === 1
-                        ? "Washing and peeling fruit"
-                        : idx === 2
-                        ? "Cooking and pasteurization"
-                        : idx === 3
-                        ? "Hot filling into glass bottles"
-                        : "Crate storage & distribution"
-                    })`}
-                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm text-ink focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              ))}
+            <div>
+              <h2 className="text-lg font-bold text-ink">Ordered Production Steps</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                List at least 3 sequential manufacturing operations (e.g. ingredient receiving, boiling/mixing, hot filling, sealing, storage).
+              </p>
             </div>
+
+            <ProcessStepList register={register} errors={errors} />
           </div>
 
-          {/* Adaptive Questions (if assigned by backend API) */}
+          {/* Adaptive Questions if any */}
           {questions.length > 0 && (
             <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-sm">
-              <h2 className="text-lg font-bold text-ink border-b border-slate-100 pb-3">
-                Process Clarification Questions
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-ink">Adaptive Process Questions ({questions.length})</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Tailored questions to assess hygiene and process controls specific to your operations.
+                </p>
+              </div>
+
               <div className="space-y-6">
                 {questions.map((q) => (
                   <QuestionCard
@@ -232,7 +192,6 @@ export default function ProcessPage() {
             </div>
           )}
 
-          {/* Submit Action */}
           <div className="flex items-center justify-between pt-4">
             <Link
               href={`/assessment/${assessmentId}/hub`}
@@ -245,7 +204,7 @@ export default function ProcessPage() {
               disabled={submitting}
               className="bg-leaf text-white font-bold px-8 py-4 rounded-2xl hover:bg-ink transition-colors disabled:opacity-50 text-sm shadow-card"
             >
-              Save &amp; Prepare Evidence Plan →
+              Continue to Evidence Upload →
             </button>
           </div>
         </form>
