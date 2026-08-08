@@ -30,10 +30,10 @@ test("Track 1 Fresh Fruit Cordial journey reaches completed readiness report", a
 
   // 4. Click start assessment -> Hub
   await page.getByRole("link", { name: /Start assessment for/ }).click();
-  await expect(page.getByRole("heading", { name: "Assessment Hub" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Track your readiness progress" })).toBeVisible();
 
   // 5. Navigate to requirements
-  await page.getByRole("link", { name: "View requirements →" }).click();
+  await page.getByRole("link", { name: /View requirements/ }).click();
   await expect(page.getByRole("heading", { name: "Scheme Requirements" })).toBeVisible();
   await expect(page.getByText("Content not independently verified")).toBeVisible();
 });
