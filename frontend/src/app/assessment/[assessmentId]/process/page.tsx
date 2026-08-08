@@ -45,8 +45,11 @@ export default function ProcessPage() {
         if (cancelled) return;
 
         // Pre-fill existing steps if already saved
-        if (a.process?.steps && a.process.steps.length >= 3) {
-          const prefill = [...a.process.steps];
+        const existingSteps = [...a.process_steps]
+          .sort((left, right) => left.position - right.position)
+          .map((step) => step.text);
+        if (existingSteps.length >= 3) {
+          const prefill = [...existingSteps];
           while (prefill.length < 5) prefill.push("");
           setValue("steps", prefill.slice(0, 5) as [string, string, string, string, string]);
         }

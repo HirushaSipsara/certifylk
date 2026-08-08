@@ -166,8 +166,8 @@ export default function EvidencePage() {
                 key={req.id}
                 request={req}
                 busy={busyItem === req.id}
-                onUpload={(file) => void handleUpload(req.id, file)}
-                onUnavailable={() => void handleUnavailable(req.id)}
+                onUpload={(file) => handleUpload(req.id, file)}
+                onUnavailable={() => handleUnavailable(req.id)}
               />
             ))}
           </div>
