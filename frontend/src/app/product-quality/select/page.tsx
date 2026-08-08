@@ -26,10 +26,27 @@ export default function SelectProductPage() {
     let cancelled = false;
     api
       .listCategories()
-      .then((cats) => {
+      .then(async (cats) => {
         if (!cancelled) {
-          setCategories(cats);
+          const productQualityCats = cats.filter(
+            (c) =>
+              c.slug !== "process_management" &&
+              (c as { track?: string }).track !== "process_management"
+          );
+          setCategories(productQualityCats);
           setLoading(false);
+          if (productQualityCats.length === 1) {
+            const singleCat = productQualityCats[0];
+            setSelectedCategory(singleCat);
+            try {
+              const prods = await api.listProducts(singleCat.id);
+              if (!cancelled) {
+                setProducts(prods);
+              }
+            } catch {
+              // Error handled if user re-clicks category
+            }
+          }
         }
       })
       .catch((err) => {

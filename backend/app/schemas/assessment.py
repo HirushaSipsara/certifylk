@@ -187,32 +187,7 @@ class SampleResponse(BaseModel):
     result_url: str
 
 
-# ── New certification knowledge base schemas ───────────────────────────────────
-
-
-class BusinessProfileInput(BaseModel):
-    name: str = Field(min_length=2, max_length=200)
-    business_type: str = Field(min_length=1, max_length=40)
-    years_operating: int | None = Field(default=None, ge=0, le=200)
-    scale: str = Field(min_length=1, max_length=40)
-    market: list[str] = Field(min_length=1, max_length=10)
-    existing_certifications: list[str] = Field(default_factory=list, max_length=20)
-    has_food_licence: str = Field(min_length=1, max_length=20)
-    monthly_volume_range: str | None = Field(default=None, max_length=40)
-    additional_info: str = Field(default="", max_length=2000)
-    # Optional: link to an assessment already created
-    assessment_id: uuid.UUID | None = Field(default=None)
-    # Optional: product slug to link this profile to a product
-    product_slug: str | None = Field(default=None, max_length=80)
-
-
-class BusinessProfileResponse(BaseModel):
-    id: uuid.UUID
-    name: str
-    business_type: str
-    scale: str
-    market: list[str]
-    has_food_licence: str
+# ── Certification knowledge base schemas ───────────────────────────────────────
 
 
 class CategoryResponse(BaseModel):
@@ -235,15 +210,10 @@ class ProductResponse(BaseModel):
 class SchemeChipResponse(BaseModel):
     id: str
     name: str
-    short_code: str
-    track: str
-    mandatory_tier: str
-    standard_version: str
-    catalogue_revision: str
+    slug: str
     summary: str
-    typical_timeline_days: int | None
-    body_name: str
-    active: bool
+    typical_timeline_days: int | None = None
+    display_order: int
 
 
 class SchemeRequirementResponse(BaseModel):
@@ -254,13 +224,10 @@ class SchemeRequirementResponse(BaseModel):
     description: str
     weight: float
     safety_critical: bool
-    source_document: str
-    source_document_id: str | None = None
     clause_reference: str
     source_url: str
     content_verified: bool
     standard_version: str
-    effective_date: str | None = None
     display_order: int
 
 
@@ -275,6 +242,29 @@ class EvidenceExpectationResponse(BaseModel):
     display_order: int
 
 
+class BusinessProfileInput(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    business_type: str = Field(default="food_manufacturing", max_length=100)
+    years_operating: int | None = Field(default=None, ge=0)
+    scale: str = Field(default="small", max_length=50)
+    market: list[str] = Field(default_factory=list)
+    existing_certifications: list[str] = Field(default_factory=list)
+    has_food_licence: str = Field(default="no", max_length=50)
+    monthly_volume_range: str | None = Field(default=None, max_length=100)
+    additional_info: str = Field(default="", max_length=2000)
+    assessment_id: uuid.UUID | None = None
+    product_slug: str | None = None
+
+
+class BusinessProfileResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    business_type: str
+    scale: str
+    market: list[str]
+    has_food_licence: str
+
+
 class SchemeDecisionResponse(BaseModel):
     scheme_id: str
     tier: str
@@ -283,15 +273,15 @@ class SchemeDecisionResponse(BaseModel):
     source_reference: str
     scheme_name: str
     body_name: str
-    typical_timeline_days: int | None
+    typical_timeline_days: int | None = None
     summary: str
 
 
 class ApplicabilityResponse(BaseModel):
     assessment_id: uuid.UUID
     overall_reasoning: str
-    recommended_path_scheme_id: str | None
+    recommended_path_scheme_id: str
     decisions: list[SchemeDecisionResponse]
-    provider: str
-    fallback_used: bool
-    has_unverified_content: bool
+    provider: str = "mock"
+    fallback_used: bool = False
+    has_unverified_content: bool = False
