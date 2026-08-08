@@ -685,7 +685,9 @@ def serialize_result(
                 "title": item.recommendation.title,
                 "implementation_steps": item.recommendation.implementation_steps,
                 "priority": item.priority_tier,
-                "cost_type": "business_capex" if item.recommendation.is_capex else "business_opex",
+                "cost_type": (
+                    "business_capex" if item.recommendation.is_capex else "business_opex"
+                ),
                 "one_time_cost": item.cost_snapshot["one_time"],
                 "recurring_cost": item.cost_snapshot["recurring"],
                 "cost_note": item.cost_snapshot["cost_note"],

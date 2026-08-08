@@ -4,12 +4,13 @@ import io
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.ai import AIProvider
-from app.core.errors import NotFoundError, TransitionError
+from app.core.errors import AppError, NotFoundError, TransitionError
 from app.models import (
     Assessment,
     AssessmentQuestion,
@@ -121,7 +122,10 @@ def store_upload(
 
 
 def mark_evidence_unavailable(
-    db: Session, assessment: Assessment, request: EvidenceRequest
+    db: Session,
+    assessment: Assessment,
+    request: EvidenceRequest,
+    storage: StorageProvider | None = None,
 ) -> EvidenceRequest:
     validate_page_transition(
         assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Mark evidence unavailable"
@@ -139,10 +143,11 @@ def mark_evidence_unavailable(
         )
     )
     if existing_file is not None:
-        try:
-            storage.delete_file(existing_file.storage_key)
-        except Exception:
-            pass
+        if storage is not None:
+            try:
+                storage.delete_file(existing_file.storage_key)
+            except Exception:
+                pass
         db.delete(existing_file)
     request.status = EvidenceRequestStatus.UNAVAILABLE
     db.commit()
@@ -263,7 +268,9 @@ def merge_evidence_observations(
     now = datetime.now(timezone.utc)
     for item in output.observations:
         evidence_file = file_by_request.get(item.evidence_request_id)
-        raw_polarity = item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity)
+        raw_polarity = (
+            item.polarity.value if hasattr(item.polarity, "value") else str(item.polarity)
+        )
         observation = EvidenceObservation(
             assessment_id=assessment.id,
             evidence_request_id=item.evidence_request_id,
