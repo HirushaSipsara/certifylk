@@ -4,14 +4,15 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CertifyLK · SLS readiness preparation",
-  description: "A guided readiness roadmap for small Sri Lankan food manufacturers.",
+  title: "CertifyLK · Certification Readiness",
+  description:
+    "Guided certification readiness for small Sri Lankan food manufacturers.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

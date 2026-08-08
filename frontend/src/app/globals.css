@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +15,10 @@
 body {
   margin: 0;
   color: #17352e;
-  background: #fffaf0;
+  background: #f8faf9;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -24,6 +29,34 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid rgba(25, 113, 94, 0.3);
+  outline: 3px solid rgba(25, 113, 94, 0.35);
   outline-offset: 2px;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-leaf px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50;
+  }
+
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold tracking-tight text-ink sm:text-3xl;
+  }
+
+  .section-lead {
+    @apply mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
 }
