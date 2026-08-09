@@ -2,13 +2,20 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AssessmentQuestion, CertificationScheme, Product, SchemeRequirement
+from app.models import (
+    AssessmentQuestion,
+    CertificationScheme,
+    EvidenceObservation,
+    Product,
+    SchemeRequirement,
+)
 from app.models.enums import AssessmentStatus
 from app.services.assessment_service import create_assessment
 from app.services.evidence_service import (
     analyze_uploaded_evidence,
     mark_evidence_unavailable,
     plan_final_clarifications,
+    store_upload,
 )
 from app.services.process_service import (
     build_evidence_plan,
@@ -81,10 +88,35 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
                 f"Evidence request requirement {r_id} does not belong to scheme {scheme.id}"
             )
 
-    # 4. Submit evidence (mark unavailable) & analyze evidence
+    # 4. Submit one scheme-bound evidence file, mark the rest unavailable, and analyze.
+    storage = MemoryStorageProvider()
+    uploaded_request = next(request for request in requests if request.kind.value == "photo")
+    store_upload(
+        db_session,
+        assessment,
+        uploaded_request,
+        filename="handwashing-area.png",
+        content_type="image/png",
+        data=(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc` \x05"
+            b"\x00\x00\x04\x00\x01\x07\x05\xd3\xd2\x00\x00\x00\x00IEND\xaeB`\x82"
+        ),
+        storage=storage,
+    )
     for request in requests:
+        if request.id == uploaded_request.id:
+            continue
         mark_evidence_unavailable(db_session, assessment, request)
-    await analyze_uploaded_evidence(db_session, assessment, MemoryStorageProvider())
+    await analyze_uploaded_evidence(db_session, assessment, storage)
+    observations = list(
+        db_session.scalars(
+            select(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
+        )
+    )
+    assert observations
+    assert all(item.requirement_id in scheme_req_ids for item in observations)
+    assert all(item.scheme_requirement_id == item.requirement_id for item in observations)
 
     # 5. Build clarification plan and explicitly verify clarification state handling
     clarification_plan = await plan_final_clarifications(db_session, assessment)

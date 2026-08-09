@@ -87,6 +87,23 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
     }
     assert {"scheme_id", "scheme_requirement_id"}.issubset(observation_columns)
 
+    # Reproduce the legacy production constraint that prevented scheme IDs from
+    # being stored in requirement_id, then verify revision 0007 removes it.
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE evidence_observations "
+                "ADD CONSTRAINT fk_evidence_observations_requirement_id_requirements "
+                "FOREIGN KEY (requirement_id) REFERENCES requirements(id)"
+            )
+        )
+    command.upgrade(config, "20260807_0007")
+    assert not any(
+        foreign_key["constrained_columns"] == ["requirement_id"]
+        and foreign_key["referred_table"] == "requirements"
+        for foreign_key in inspect(engine).get_foreign_keys("evidence_observations")
+    )
+
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     with session_factory() as session:
         seed_initial_knowledge_base(session)
