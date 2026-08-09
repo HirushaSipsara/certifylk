@@ -32,13 +32,15 @@ Mandatory or market-required wording must come from reviewed catalogue facts. AI
 ## Evidence and clarification behavior
 
 - Uploaded files/text are wrapped as untrusted evidence data.
-- Evidence files are reopened through `StorageProvider` and analyzed in sequential multimodal batches of at most two files rather than one unbounded or concurrent burst. Gemini receives the actual image/PDF bytes as provider-supported inline data with the stored MIME type, plus the selected scheme requirement title, description, source metadata, verification state, and deterministic evaluation rule retrieved from PostgreSQL.
+- Every selected-scheme evidence expectation first presents a deterministic current-state question derived from its database requirement description. The controlled answers are `yes`, `partial`, `no`, and `not_sure`; AI does not write or interpret these questions.
+- Supporting uploads are optional. A self-assessment may affect deterministic readiness, while evidence completeness increases only from accepted uploaded-evidence observations. A self-report is always labelled separately and is never presented as verified evidence.
+- Evidence files are reopened through `StorageProvider` and analyzed sequentially, one file per bounded multimodal request. Gemini receives the actual image/PDF bytes as provider-supported inline data with the stored MIME type, plus the selected scheme requirement title, description, source metadata, verification state, and deterministic evaluation rule retrieved from PostgreSQL.
 - Observations reference an uploaded request and a requirement allowed for that exact request.
 - Every certificate-specific uploaded request/requirement pair must receive exactly one validated observation; legacy requests that map one file to multiple requirements must receive at least one. Omitted requests and duplicate pairs fail validation and use the configured retry/fallback path.
 - Polarity is `supports`, `concern`, or `unclear`; confidence remains the model-returned validated 0–1 value.
 - AI does not perform an official pass/fail inspection and must not state a limit from memory.
 - The target scheme-specific operation must receive the retrieved requirement/source/threshold data before comparison.
-- Each persisted observation records the exact successful batch provider, fallback flag, and validation status. The evidence page shows those values with polarity, confidence band, and observation text before the user continues. Retrying is a real new backend analysis request with replace semantics; it is not simulated by a timer and does not accumulate duplicate observation rows.
+- Each persisted observation records the exact successful request provider, fallback flag, and validation status. The evidence page shows those values with polarity, confidence band, and observation text before the user continues. Retrying is a real new backend analysis request with replace semantics; it is not simulated by a timer and does not accumulate duplicate observation rows.
 - Clarification selects only supplied question IDs linked to unresolved selected-scheme requirements.
 
 ## Roadmap behavior
@@ -69,14 +71,14 @@ Unknown IDs or invalid structured output fail validation, are safely logged, and
 
 ## Retry, fallback, and transparency
 
-Gemini structured output is validated and may retry once on a transient/invalid provider response. HTTP 429/5xx responses use a bounded provider-supplied retry delay when available. With `ALLOW_AI_FALLBACK=true`, only the failed evidence batch executes through Mock; already validated Gemini batches remain Gemini observations. `ai_runs` records operation, provider, model, latency, success, fallback flag, and a bounded safe provider/validation error—not prompts, keys, raw evidence, or model responses.
+Most Gemini operations use the configured retry/fallback policy. Evidence review is deliberately stricter for the competition path: one file per call, one attempt, an eight-second per-file limit and a twenty-second request budget by default, with no Mock substitution for a failed file. Successful observations are preserved; failed or unattempted files remain uploaded and the API returns a controlled `partial` or `unavailable` review state so the user may continue with saved self-assessment answers. `ai_runs` records operation, provider, model, latency, success, fallback flag, and a bounded safe provider/validation error—not prompts, keys, raw evidence, or model responses.
 
 `run_with_validation` returns validated output plus provider/fallback metadata from the exact successful run. The UI may show:
 
 - “Analyzing …” while the request is pending;
 - “Analysis is taking longer than expected” after elapsed time;
 - “Analyzed by Gemini” only when the response confirms Gemini without fallback;
-- “Completed using fallback analysis” only when confirmed;
+- “Completed using fallback analysis” only when an operation actually confirms fallback; evidence review does not fabricate a fallback observation;
 - “Analyzed by Mock AI” only in development/test or explicit QA display mode;
 - an actionable retry only after complete request failure.
 
@@ -100,4 +102,4 @@ Every applicability/evidence/narrative output should expose only references to f
 
 ## Production configuration
 
-`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, timeout/temperature/token limits, and fallback settings exist only in the backend environment. Frontend variables never contain provider secrets. Provider changes do not change deterministic domain behavior.
+`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, timeout/temperature/token limits, `EVIDENCE_AI_TIMEOUT_SECONDS`, `EVIDENCE_AI_TOTAL_TIMEOUT_SECONDS`, and fallback settings exist only in the backend environment. Frontend variables never contain provider secrets. Provider changes do not change deterministic domain behavior.

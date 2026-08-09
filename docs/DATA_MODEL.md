@@ -22,7 +22,7 @@ PostgreSQL is the source of truth. UUIDs identify assessment-owned data; stable 
 - **assessment_answers** — UUID, assessment FK, page/key/value JSON, timestamp; unique per assessment/page/key.
 - **process_steps** — UUID, assessment FK, position 1–5, raw text, normalized stage/tags/confidence, timestamps.
 - **question_bank** and **assessment_questions** — approved questions/options/tags/affected legacy requirement IDs and per-assessment assignments.
-- **evidence_requests**, **evidence_files**, **evidence_observations** — requested type/kind/legacy requirement references, generated storage metadata, and validated observation polarity/confidence plus exact batch `provider`, `fallback_used`, and `validation_status`. `evidence_observations.requirement_id` is an indexed displayed reference that can identify either a legacy or scheme requirement; it deliberately has no legacy-catalogue foreign key. Nullable `scheme_id` and `scheme_requirement_id` foreign keys provide certificate-specific grounding; legacy observations may leave both fields null.
+- **evidence_requests**, **evidence_files**, **evidence_observations** — requested type/kind/requirement references plus nullable controlled `self_assessment` (`yes`, `partial`, `no`, `not_sure`), generated storage metadata, and validated observation polarity/confidence plus exact successful `provider`, `fallback_used`, and `validation_status`. Self-assessment is persisted independently from optional file status. `evidence_observations.requirement_id` is an indexed displayed reference that can identify either a legacy or scheme requirement; it deliberately has no legacy-catalogue foreign key. Nullable `scheme_id` and `scheme_requirement_id` foreign keys provide certificate-specific grounding; legacy observations may leave both fields null.
 - **requirements**, **recommendations**, **cost_items** — legacy global deterministic catalogue still used by the current scoring workflow.
 - **requirement_evaluations** — statuses for legacy or scheme requirements. `requirement_id` stores the displayed requirement ID; `scheme_id` and `scheme_requirement_id` are populated for certificate-specific results.
 - **assessment_results** — raw/display score, evidence completeness, category/result/cost snapshots, optional scheme/version/revision snapshot, and `roadmap_snapshot` for scheme-specific roadmap items.
@@ -43,7 +43,7 @@ The following remain planned:
 - reviewed import files for all catalogue facts;
 - full question/evidence-submission cutover to `evidence_expectations`;
 - explicit scheme binding on all question assignments and uploaded evidence files;
-- recurring cost period and “quote required” semantics where a reliable numeric price is unavailable.
+- recurring cost period beyond the current snapshot fields.
 
 Every addition requires an Alembic migration and an update to this document.
 

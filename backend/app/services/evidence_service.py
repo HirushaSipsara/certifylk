@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import io
@@ -10,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.ai import AIProvider
+from app.core.config import get_settings
 from app.core.errors import AppError, NotFoundError, TransitionError
 from app.models import (
     Assessment,
@@ -25,6 +27,7 @@ from app.models.enums import (
     EvidenceRequestStatus,
     ObservationPolarity,
     QuestionPage,
+    SelfAssessmentValue,
 )
 from app.schemas.ai import (
     EvidenceAnalysisOutput,
@@ -52,11 +55,22 @@ from app.storage import StorageProvider
 @dataclass(frozen=True)
 class PersistedEvidenceAnalysis:
     observations: list[EvidenceObservation]
-    execution: AIExecutionResult[EvidenceAnalysisOutput]
+    execution: AIExecutionResult[EvidenceAnalysisOutput] | None
+    review_status: str
+    failed_evidence_request_ids: list[uuid.UUID]
+    message: str | None = None
+
+    @property
+    def provider(self) -> str | None:
+        return self.execution.provider if self.execution else None
+
+    @property
+    def fallback_used(self) -> bool | None:
+        return self.execution.fallback_used if self.execution else None
 
 
 MAX_AI_EVIDENCE_RAW_BYTES_PER_BATCH = 12 * 1024 * 1024
-MAX_AI_EVIDENCE_FILES_PER_BATCH = 2
+MAX_AI_EVIDENCE_FILES_PER_BATCH = 1
 logger = logging.getLogger("certifylk.evidence")
 
 
@@ -247,11 +261,31 @@ def mark_evidence_unavailable(
     return request
 
 
+def save_evidence_self_assessment(
+    db: Session,
+    assessment: Assessment,
+    request: EvidenceRequest,
+    value: str,
+) -> EvidenceRequest:
+    validate_page_transition(
+        assessment,
+        {AssessmentStatus.EVIDENCE_PENDING, AssessmentStatus.EVIDENCE_COMPLETE},
+        "Evidence self-assessment",
+    )
+    request.self_assessment = SelfAssessmentValue(value)
+    if assessment.status == AssessmentStatus.EVIDENCE_COMPLETE:
+        update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_PENDING)
+    db.commit()
+    return request
+
+
 async def analyze_uploaded_evidence(
     db: Session,
     assessment: Assessment,
     storage: StorageProvider,
     provider: AIProvider | None = None,
+    per_file_timeout_seconds: float | None = None,
+    total_timeout_seconds: float | None = None,
 ) -> PersistedEvidenceAnalysis:
     validate_page_transition(
         assessment,
@@ -265,7 +299,12 @@ async def analyze_uploaded_evidence(
             .order_by(EvidenceRequest.display_order)
         )
     )
-    if any(request.status == EvidenceRequestStatus.REQUESTED for request in requests):
+    if assessment.scheme_id and any(request.self_assessment is None for request in requests):
+        raise TransitionError("Answer the current-state question for every requirement.")
+    if not assessment.scheme_id and any(
+        request.status == EvidenceRequestStatus.REQUESTED and request.self_assessment is None
+        for request in requests
+    ):
         raise TransitionError("Resolve every evidence request before analysis.")
     files = list(
         db.scalars(select(EvidenceFile).where(EvidenceFile.assessment_id == assessment.id))
@@ -324,8 +363,20 @@ async def analyze_uploaded_evidence(
         }
 
     batches = _partition_evidence_inputs(evidence_inputs, raw_sizes)
+
     if not batches:
-        batches = [[]]
+        update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_COMPLETE)
+        db.commit()
+        return PersistedEvidenceAnalysis(
+            observations=[],
+            execution=None,
+            review_status="not_requested",
+            failed_evidence_request_ids=[],
+            message=(
+                "No supporting files were submitted. Your self-assessment answers were saved "
+                "and you can continue."
+            ),
+        )
 
     async def analyze_batch(
         batch: list[EvidenceInput],
@@ -366,6 +417,9 @@ async def analyze_uploaded_evidence(
             lambda candidate: validate_evidence_output(candidate, batch_requirements),
             provider_override=provider,
             diagnostic_context=diagnostic_context,
+            max_attempts=1,
+            allow_fallback=False,
+            timeout_seconds=batch_timeout_seconds,
         )
         logger.info(
             "evidence_batch_complete assessment_id=%s batch_number=%s provider=%s "
@@ -381,9 +435,40 @@ async def analyze_uploaded_evidence(
 
     # Keep live multimodal calls sequential. This avoids self-inflicted provider quota
     # spikes while each independently validated batch preserves its own outcome.
+    settings = get_settings()
+    configured_per_file_timeout = (
+        per_file_timeout_seconds
+        if per_file_timeout_seconds is not None
+        else settings.evidence_ai_timeout_seconds
+    )
+    configured_total_timeout = (
+        total_timeout_seconds
+        if total_timeout_seconds is not None
+        else settings.evidence_ai_total_timeout_seconds
+    )
+    batch_timeout_seconds = configured_per_file_timeout
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + configured_total_timeout
     executions: list[AIExecutionResult[EvidenceAnalysisOutput]] = []
+    failed_request_ids: list[uuid.UUID] = []
     for batch_number, batch in enumerate(batches, start=1):
-        executions.append(await analyze_batch(batch, batch_number))
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            failed_request_ids.extend(item.request_id for item in batch)
+            continue
+        batch_timeout_seconds = min(configured_per_file_timeout, remaining)
+        try:
+            executions.append(await analyze_batch(batch, batch_number))
+        except AppError as exc:
+            failed_request_ids.extend(item.request_id for item in batch)
+            logger.warning(
+                "evidence_batch_unavailable assessment_id=%s batch_number=%s "
+                "exception=%s message=%s",
+                assessment.id,
+                batch_number,
+                type(exc).__name__,
+                exc.message,
+            )
     output = EvidenceAnalysisOutput(
         observations=[
             observation
@@ -391,11 +476,15 @@ async def analyze_uploaded_evidence(
             for observation in batch_execution.output.observations
         ]
     )
-    execution = AIExecutionResult(
-        output=output,
-        provider=("mock" if any(item.provider == "mock" for item in executions) else "gemini"),
-        fallback_used=any(item.fallback_used for item in executions),
-        validation_status="validated",
+    execution = (
+        AIExecutionResult(
+            output=output,
+            provider=("mock" if any(item.provider == "mock" for item in executions) else "gemini"),
+            fallback_used=any(item.fallback_used for item in executions),
+            validation_status="validated",
+        )
+        if executions
+        else None
     )
     execution_by_pair = {
         (observation.evidence_request_id, observation.requirement_id): batch_execution
@@ -408,13 +497,40 @@ async def analyze_uploaded_evidence(
         output,
         file_by_request,
         execution_by_pair,
+        successful_request_ids={
+            observation.evidence_request_id for observation in output.observations
+        },
     )
+    successful_request_ids = {
+        observation.evidence_request_id for observation in output.observations
+    }
     for request in requests:
-        if request.status == EvidenceRequestStatus.UPLOADED:
+        if (
+            request.status == EvidenceRequestStatus.UPLOADED
+            and request.id in successful_request_ids
+        ):
             request.status = EvidenceRequestStatus.ANALYZED
     update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_COMPLETE)
     db.commit()
-    return PersistedEvidenceAnalysis(observations=observations, execution=execution)
+    if failed_request_ids and executions:
+        review_status = "partial"
+    elif failed_request_ids:
+        review_status = "unavailable"
+    else:
+        review_status = "complete"
+    message = (
+        "AI evidence review is temporarily unavailable for one or more uploaded files. "
+        "Your files and self-assessment answers are saved, and you may continue."
+        if failed_request_ids
+        else None
+    )
+    return PersistedEvidenceAnalysis(
+        observations=observations,
+        execution=execution,
+        review_status=review_status,
+        failed_evidence_request_ids=failed_request_ids,
+        message=message,
+    )
 
 
 def merge_evidence_observations(
@@ -423,10 +539,18 @@ def merge_evidence_observations(
     output: EvidenceAnalysisOutput,
     file_by_request: dict[uuid.UUID, EvidenceFile],
     execution_by_pair: dict[tuple[uuid.UUID, str], AIExecutionResult[EvidenceAnalysisOutput]],
+    successful_request_ids: set[uuid.UUID] | None = None,
 ) -> list[EvidenceObservation]:
-    db.execute(
-        delete(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
-    )
+    successful = successful_request_ids or {
+        observation.evidence_request_id for observation in output.observations
+    }
+    if successful:
+        db.execute(
+            delete(EvidenceObservation).where(
+                EvidenceObservation.assessment_id == assessment.id,
+                EvidenceObservation.evidence_request_id.in_(successful),
+            )
+        )
     observations: list[EvidenceObservation] = []
     now = datetime.now(timezone.utc)
     for item in output.observations:

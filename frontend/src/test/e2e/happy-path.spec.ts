@@ -10,7 +10,7 @@ test("one-click Fresh Fruit Cordial sample reaches the readiness roadmap", async
   expect(sampleResponse.ok()).toBeTruthy();
   const sample = (await sampleResponse.json()) as { result_url?: string };
   expect(sample.result_url).toMatch(/^\/assessment\/[^/]+\/result$/);
-  await expect(page).toHaveURL(/\/assessment\/[^/]+\/result$/);
+  await page.waitForURL(sample.result_url!, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Readiness Report & Action Roadmap" })).toBeVisible();
   await expect(page.getByText("Readiness Indicator")).toBeVisible();
   await expect(page.getByText("Readiness score", { exact: true })).toBeVisible();
@@ -60,8 +60,10 @@ test("AI applicability flow recommends a scheme and shows grounded requirements"
   await expect(page.getByText("Source reference").first()).toBeVisible();
 
   await page.getByRole("link", { name: /Start assessment for/ }).click();
+  await page.waitForURL(/\/assessment\/[^/]+\/hub$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Track your readiness progress" })).toBeVisible();
   await page.getByRole("link", { name: /View requirements/ }).click();
+  await page.waitForURL(/\/assessment\/[^/]+\/hub\/requirements$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Scheme Requirements" })).toBeVisible();
   await expect(page.getByText("Content not independently verified")).toBeVisible();
   await expect(page.getByText(/Educational tool only/)).toBeVisible();

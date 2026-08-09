@@ -8,12 +8,38 @@ function Group({ title, items, tone }: { title: string; items: RequirementSummar
         <ul className="mt-3 space-y-3">
           {items.map((item) => (
             <li key={item.requirement_id}>
-              <p className="font-semibold">{item.title}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">{item.title}</p>
+                {item.evidence_references.some((reference) =>
+                  reference.startsWith("self_report:"),
+                ) ? (
+                  <span className="rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-900">
+                    Self-reported
+                  </span>
+                ) : null}
+                {item.evidence_references.some((reference) =>
+                  reference.startsWith("evidence:"),
+                ) ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
+                    Evidence-supported
+                  </span>
+                ) : null}
+                {item.status === "gap" || item.status === "partial" ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-950">
+                    {item.status === "partial" ? "Partial" : "Gap"}
+                  </span>
+                ) : null}
+                {item.status === "unknown" ? (
+                  <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-800">
+                    Unknown
+                  </span>
+                ) : null}
+              </div>
               <p className="mt-1 text-sm text-slate-600">{item.rationale}</p>
             </li>
           ))}
         </ul>
-      ) : <p className="mt-2 text-sm text-slate-600">None identified from current evidence.</p>}
+      ) : <p className="mt-2 text-sm text-slate-600">None identified from current assessment information.</p>}
     </section>
   );
 }

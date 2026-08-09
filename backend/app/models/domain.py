@@ -33,6 +33,7 @@ from app.models.enums import (
     QuestionPage,
     RequirementCategory,
     RequirementStatus,
+    SelfAssessmentValue,
 )
 
 
@@ -176,6 +177,9 @@ class EvidenceRequest(TimestampMixin, Base):
         default=EvidenceRequestStatus.REQUESTED,
         nullable=False,
         index=True,
+    )
+    self_assessment: Mapped[SelfAssessmentValue | None] = mapped_column(
+        enum_type(SelfAssessmentValue, "self_assessment_value"), nullable=True
     )
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
 

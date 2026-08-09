@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -15,7 +16,7 @@ from app.models import (
     RequirementEvaluation,
     SchemeRequirement,
 )
-from app.models.enums import AssessmentStatus, RequirementStatus
+from app.models.enums import AssessmentStatus, RequirementStatus, SelfAssessmentValue
 from app.schemas.ai import EvidenceAnalysisOutput, EvidenceInput, EvidenceObservationOutput
 from app.services.assessment_service import create_assessment
 from app.services.evidence_service import (
@@ -109,6 +110,19 @@ class PartiallyFailingGeminiEvidenceProvider(SupportingSchemeEvidenceProvider):
         return await super().analyze_evidence(evidence, allowed_requirement_ids)
 
 
+class TimingOutGeminiEvidenceProvider(SupportingSchemeEvidenceProvider):
+    name = "gemini"
+    model = "test-gemini-timeout"
+
+    async def analyze_evidence(
+        self,
+        evidence: list[EvidenceInput],
+        allowed_requirement_ids: set[str],
+    ) -> EvidenceAnalysisOutput:
+        await asyncio.sleep(1)
+        return await super().analyze_evidence(evidence, allowed_requirement_ids)
+
+
 @pytest.mark.asyncio
 async def test_track1_full_scheme_assessment_integration(db_session: Session):
     """Full Track 1 end-to-end scheme assessment integration test for Fresh Fruit Cordial.
@@ -162,6 +176,8 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     # 3. Build scheme evidence plan
     requests = build_evidence_plan(db_session, assessment)
     assert len(requests) > 0
+    for request in requests:
+        request.self_assessment = SelfAssessmentValue.YES
 
     # Assert evidence expectation requirement IDs belong to selected scheme
     for req in requests:
@@ -201,7 +217,9 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
         storage,
         provider=provider,
     )
-    assert len(provider.batches) == 3
+    assert len(provider.batches) == 6
+    assert analysis.review_status == "complete"
+    assert analysis.execution is not None
     assert analysis.execution.provider == "mock"
     assert analysis.execution.fallback_used is False
     observations = list(
@@ -320,6 +338,92 @@ async def test_no_uploads_still_score_positive_process_answers(db_session: Sessi
 
 
 @pytest.mark.asyncio
+async def test_good_requirement_self_assessment_without_uploads_completes(
+    db_session: Session,
+) -> None:
+    seed_initial_knowledge_base(db_session)
+    assessment = create_assessment(db_session)
+    assessment.scheme_id = "SLS_MARK_CORDIAL"
+    save_process_steps(
+        db_session,
+        assessment,
+        ["Receive", "Prepare", "Heat", "Fill", "Store"],
+    )
+    assessment.process_analysis = {"stages": [{"position": 1, "name": "Receive"}]}
+    assessment.status = AssessmentStatus.PROCESS_COMPLETE
+    requests = build_evidence_plan(db_session, assessment)
+    for request in requests:
+        request.self_assessment = SelfAssessmentValue.YES
+    db_session.flush()
+
+    analysis = await analyze_uploaded_evidence(
+        db_session,
+        assessment,
+        MemoryStorageProvider(),
+    )
+    assert analysis.review_status == "not_requested"
+    assert analysis.execution is None
+    assert assessment.status == AssessmentStatus.EVIDENCE_COMPLETE
+
+    assessment.status = AssessmentStatus.READY_TO_SCORE
+    result = await generate_scheme_result(db_session, assessment)
+    evaluations = list(
+        db_session.scalars(
+            select(RequirementEvaluation).where(
+                RequirementEvaluation.assessment_id == assessment.id
+            )
+        )
+    )
+    assert result.overall_score > 0
+    assert result.evidence_completeness == 0
+    assert any(
+        reference.startswith("self_report:")
+        for evaluation in evaluations
+        for reference in evaluation.evidence_references
+    )
+
+
+@pytest.mark.asyncio
+async def test_gemini_evidence_timeout_is_controlled_and_can_continue(
+    db_session: Session,
+) -> None:
+    seed_initial_knowledge_base(db_session)
+    assessment = create_assessment(db_session)
+    assessment.scheme_id = "SLS_MARK_CORDIAL"
+    assessment.process_analysis = {"stages": [{"position": 1, "name": "Receive"}]}
+    assessment.status = AssessmentStatus.PROCESS_COMPLETE
+    requests = build_evidence_plan(db_session, assessment)
+    for request in requests:
+        request.self_assessment = SelfAssessmentValue.YES
+    storage = MemoryStorageProvider()
+    request = requests[0]
+    store_upload(
+        db_session,
+        assessment,
+        request,
+        filename="handwashing.png",
+        content_type="image/png",
+        data=b"\x89PNG\r\n\x1a\nsynthetic",
+        storage=storage,
+    )
+
+    analysis = await analyze_uploaded_evidence(
+        db_session,
+        assessment,
+        storage,
+        provider=TimingOutGeminiEvidenceProvider(),
+        per_file_timeout_seconds=0.01,
+        total_timeout_seconds=0.05,
+    )
+
+    assert analysis.review_status == "unavailable"
+    assert analysis.execution is None
+    assert analysis.failed_evidence_request_ids == [request.id]
+    assert analysis.observations == []
+    assert assessment.status == AssessmentStatus.EVIDENCE_COMPLETE
+
+
+@pytest.mark.asyncio
 async def test_no_answers_or_evidence_remains_zero_and_explicitly_unknown(
     db_session: Session,
 ) -> None:
@@ -373,6 +477,8 @@ async def test_evidence_batches_preserve_gemini_successes_and_replace_only_faile
     assessment.status = AssessmentStatus.PROCESS_COMPLETE
     await extract_structured_process(db_session, assessment)
     requests = build_evidence_plan(db_session, assessment)
+    for request in requests:
+        request.self_assessment = SelfAssessmentValue.YES
     uploaded_requests = requests[:5]
     storage = MemoryStorageProvider()
     for request in uploaded_requests:
@@ -401,8 +507,11 @@ async def test_evidence_batches_preserve_gemini_successes_and_replace_only_faile
         storage,
         provider=provider,
     )
-    assert first.execution.provider == "mock"
-    assert first.execution.fallback_used is True
+    assert first.review_status == "partial"
+    assert set(map(str, first.failed_evidence_request_ids)) == failed_batch_request_ids
+    assert first.execution is not None
+    assert first.execution.provider == "gemini"
+    assert first.execution.fallback_used is False
 
     persisted = list(
         db_session.scalars(
@@ -411,18 +520,16 @@ async def test_evidence_batches_preserve_gemini_successes_and_replace_only_faile
             .order_by(EvidenceObservation.evidence_request_id)
         )
     )
-    assert len(persisted) == 5
+    assert len(persisted) == 3
     by_request = {str(item.evidence_request_id): item for item in persisted}
     for request in uploaded_requests:
-        observation = by_request[str(request.id)]
         if str(request.id) in failed_batch_request_ids:
-            assert observation.provider == "mock"
-            assert observation.fallback_used is True
-            assert observation.polarity.value == "unclear"
-        else:
-            assert observation.provider == "gemini"
-            assert observation.fallback_used is False
-            assert observation.polarity.value == "supports"
+            assert str(request.id) not in by_request
+            continue
+        observation = by_request[str(request.id)]
+        assert observation.provider == "gemini"
+        assert observation.fallback_used is False
+        assert observation.polarity.value == "supports"
         assert observation.validation_status == "validated"
 
     # A real retry replaces the assessment's observations instead of accumulating rows.
@@ -432,10 +539,12 @@ async def test_evidence_batches_preserve_gemini_successes_and_replace_only_faile
         storage,
         provider=provider,
     )
-    assert retried.execution.fallback_used is True
+    assert retried.review_status == "partial"
+    assert retried.execution is not None
+    assert retried.execution.fallback_used is False
     retry_rows = list(
         db_session.scalars(
             select(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
         )
     )
-    assert len(retry_rows) == 5
+    assert len(retry_rows) == 3

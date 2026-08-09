@@ -53,6 +53,7 @@ def evaluate_requirement(
     non_empty_process_steps: int,
     observations: list[dict[str, Any]],
     unavailable_types: list[str] | None = None,
+    self_assessment: tuple[str, str] | None = None,
 ) -> EvaluatedRequirement:
     rule = requirement.evaluation_rule
     status = RequirementStatus.UNKNOWN
@@ -90,6 +91,31 @@ def evaluate_requirement(
                     }[candidate_status]
                     break
 
+    if self_assessment is not None:
+        self_assessment_value, evidence_request_id = self_assessment
+        references = [f"self_report:{evidence_request_id}"]
+        status = {
+            "yes": RequirementStatus.CONFIRMED,
+            "partial": RequirementStatus.PARTIAL,
+            "no": RequirementStatus.GAP,
+            "not_sure": RequirementStatus.UNKNOWN,
+        }[self_assessment_value]
+        rationale = {
+            RequirementStatus.CONFIRMED: (
+                "The current-state response reports this practice as implemented; "
+                "supporting evidence has not necessarily been verified."
+            ),
+            RequirementStatus.PARTIAL: (
+                "The current-state response reports this practice as partly implemented."
+            ),
+            RequirementStatus.GAP: (
+                "The current-state response reports this practice as not yet available."
+            ),
+            RequirementStatus.UNKNOWN: (
+                "The current-state response is not sure, so this requirement remains unknown."
+            ),
+        }[status]
+
     relevant_observations = [
         observation
         for observation in observations
@@ -97,7 +123,17 @@ def evaluate_requirement(
         and Decimal(str(observation["confidence"])) >= Decimal("0.50")
     ]
     references.extend(f"evidence:{item['id']}" for item in relevant_observations)
-    if status == RequirementStatus.UNKNOWN and relevant_observations:
+    if self_assessment is not None and relevant_observations:
+        strongest = max(relevant_observations, key=lambda item: item["confidence"])
+        if strongest["polarity"] == "supports":
+            status = RequirementStatus.CONFIRMED
+            rationale = "Accepted evidence supports the reported current state."
+        elif strongest["polarity"] == "concern":
+            status = RequirementStatus.GAP
+            rationale = (
+                "Accepted evidence raises a concern that challenges the reported current state."
+            )
+    elif status == RequirementStatus.UNKNOWN and relevant_observations:
         strongest = max(relevant_observations, key=lambda item: item["confidence"])
         if strongest["polarity"] == "supports":
             status = RequirementStatus.CONFIRMED
@@ -130,8 +166,10 @@ def evaluate_all_requirements(
     non_empty_process_steps: int,
     observations: list[dict[str, Any]],
     unavailable_by_requirement: dict[str, list[str]] | None = None,
+    self_assessment_by_requirement: dict[str, tuple[str, str]] | None = None,
 ) -> list[EvaluatedRequirement]:
     unavailable = unavailable_by_requirement or {}
+    self_assessments = self_assessment_by_requirement or {}
     return [
         evaluate_requirement(
             requirement,
@@ -140,6 +178,7 @@ def evaluate_all_requirements(
             non_empty_process_steps=non_empty_process_steps,
             observations=observations,
             unavailable_types=unavailable.get(requirement.id),
+            self_assessment=self_assessments.get(requirement.id),
         )
         for requirement in load_applicable_requirements(requirements)
     ]

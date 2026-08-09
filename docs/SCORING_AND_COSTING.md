@@ -45,7 +45,7 @@ Statuses and multipliers remain:
 
 A gap requires affirmative evidence of a missing/inadequate practice. Unknown means evidence is insufficient. They score the same but must be displayed and explained separately.
 
-For scheme-specific assessments, controlled `evaluation_rule` mappings may derive a status from an approved profile field, adaptive/clarification answer, ordered process-step completeness, or a validated evidence observation. Answer-derived status therefore contributes to readiness without being represented as uploaded evidence.
+For scheme-specific assessments, controlled `evaluation_rule` mappings may derive a status from an approved profile field, adaptive/clarification answer, ordered process-step completeness, or a validated evidence observation. A requirement-specific evidence-stage self-assessment uses the same fixed multipliers (`yes` = confirmed, `partial` = partial, `no` = gap, `not_sure` = unknown) and records `self_report:<evidence-request-id>` provenance. It remains self-reported, not verified evidence. An accepted supporting/concern observation may strengthen or challenge that self-report deterministically. Answer-derived status therefore contributes to readiness without being represented as uploaded evidence.
 
 For category `c`, with applicable requirement denominator `D_c`, earned points `E_c`, and configured category weight `W_c`:
 

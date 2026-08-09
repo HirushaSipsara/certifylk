@@ -4,7 +4,7 @@ Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `htt
 
 Process-analysis, evidence-analysis, and applicability responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
 
-Evidence analysis splits uploaded files into sequential internal batches of at most two files. The response combines the validated observations from those exact batch runs. Top-level `fallback_used=true` when any batch required fallback; top-level `provider=mock` when any returned observation batch used Mock, otherwise it is `gemini`. Each observation also carries its exact batch `provider`, `fallback_used`, and `validation_status`. Each certificate-specific uploaded request/requirement pair must be represented once; legacy multi-requirement requests must be represented at least once.
+Evidence analysis is optional and bounded independently from applicability AI. Uploaded files are reviewed one at a time, with one provider attempt per file, an eight-second per-file budget, and a twenty-second total request budget by default. Evidence review does not use Mock fallback: a provider timeout/failure leaves that file without an AI observation and returns a controlled `200` response so the saved self-assessment can continue. Successful file observations are preserved. Each returned observation carries its exact successful provider and validation metadata.
 
 The API is transitional. The legacy four-page endpoints remain operational against the global readiness catalogue. The knowledge-base/applicability endpoints select a certification scheme and expose its requirement overview, but certificate-specific evidence/evaluation/result contracts are not yet complete. Planned endpoints or fields are documented only in `FULL_IMPLEMENTATION_PLAN.md`, not as current API behavior.
 
@@ -144,7 +144,7 @@ No body. Requires process analysis. `200`:
 {
   "status":"evidence_pending",
   "requests":[
-    {"id":"2c8b29b1-d828-48de-89f4-acd6f4679d65","evidence_type":"production_area","kind":"photo","title":"Production area","required":false,"status":"requested"},
+    {"id":"2c8b29b1-d828-48de-89f4-acd6f4679d65","evidence_type":"production_area","kind":"photo","title":"Production area","required":false,"status":"requested","requirement_id":"SLS_HYG_HANDWASH","current_state_question":"Is this currently in place in your operation? Suitable handwashing facilities...","self_assessment":null},
     {"id":"7547e7c9-9017-4567-93d5-ebfdfd5a4ea2","evidence_type":"product_label","kind":"document","title":"Product label","required":false,"status":"requested"}
   ]
 }
@@ -168,6 +168,16 @@ Returns `409` for closed/wrong-stage slots, `413` oversized, `415` unsupported o
 
 No body. `200`: `{"evidence_request_id":"...","status":"unavailable"}`. Returns `409` if already uploaded/analyzed or transition is invalid.
 
+### `PUT /assessments/{assessment_id}/evidence/{evidence_request_id}/self-assessment`
+
+Stores the controlled, requirement-specific current-state response independently from file status:
+
+```json
+{"value":"yes"}
+```
+
+Allowed values are `yes`, `partial`, `no`, and `not_sure`. `200`: `{"evidence_request_id":"...","value":"yes"}`. These responses are self-reported readiness inputs and never count as accepted uploaded evidence.
+
 ### `DELETE /assessments/{assessment_id}/evidence/{evidence_request_id}`
 
 Resets an uploaded or unavailable evidence slot to `requested` before evidence
@@ -179,20 +189,23 @@ evidence stage.
 
 ### `POST /assessments/{assessment_id}/evidence-analysis`
 
-No body. All slots must be uploaded or unavailable. `200`:
+No body. For scheme assessments, every current-state question must be answered; uploads are optional. `200`:
 
 ```json
 {
   "status":"evidence_complete",
-  "provider":"mock",
-  "fallback_used":true,
+  "provider":"gemini",
+  "fallback_used":false,
+  "review_status":"partial",
+  "message":"AI evidence review is temporarily unavailable for one or more uploaded files. Your files and self-assessment answers are saved, and you may continue.",
+  "failed_evidence_request_ids":["7547e7c9-9017-4567-93d5-ebfdfd5a4ea2"],
   "observations":[{"id":"28f89fd5-7c4b-4dc3-a926-341ccb039506","evidence_request_id":"...","requirement_id":"HYG_HANDWASH","polarity":"supports","text":"A dedicated handwashing area is visible.","confidence":0.86,"provider":"gemini","fallback_used":false,"validation_status":"validated"}]
 }
 ```
 
 Each observation retains its validated polarity (`supports`, `concern`, or `unclear`), confidence value, and exact execution provenance. The UI presents `>=0.80` as Clear, `>=0.50` as Plausible, and lower values as Unclear without changing the stored number. Older clients may ignore the added read-only provenance fields.
 
-Returns `409` while requests remain unresolved; `502` for AI failure without fallback.
+`review_status` is `complete`, `partial`, `unavailable`, or `not_requested`. Provider metadata is nullable when no successful AI review occurred. A provider failure does not fabricate a Mock observation and does not block clarification. Returns `409` while current-state responses remain unanswered and `400` when a stored file is missing.
 
 ### `POST /assessments/{assessment_id}/clarification-plan`
 

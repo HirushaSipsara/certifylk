@@ -10,6 +10,7 @@ import type {
   Question,
   SchemeChip,
   SchemeRequirement,
+  SelfAssessmentValue,
 } from "@/types";
 
 const API_BASE =
@@ -107,6 +108,15 @@ export const api = {
   markUnavailable: (id: string, requestId: string) =>
     apiFetch(`/assessments/${id}/evidence/${requestId}/unavailable`, {
       method: "PUT",
+    }),
+  saveEvidenceSelfAssessment: (
+    id: string,
+    requestId: string,
+    value: SelfAssessmentValue,
+  ) =>
+    apiFetch(`/assessments/${id}/evidence/${requestId}/self-assessment`, {
+      method: "PUT",
+      body: JSON.stringify({ value }),
     }),
   removeEvidence: (id: string, requestId: string) =>
     apiFetch<{ evidence_request_id: string; status: string }>(

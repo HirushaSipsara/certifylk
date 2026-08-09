@@ -94,10 +94,11 @@ sequenceDiagram
   participant Engine as Deterministic engines
   UI->>API: open selected-scheme assessment
   API->>DB: load frozen requirements/evidence expectations
-  UI->>API: process answers and uploads/unavailable
-  API->>AI: extract against supplied requirement whitelist
-  AI-->>API: observations with polarity/confidence/IDs
-  API->>API: validate and persist exact bindings
+  UI->>API: controlled current-state answers
+  UI->>API: optional uploads/unavailable
+  API->>AI: bounded one-file review against supplied requirement whitelist
+  AI-->>API: observations or controlled unavailable state
+  API->>API: validate and persist exact bindings/self-report provenance
   API->>AI: select unresolved approved questions
   UI->>API: clarification answers
   API->>Engine: evaluate, score, rank, cost, project
@@ -110,7 +111,7 @@ The current legacy `/profile`, `/process`, `/evidence`, `/clarification`, and `/
 
 ## AI adapter and orchestration
 
-`AIProvider` exposes typed operations for adaptive questions, process extraction, evidence analysis, clarifications, roadmap explanations, and applicability planning. `run_with_validation` selects Mock/Gemini, times the call, validates/sanitizes output, records `ai_runs`, and returns metadata from the exact successful run. Gemini can retry once with bounded transient-error backoff and use Mock only when allowed. Evidence analysis reopens stored files, supplies actual image/PDF bytes and MIME types in sequential two-file batches, and persists provenance per observation so a later failed batch cannot relabel an earlier successful Gemini batch.
+`AIProvider` exposes typed operations for adaptive questions, process extraction, evidence analysis, clarifications, roadmap explanations, and applicability planning. `run_with_validation` selects Mock/Gemini, times the call, validates/sanitizes output, records `ai_runs`, and returns metadata from the exact successful run. General Gemini operations can retry once and use Mock only when allowed. Evidence review is optional and uses a separate bounded policy: one file per call, one attempt, short per-file/total deadlines, and no fabricated Mock observation. The service reopens stored image/PDF bytes with the correct MIME type, preserves successful observation provenance, and returns a controlled partial/unavailable state for failed files. Deterministic self-assessment remains usable when evidence AI is unavailable.
 
 The target coordinator is a fixed application workflow: applicability → evidence → clarification → deterministic result → narrative. It is not an open-ended autonomous agent. Read-only DB lookup tools may later ground Gemini, but documentation must not claim function calls until implemented.
 

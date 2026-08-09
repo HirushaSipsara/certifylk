@@ -110,6 +110,9 @@ class EvidenceRequestResponse(BaseModel):
     title: str
     required: bool
     status: EvidenceRequestStatus
+    requirement_id: str | None = None
+    current_state_question: str
+    self_assessment: Literal["yes", "partial", "no", "not_sure"] | None = None
     display_order: int
 
 
@@ -164,6 +167,15 @@ class UnavailableResponse(BaseModel):
     status: EvidenceRequestStatus
 
 
+class SelfAssessmentInput(BaseModel):
+    value: Literal["yes", "partial", "no", "not_sure"]
+
+
+class SelfAssessmentResponse(BaseModel):
+    evidence_request_id: uuid.UUID
+    value: Literal["yes", "partial", "no", "not_sure"]
+
+
 class ObservationResponse(BaseModel):
     id: uuid.UUID
     evidence_request_id: uuid.UUID
@@ -176,7 +188,12 @@ class ObservationResponse(BaseModel):
     validation_status: Literal["validated"]
 
 
-class EvidenceAnalysisResponse(StatusResponse, AIExecutionMetadataResponse):
+class EvidenceAnalysisResponse(StatusResponse):
+    provider: Literal["gemini", "mock"] | None = None
+    fallback_used: bool | None = None
+    review_status: Literal["complete", "partial", "unavailable", "not_requested"]
+    message: str | None = None
+    failed_evidence_request_ids: list[uuid.UUID] = Field(default_factory=list)
     observations: list[ObservationResponse]
 
 

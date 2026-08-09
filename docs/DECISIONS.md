@@ -84,3 +84,9 @@ The conversion will proceed as one verified vertical slice: source review and st
 ## D018 — Track 2 entry remains business-profile-first
 
 Track 2 starts from the Home action, creates a guest assessment, and opens `/process-management/{assessmentId}/business-profile`. It does not require a separate scheme-selection page. The applicability operation ranks SLS GMP, SLS HACCP, and ISO 22000 after the profile is saved. This records the behavior already implemented and resolves the older proposal for `/process-management/select` in favor of D016.
+
+## D019 — Hybrid self-assessment with optional bounded evidence review
+
+For competition reliability, each selected-scheme evidence expectation has a controlled requirement-specific current-state response (`yes`, `partial`, `no`, or `not_sure`) sourced from the catalogue requirement. Supporting image/PDF upload is optional. The deterministic requirement engine may use self-reported answers for readiness, with explicit `self_report` provenance, while evidence completeness counts only accepted uploaded-evidence observations.
+
+Gemini evidence review remains available but is non-blocking: one file is analyzed per call with one attempt, an eight-second per-file limit, and a twenty-second request budget by default. A failed or timed-out file receives no fabricated Mock observation; successful file results are retained and the API returns a controlled partial/unavailable state that permits continuation. This exception does not alter the normal retry/fallback policy for applicability, process, clarification, or roadmap operations.

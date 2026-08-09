@@ -1,13 +1,14 @@
 import type { ChangeEvent } from "react";
 import { CheckCircle2, XCircle, RotateCcw, Upload } from "lucide-react";
 
-import type { EvidenceRequest } from "@/types";
+import type { EvidenceRequest, SelfAssessmentValue } from "@/types";
 
 interface Props {
   request: EvidenceRequest;
   busy: boolean;
   onUpload: (file: File) => Promise<void>;
   onUnavailable: () => Promise<void>;
+  onSelfAssessment: (value: SelfAssessmentValue) => Promise<void>;
   /** Called when the user wants to remove/reset a resolved item to re-upload or re-mark */
   onRemove?: () => Promise<void>;
 }
@@ -29,7 +30,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string; Icon: Re
     Icon: CheckCircle2,
   },
   requested: {
-    label: "Awaiting upload",
+    label: "No file uploaded",
     className: "bg-slate-100 text-slate-600",
     Icon: Upload,
   },
@@ -40,6 +41,7 @@ export function EvidenceUploadCard({
   busy,
   onUpload,
   onUnavailable,
+  onSelfAssessment,
   onRemove,
 }: Props) {
   const resolved = request.status !== "requested";
@@ -73,6 +75,48 @@ export function EvidenceUploadCard({
           <Icon className="h-3.5 w-3.5" aria-hidden="true" />
           {badge.label}
         </span>
+      </div>
+
+      <fieldset className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+        <legend className="px-1 text-xs font-bold uppercase tracking-wider text-leaf-dark">
+          Current state
+        </legend>
+        <p className="text-sm leading-6 text-slate-700">{request.current_state_question}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          This is self-reported readiness and is kept separate from verified evidence.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {([
+            ["yes", "Yes / implemented"],
+            ["partial", "Partially"],
+            ["no", "No / not available"],
+            ["not_sure", "Not sure"],
+          ] as const).map(([value, label]) => {
+            const selected = request.self_assessment === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={selected}
+                disabled={busy}
+                onClick={() => void onSelfAssessment(value)}
+                className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                  selected
+                    ? "border-leaf bg-emerald-50 text-leaf-dark"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <div className="mt-4">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Supporting evidence (optional)
+        </p>
       </div>
 
       {resolved ? (
@@ -114,7 +158,7 @@ export function EvidenceUploadCard({
             disabled={busy}
             className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
-            I do not have this
+            I do not have this evidence
           </button>
         </div>
       )}

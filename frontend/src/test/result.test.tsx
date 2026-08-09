@@ -53,7 +53,9 @@ test("zero evidence remains distinct from readiness information and unknowns sta
       />
     </>,
   );
-  expect(screen.getByText(/No supporting documents were uploaded/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/No accepted supporting evidence is currently counted/),
+  ).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /Unknown \/ not yet verified/ })).toBeInTheDocument();
   expect(screen.getByText("Supplier declaration")).toBeInTheDocument();
 });

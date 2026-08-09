@@ -29,5 +29,6 @@ test("Track 2 Process Management flow recommends scheme and opens Assessment Hub
 
   // 4. Click start assessment -> Hub
   await page.getByRole("link", { name: /Start assessment for/ }).click();
+  await page.waitForURL(/\/assessment\/[^/]+\/hub$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Track your readiness progress" })).toBeVisible();
 });

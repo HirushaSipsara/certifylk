@@ -31,8 +31,13 @@ export interface EvidenceRequest {
   title: string;
   required: boolean;
   status: "requested" | "uploaded" | "unavailable" | "analyzed";
+  requirement_id?: string;
+  current_state_question: string;
+  self_assessment?: SelfAssessmentValue | null;
   display_order: number;
 }
+
+export type SelfAssessmentValue = "yes" | "partial" | "no" | "not_sure";
 
 export interface AIExecutionMetadata {
   provider?: "gemini" | "mock";
@@ -63,6 +68,9 @@ export interface EvidenceObservation {
 
 export interface EvidenceAnalysisResponse extends AIExecutionMetadata {
   status: AssessmentStatus;
+  review_status: "complete" | "partial" | "unavailable" | "not_requested";
+  message?: string | null;
+  failed_evidence_request_ids: string[];
   observations: EvidenceObservation[];
 }
 

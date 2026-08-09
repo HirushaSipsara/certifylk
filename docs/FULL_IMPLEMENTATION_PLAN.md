@@ -1,6 +1,6 @@
 # CertifyLK full implementation plan
 
-**Plan date:** 2026-08-07  
+**Plan date:** 2026-08-09
 **Purpose:** complete the approved conversion from a generic readiness quiz to a sourced, product-and-certificate-specific guidance system without discarding the working FastAPI, Next.js, AI, evidence, deterministic-engine, test, and deployment foundations.
 
 ## 1. Definition of the finished product
@@ -16,16 +16,16 @@ For the authorized scope, CertifyLK is complete when a Sri Lankan food manufactu
 | FastAPI/Next.js/PostgreSQL foundation | Implemented | Maintain and extend; do not rewrite. |
 | AWS/Terraform/CI/CD/Nginx/HTTPS | Implemented single-host design | Re-run current release gates after product changes; improve off-host backups separately. |
 | Category/product/body/scheme/requirement/cost tables | Implemented | Replace draft source rows with reviewed import files and add retired-date lifecycle. |
-| Track 1 entry | Implemented for Food Products / Fresh Fruit Cordial | Verify all content against primary sources and finish certificate-scoped assessment. |
-| Track 2 entry | Implemented as home → business profile → certificates | Finish full scheme-specific GMP/HACCP/ISO 22000 assessment paths. |
+| Track 1 entry and assessment | Implemented for Food Products / Fresh Fruit Cordial | Verify all content and evidence questions against primary sources and pilot with users. |
+| Track 2 entry and assessment | Implemented as home → business profile → certificates → shared assessment journey | Verify GMP/HACCP/ISO 22000 content against licensed/primary sources and pilot. |
 | Applicability AI | Implemented as a bounded operation over DB-supplied scheme facts with ID validation | Add explicit grounding/reference trail and automated ambiguity tests; do not claim tool calls that are not yet implemented. |
-| Assessment Hub / requirements browser | Implemented | Make it the controlling entry to certificate-specific evidence, clarification, result, and roadmap. |
+| Assessment Hub / requirements browser | Implemented | Maintain it as the controlling entry to certificate-specific process, evidence, clarification, result, and roadmap. |
 | Legacy four-page assessment | Implemented and tested | Retain only as regression/sample until replacement; it still evaluates the generic `requirements` catalogue. |
-| Scheme-specific deterministic evaluation | Implemented backend branch | Complete frontend journeys and richer scheme recommendation mapping; legacy branch remains for chilli-paste regression. |
-| Requirement-tagged evidence types/submissions | Partial | Seeded evidence expectations exist; bind every upload/request/question to them in the primary workflow. |
-| Certificate-specific cost table | Integrated in scheme result snapshot | Distinguish body fees, lab fees, capex, and opex in the result UI/report. |
-| PDF export | Not implemented | Build only after the result contract stabilizes. |
-| My Assessments / education page | Not implemented | Add guest-safe local dashboard and sourced educational content. |
+| Scheme-specific deterministic evaluation | Implemented end to end | Maintain cross-scheme isolation; legacy branch remains for chilli-paste regression. |
+| Hybrid requirement self-assessment / optional evidence | Implemented | Verify production Gemini capability/quota per release and validate questions with a domain reviewer. |
+| Certificate-specific cost table | Integrated in scheme result snapshot and grouped UI | Replace unverified figures with reviewed source data. |
+| PDF/print export | Implemented from stored result UI | Continue stored-result parity checks. |
+| My Assessments / education page | Implemented | Keep guest-storage and source/disclaimer wording explicit. |
 | Admin/content management | Not implemented | Start with reviewed version-controlled YAML/JSON/CSV import; UI is later and separately authorized. |
 | Primary-source/domain review | Not complete | This is the main release blocker for trustworthy public guidance. |
 
@@ -69,7 +69,7 @@ For the authorized scope, CertifyLK is complete when a Sri Lankan food manufactu
 7. Make completion transactional and idempotent. Prevent cross-scheme evidence or question IDs.
 8. Keep the legacy chilli-paste sample isolated as a regression fixture until a new read-only Fresh Fruit Cordial/SLS sample is complete; then remove it from the primary home path.
 
-**Current software status:** backend completion with `scheme_id` now uses only that scheme’s requirements, category weights, and cost snapshot; evidence expectations are seeded. Question planning and the primary frontend evidence journey still need full cutover.
+**Current software status:** selected-scheme requirements, evidence expectations, controlled self-assessment, optional uploads, evaluations, category weights, and costs drive the shared journey. Legacy chilli-paste data remains isolated for regression only.
 
 **Exit criteria:** changing the selected scheme changes the requirements/questions/evidence/result, and tests prove no data can leak between schemes.
 
@@ -78,7 +78,7 @@ For the authorized scope, CertifyLK is complete when a Sri Lankan food manufactu
 1. Keep `AIProvider` and `run_with_validation`; add no free-form chatbot or open-ended autonomous agent.
 2. Applicability must receive only DB-sourced product, profile, scheme, legal-tier, and source facts. It returns ranked whitelisted scheme IDs, reasoning, confidence, and references to supplied facts.
 3. If actual Gemini function/tool calling is adopted, expose a fixed tool registry such as `get_applicable_laws`, `get_certification_schemes`, `get_applicability_rule`, and `get_market_requirements`; tools are read-only and return bounded rows. Otherwise describe the current supplied-context operation honestly.
-4. Evidence analysis receives the selected requirement and retrieved threshold/evaluation data. It returns extracted observations, not official pass/fail certification conclusions.
+4. Optional evidence analysis receives one uploaded file plus the selected requirement and retrieved threshold/evaluation data. It returns extracted observations, not official pass/fail certification conclusions. Short bounded failure returns a continuable unavailable state and never fabricates a positive/fallback observation.
 5. Clarification planning considers already resolved requirements and selects only supplied question IDs.
 6. Roadmap narration receives the immutable deterministic roadmap and source references and may not create actions, prices, gains, priorities, or clauses.
 7. Add a typed workflow coordinator to sequence these bounded operations and persist step state. It is an application service, not a self-directing autonomous agent.
@@ -92,7 +92,7 @@ For the authorized scope, CertifyLK is complete when a Sri Lankan food manufactu
 2. Keep Track 1 category/product selection and Track 2 direct business-profile entry. Do not add a `/process-management/select` route unless a later decision changes D016.
 3. Improve applicability cards: grouped tiers, one recommended path, issuing body, timeline, AI provider/fallback, confidence, “Why this?”, source reference, and unverified-content banner.
 4. Make the Assessment Hub show the selected product/scheme/version and five target stages: requirements, evidence/process, clarification, result, roadmap/report.
-5. Add requirement-tagged upload controls and `I do not have this` for every requested item.
+5. Keep requirement-tagged controlled current-state answers, optional upload controls, and `I do not have this evidence` for every requested item.
 6. Reuse accessible evidence polarity/confidence components and show clause/source context beside observations.
 7. Render scheme-specific categories/statuses, costs grouped by payer/type, expected gains, and cumulative projection.
 8. Add PDF export generated from stored result data; include timestamp, catalogue version, sources, verification warnings, and disclaimer.
@@ -163,24 +163,24 @@ For the authorized scope, CertifyLK is complete when a Sri Lankan food manufactu
 - [ ] Every displayed requirement/threshold/legal tier/cost has source and verification metadata.
 - [ ] Track 1 and Track 2 each complete end-to-end with distinct requirement sets.
 - [ ] The AI selects only supplied IDs and cannot alter deterministic evaluation, scoring, ranking, or price.
-- [ ] Evidence observations remain cautious, requirement-bound, and accessible.
+- [x] Evidence observations remain cautious, requirement-bound, and accessible; self-report is distinct from evidence support.
 - [ ] Gap, unknown, and not-applicable semantics remain distinct.
 - [ ] Scheme category weights validate and scores reproduce from stored snapshots.
 - [ ] Costs are grouped by payer/type and originate only from reviewed catalogue rows.
 - [ ] The PDF matches the stored result and includes sources, catalogue version, and disclaimer.
-- [ ] Mock and Gemini complete the same structured operations; fallback labels are truthful.
+- [x] Mock and Gemini implement the same structured contracts; evidence-provider failure is controlled and fallback labels are truthful.
 - [ ] Empty-database and upgrade migrations, seed/import, backend, frontend, E2E, security, container, and Terraform gates pass.
 - [ ] Production backup, deploy, HTTPS smoke, rollback, and restore procedures are evidenced.
 - [ ] A domain reviewer and pilot users have reviewed the content/output before reliance.
 
 ## 6. Immediate next work
 
-Do not begin with more UI polish. The next implementation should be:
+The remaining completion work is content authority and field validation, not another domain redesign:
 
 1. secure and review the Fresh Fruit Cordial/SLS source pack;
-2. design the immutable standard/catalogue version migration and evidence-expectation model;
-3. write failing tests proving the current global engine does not yet isolate schemes;
-4. re-point requirement, evidence, scoring, and roadmap services to the selected scheme;
-5. deliver one complete Fresh Fruit Cordial/SLS vertical slice before expanding Track 2 depth.
+2. replace draft facts and costs through the reviewed import/governance workflow;
+3. obtain qualified review of the requirement questions, applicability tiers, evaluation mappings, and report wording;
+4. run the documented Track 1 and Track 2 pilot scenarios and record discrepancies;
+5. promote only a fully tested immutable release and re-verify production Gemini, migrations, backup, restore, and public smoke paths.
 
 This order removes the core trust defect first and prevents attractive screens from presenting unsourced or generic results as certificate-specific guidance.

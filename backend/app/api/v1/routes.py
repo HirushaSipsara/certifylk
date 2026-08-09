@@ -31,6 +31,8 @@ from app.schemas.assessment import (
     SampleResponse,
     SchemeChipResponse,
     SchemeRequirementResponse,
+    SelfAssessmentInput,
+    SelfAssessmentResponse,
     StatusResponse,
     UnavailableResponse,
     UploadResponse,
@@ -42,6 +44,7 @@ from app.services.assessment_service import (
     create_assessment,
     get_assessment,
     load_sample_assessment,
+    serialize_evidence_requests,
 )
 from app.services.catalog_service import (
     get_evidence_expectations,
@@ -58,6 +61,7 @@ from app.services.evidence_service import (
     mark_evidence_unavailable,
     plan_final_clarifications,
     reset_evidence_request,
+    save_evidence_self_assessment,
     store_upload,
 )
 from app.services.process_service import (
@@ -205,18 +209,7 @@ def evidence_plan_route(assessment_id: uuid.UUID, db: Db) -> dict[str, object]:
     requests = build_evidence_plan(db, assessment)
     return {
         "status": assessment.status,
-        "requests": [
-            {
-                "id": item.id,
-                "evidence_type": item.evidence_type,
-                "kind": item.kind,
-                "title": item.title,
-                "required": item.required,
-                "status": item.status,
-                "display_order": item.display_order,
-            }
-            for item in requests
-        ],
+        "requests": serialize_evidence_requests(db, assessment, requests),
     }
 
 
@@ -269,6 +262,26 @@ def evidence_unavailable_route(
     return {"evidence_request_id": evidence_request.id, "status": evidence_request.status}
 
 
+@router.put(
+    "/assessments/{assessment_id}/evidence/{evidence_request_id}/self-assessment",
+    response_model=SelfAssessmentResponse,
+    summary="Save a controlled requirement-specific current-state response",
+)
+def evidence_self_assessment_route(
+    assessment_id: uuid.UUID,
+    evidence_request_id: uuid.UUID,
+    payload: SelfAssessmentInput,
+    db: Db,
+) -> dict[str, object]:
+    assessment = get_assessment(db, assessment_id)
+    evidence_request = get_evidence_request(db, assessment_id, evidence_request_id)
+    save_evidence_self_assessment(db, assessment, evidence_request, payload.value)
+    return {
+        "evidence_request_id": evidence_request.id,
+        "value": evidence_request.self_assessment,
+    }
+
+
 @router.delete(
     "/assessments/{assessment_id}/evidence/{evidence_request_id}",
     response_model=UnavailableResponse,
@@ -293,8 +306,11 @@ async def evidence_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str,
     analysis = await analyze_uploaded_evidence(db, assessment, get_storage_provider())
     return {
         "status": assessment.status,
-        "provider": analysis.execution.provider,
-        "fallback_used": analysis.execution.fallback_used,
+        "provider": analysis.provider,
+        "fallback_used": analysis.fallback_used,
+        "review_status": analysis.review_status,
+        "message": analysis.message,
+        "failed_evidence_request_ids": analysis.failed_evidence_request_ids,
         "observations": [
             ObservationResponse(
                 id=item.id,

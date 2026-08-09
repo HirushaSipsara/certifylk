@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.6-flash"
     gemini_timeout_seconds: float = Field(default=30.0, ge=5.0, le=120.0)
+    evidence_ai_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
+    evidence_ai_total_timeout_seconds: float = Field(default=20.0, ge=5.0, le=60.0)
     gemini_temperature: float = Field(default=0.1, ge=0.0, le=1.0)
     gemini_max_output_tokens: int = Field(default=2048, ge=256, le=8192)
     allow_ai_fallback: bool = True

@@ -92,6 +92,9 @@ async def run_with_validation(
     settings: Settings | None = None,
     provider_override: AIProvider | None = None,
     diagnostic_context: dict[str, object] | None = None,
+    max_attempts: int | None = None,
+    allow_fallback: bool | None = None,
+    timeout_seconds: float | None = None,
 ) -> AIExecutionResult[OutputT]:
     config = settings or get_settings()
     try:
@@ -101,14 +104,19 @@ async def run_with_validation(
             primary = MockAIProvider()
         else:
             raise AppError("ai_configuration_error", str(exc), 500) from exc
-    attempts = 2 if primary.name == "gemini" else 1
+    attempts = max_attempts or (2 if primary.name == "gemini" else 1)
+    fallback_enabled = config.allow_ai_fallback if allow_fallback is None else allow_fallback
     last_error: Exception | None = None
     safe_context = sanitize_model_output(str(diagnostic_context or {}), 1500)
     for attempt in range(1, attempts + 1):
         started = time.perf_counter()
         phase = "provider_request"
         try:
-            output = await call(primary)
+            output = (
+                await asyncio.wait_for(call(primary), timeout=timeout_seconds)
+                if timeout_seconds is not None
+                else await call(primary)
+            )
             phase = "validation"
             if validate:
                 validate(output)
@@ -162,11 +170,15 @@ async def run_with_validation(
                 if delay:
                     await asyncio.sleep(delay)
 
-    if primary.name == "gemini" and config.allow_ai_fallback:
+    if primary.name == "gemini" and fallback_enabled:
         fallback = MockAIProvider()
         started = time.perf_counter()
         try:
-            output = await call(fallback)
+            output = (
+                await asyncio.wait_for(call(fallback), timeout=timeout_seconds)
+                if timeout_seconds is not None
+                else await call(fallback)
+            )
             if validate:
                 validate(output)
             run = log_ai_run(

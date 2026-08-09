@@ -124,9 +124,11 @@ AI_PROVIDER=gemini
 GEMINI_API_KEY=your-key
 GEMINI_MODEL=gemini-3.6-flash
 ALLOW_AI_FALLBACK=true
+EVIDENCE_AI_TIMEOUT_SECONDS=8
+EVIDENCE_AI_TOTAL_TIMEOUT_SECONDS=20
 ```
 
-Restart FastAPI after changes. Never add these variables to `frontend/.env.local` or prefix a secret with `NEXT_PUBLIC_`.
+Restart FastAPI after changes. The evidence-specific values bound optional multimodal review without changing the normal applicability/process AI timeout. Never add these variables to `frontend/.env.local` or prefix a secret with `NEXT_PUBLIC_`.
 
 Mock provider labels are visible automatically in development and tests. To exercise that label in a production-mode QA build, set this non-secret frontend flag before building:
 

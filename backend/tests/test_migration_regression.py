@@ -110,6 +110,12 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
     assert observation_columns["fallback_used"]["nullable"] is False
     assert observation_columns["validation_status"]["nullable"] is False
 
+    command.upgrade(config, "head")
+    evidence_request_columns = {
+        column["name"] for column in inspect(engine).get_columns("evidence_requests")
+    }
+    assert "self_assessment" in evidence_request_columns
+
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     with session_factory() as session:
         seed_initial_knowledge_base(session)
@@ -131,7 +137,6 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
     finally:
         app.dependency_overrides.clear()
 
-    command.upgrade(config, "head")
     command.upgrade(config, "head")
 
     with engine.connect() as connection:
@@ -160,6 +165,7 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
             "catalogue_revision",
         },
         "requirement_evaluations": {"scheme_id", "scheme_requirement_id"},
+        "evidence_requests": {"self_assessment"},
         "scheme_cost_items": {"is_quote_required"},
         "evidence_observations": {
             "scheme_id",

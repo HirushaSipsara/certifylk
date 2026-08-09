@@ -58,13 +58,22 @@ def test_complete_assessment_api_flow(client: TestClient) -> None:
     requests = plan.json()["requests"]
     assert sum(item["kind"] == "photo" for item in requests) <= 5
     assert sum(item["kind"] == "document" for item in requests) <= 2
-    for request in requests:
+    for index, request in enumerate(requests):
+        assert request["current_state_question"]
+        current_state = client.put(
+            f"/api/v1/assessments/{assessment_id}/evidence/{request['id']}/self-assessment",
+            json={"value": "no" if index == 0 else "yes"},
+        )
+        assert current_state.status_code == 200
+        assert current_state.json()["value"] == ("no" if index == 0 else "yes")
         unavailable = client.put(
             f"/api/v1/assessments/{assessment_id}/evidence/{request['id']}/unavailable"
         )
         assert unavailable.status_code == 200
 
-    assert client.post(f"/api/v1/assessments/{assessment_id}/evidence-analysis").status_code == 200
+    evidence_analysis = client.post(f"/api/v1/assessments/{assessment_id}/evidence-analysis")
+    assert evidence_analysis.status_code == 200
+    assert evidence_analysis.json()["review_status"] == "not_requested"
     clarifications = client.post(f"/api/v1/assessments/{assessment_id}/clarification-plan")
     assert clarifications.status_code == 200
     clarification_questions = clarifications.json()["questions"]

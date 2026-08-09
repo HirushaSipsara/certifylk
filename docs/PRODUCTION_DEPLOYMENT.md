@@ -53,7 +53,7 @@ sudo -H -u certifylk chmod 600 infra/production/.env.production
 sudo -H -u certifylk editor infra/production/.env.production
 ```
 
-Replace every example value. Use a long URL-safe PostgreSQL password and place the same value in `POSTGRES_PASSWORD` and the password component of `DATABASE_URL`. For live AI, set `AI_PROVIDER=gemini`, add `GEMINI_API_KEY`, keep the key only in this backend-side file, and use the stable `gemini-3.6-flash` model. `AI_PROVIDER=mock` remains a supported deterministic production demonstration mode.
+Replace every example value. Use a long URL-safe PostgreSQL password and place the same value in `POSTGRES_PASSWORD` and the password component of `DATABASE_URL`. For live AI, set `AI_PROVIDER=gemini`, add `GEMINI_API_KEY`, keep the key only in this backend-side file, and use the stable `gemini-3.6-flash` model. `EVIDENCE_AI_TIMEOUT_SECONDS=8` and `EVIDENCE_AI_TOTAL_TIMEOUT_SECONDS=20` bound the optional evidence review independently from the main Gemini operation timeout. `AI_PROVIDER=mock` remains a supported deterministic production demonstration mode.
 
 The backend is attached to the dedicated `ai_egress` Compose network so it can
 make outbound HTTPS requests to Gemini. The application and data networks stay

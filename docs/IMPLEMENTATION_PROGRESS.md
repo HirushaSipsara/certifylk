@@ -1,12 +1,12 @@
 # CertifyLK implementation progress
 
-**Last reconciled:** 2026-08-07
+**Last reconciled:** 2026-08-09
 
-**Status:** certificate-specific redesign in progress; infrastructure and legacy MVP operational
+**Status:** authorized Track 1/Track 2 certificate-specific journeys implemented; primary-source review and live pilot remain
 
 **Public URL recorded by operations:** <https://certifylk.duckdns.org>
 
-**Public AI mode last recorded:** deterministic Mock
+**Public AI mode:** deployment-controlled; verify the running container and exact `ai_runs` rows before claiming Gemini or fallback for a live operation
 
 This file reports repository capability, not certification validity. A previously deployed commit may differ from the current branch. Confirm the release SHA in GitHub/EC2 before describing a new feature as live.
 
@@ -41,7 +41,7 @@ This file reports repository capability, not certification validity. A previousl
 - Evidence observation compatibility: certificate-specific observation IDs are grounded by `scheme_requirement_id`; the legacy `requirement_id` reference is intentionally not constrained to the legacy requirements catalogue, allowing scheme assessments to persist their own requirement IDs.
 - Production Gemini connectivity: FastAPI has a dedicated outbound-only `ai_egress` Compose network while the application and PostgreSQL networks remain internal. This corrects the previously observed immediate Gemini network failures without publishing a backend port.
 - Applicability held-path handling: a saved `has_food_licence=yes` (or an equivalent explicit CAA registration entry) deterministically acknowledges CAA Food Business Registration as already provided, excludes it from AI next-action candidates, and leaves SLS Mark eligible as the recommended supermarket-readiness path. The optional profile narrative is now included in the bounded AI input.
-- Evidence analysis reliability and visibility: stored image/PDF bytes are sent to Gemini in sequential batches of at most two files with their MIME types and database-sourced requirement context. Exact pair validation remains mandatory. Successful Gemini batches survive a different batch's fallback, each observation persists exact provider/fallback/validation metadata, safe batch diagnostics expose HTTP/validation failures without evidence content, and retry replaces prior observations. The browser pauses on a provider/polarity/confidence review state before clarifications.
+- Hybrid evidence stage: every scheme evidence expectation has a controlled requirement-specific current-state answer (`yes`, `partial`, `no`, `not_sure`) and an optional upload. Self-report can affect deterministic readiness but never evidence completeness. Uploaded image/PDF bytes are reviewed sequentially one file at a time with strict request/requirement validation, a short bounded provider deadline, no fabricated Mock observation, and a controlled continuable partial/unavailable response. Successful observations retain exact provider/fallback/validation metadata and retry uses replacement semantics.
 - The `SLS_HYG_HANDWASH` evidence expectation is explicitly a photo slot so the documented handwashing-facility image journey is accepted consistently on fresh and upgraded databases.
 - SLS Cordial requirements with direct legacy equivalents now use the existing deterministic question/process rules. Readiness can therefore reflect approved profile/process inputs when no documents are uploaded, while evidence completeness counts accepted evidence observations only; strengths, gaps/partials, and unknowns remain separate.
 - Domain Pilot and Controlled Expansion (Phase I): Established pilot execution guidelines (`docs/PILOT_GUIDELINES.md`), structured discrepancy & severity register (`docs/PILOT_FEEDBACK_REGISTER.md`), and factual data governance/consent boundaries (`docs/PRIVACY_AND_CONSENT.md`). Protocol is prepared; live manufacturer sessions and domain reviewer evaluation remain pending.
@@ -54,21 +54,16 @@ This file reports repository capability, not certification validity. A previousl
 |---|---|---|
 | Standards knowledge base | Scheme requirements, clause/source strings, category weights, costs, source-register rows, version/revision fields, and `content_verified` exist. | Primary-source review, lawful content governance, reviewed import files, retired-date lifecycle, and domain approval. |
 | Applicability reasoning | AI ranks only supplied scheme IDs and persists one recommended scheme. | A richer, auditable grounding trail/tool-call model and reviewed legal applicability facts. |
-| Assessment Hub | Shows linked scheme and its requirements. | Must control the entire scheme-specific evidence → clarification → result journey. |
-| Evidence | Legacy safe upload, observation polarity/confidence, provider/fallback, unavailable behavior, and seeded scheme evidence expectations work. | Full evidence-plan UI/service cutover to `evidence_expectations` and hard binding for every file/request. |
+| Assessment Hub | Shows linked scheme and requirements and controls the process → hybrid evidence → clarification → result journey. | Continue accessibility and content-review validation. |
+| Evidence | Scheme requirements drive controlled self-assessment, optional safe uploads/unavailable state, strict observation binding, provider metadata, and non-blocking failure behavior. | Production Gemini capability/quota must be verified for each release; domain reviewers must validate evidence expectations. |
 | Questions | Legacy adaptive/clarification whitelisting works. | Scheme-specific question/evaluation-rule catalogue and unresolved-requirement planning. |
-| Scoring and roadmap | Legacy deterministic engines and sample baseline work; scheme assessments now use scheme requirements/weights/cost snapshots. | Richer scheme recommendation mapping, grouped fee/capex/opex result table, and frontend result polish. |
-| Track 2 | Entry, profile, applicability page, seeds, service tests, and scheme-specific scoring branch exist. | Complete GMP/HACCP/ISO 22000 frontend evidence/clarification/result journeys using distinct scheme sets. |
-| Sample | Legacy chilli-paste result remains deterministic. | Replace primary demo with a clearly labelled read-only Fresh Fruit Cordial/SLS sample after scheme cutover. |
+| Scoring and roadmap | Legacy baseline and scheme-specific requirements/weights/cost snapshots, grouped costs, roadmap, and report UI work. | Primary-source cost review and domain validation. |
+| Track 2 | Entry, profile, applicability, Hub, process, hybrid evidence, clarification, and scheme-specific result use distinct scheme sets. | Primary-source review and live pilot validation. |
+| Sample | The public sample is Fresh Fruit Cordial/SLS; chilli paste remains an internal deterministic regression. | Keep the sample synchronized with reviewed catalogue revisions. |
 
 ## Not implemented
 
 - Historical catalogue version entities with retired dates and reviewed import workflow.
-- Full requirement-specific evidence-plan cutover in the user workflow.
-- Certification-body fee versus lab fee versus business capex/opex result table.
-- PDF export.
-- Browser-local “My Assessments” dashboard.
-- “Understand Certification” education page.
 - Reviewed YAML/JSON/CSV content-import governance or admin interface.
 - Domain-expert review and 2–3 manufacturer pilot.
 - Verified off-host backup/restore evidence for the redesigned release.
@@ -88,10 +83,10 @@ The authoritative remaining-work sequence and acceptance checklist are in [FULL_
 
 1. obtain and review primary-source Fresh Fruit Cordial/SLS content and costs;
 2. replace draft source rows with reviewed import files and complete catalogue lifecycle metadata;
-3. re-point evidence and questions to the assessment’s selected scheme;
-4. deliver and test one Fresh Fruit Cordial/SLS vertical slice;
-5. reuse the completed engine for Track 2;
-6. add PDF/dashboard/education and perform production migration, restore drill, and domain pilot.
+3. have a qualified reviewer validate the implemented requirement/evidence questions and deterministic mappings;
+4. run the Fresh Fruit Cordial/SLS and Track 2 journeys with representative manufacturers;
+5. record discrepancies through the pilot register and correct only reviewed catalogue/mapping data;
+6. verify the exact release through CI, production migration/smoke, and restore evidence.
 
 ## Local verification commands
 

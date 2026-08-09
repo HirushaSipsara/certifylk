@@ -26,6 +26,7 @@ A green legacy suite is necessary but does not prove certificate-specific comple
 - Evidence expectations and observations cannot reference another scheme/version.
 - Scheme evaluation uses only that scheme’s requirements and preserves gap/unknown/not-applicable semantics. Backend service coverage exists; broaden through API/browser as the frontend cutover completes.
 - SLS Cordial no-upload regressions prove positive approved process answers affect readiness while evidence completeness remains zero, and an empty-input case remains zero with explicit gap/unknown counts.
+- Hybrid evidence regressions prove good controlled self-assessment without uploads yields deterministic non-zero readiness with zero evidence completeness, accepted supporting evidence alone increases completeness, and an evidence-provider timeout returns a controlled continuable state without fabricated observations.
 - Scheme roadmap uses only scheme-linked costs and deterministic priority/gain math. Draft costs remain unverified until source review.
 - Completed snapshots remain unchanged after a later catalogue import.
 
@@ -57,7 +58,7 @@ Maintain existing profile/process/evidence/result/provider/polarity/error/loadin
 - category/product selection and Track 2 direct entry;
 - applicability tier grouping, recommended path, source/reference expander, provider/fallback, and unverified banner;
 - scheme/version requirement overview;
-- requirement-tagged evidence and unavailable behavior;
+- requirement-tagged controlled self-assessment, optional upload, and unavailable behavior;
 - dynamic scheme categories instead of legacy fixed categories;
 - grouped cost types/payers and source dates;
 - My Assessments stale-link handling and PDF download state.
@@ -81,8 +82,8 @@ The current chilli-paste browser test stays until the new canonical sample repla
 - Database/catalogue unavailable or unseeded.
 - No schemes for a product/track; invalid track filter; missing product/profile/scheme/version.
 - Model returns unknown scheme/question/evidence/requirement/source IDs, malformed JSON, or fabricated fields.
-- Gemini timeout/429/invalid response with fallback enabled and disabled, including bounded retry delay and safe diagnostics.
-- Gemini transport contract proves actual image/PDF bytes and MIME types are present, requirement context is supplied, irrelevant evidence is not transformed into support, and successful batches retain Gemini provenance when a separate batch falls back.
+- Gemini timeout/429/invalid response with fallback enabled and disabled, including bounded retry delay and safe diagnostics. Evidence review specifically proves one attempt, one file, short deadlines, no Mock substitution, and a controlled continuable partial/unavailable response.
+- Gemini transport contract proves actual image/PDF bytes and MIME types are present, requirement context is supplied, irrelevant evidence is not transformed into support, and successful file observations retain Gemini provenance when a separate file fails.
 - Evidence-analysis retry replaces existing observations rather than accumulating duplicates; accepted support changes readiness only through the existing deterministic requirement engine.
 - Prompt-injection text in PDF/image metadata.
 - Unsupported, oversized, signature-mismatched, traversal-like or cross-assessment uploads.

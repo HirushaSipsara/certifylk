@@ -47,7 +47,7 @@ AI handles ambiguity and unstructured material: it reasons over a supplied catal
 Each assessment belongs to one scheme and, for product schemes, one product. The target steps are:
 
 1. **Requirement overview:** show scheme categories, clauses, source links, version/verification status, and what evidence may demonstrate each requirement.
-2. **Evidence and process:** collect relevant photos, PDF documents, process answers, or unavailable states, all tagged to the scheme requirements they support.
+2. **Evidence and process:** collect a controlled requirement-specific current-state answer, optional relevant photos/PDFs, process answers, or unavailable-evidence states, all tagged to the scheme requirements they support. Self-report and verified evidence remain visibly separate.
 3. **Clarification:** ask only unresolved, approved questions grounded in the selected requirement set.
 4. **Gap analysis:** deterministically evaluate requirements as confirmed, partial, gap, unknown, or not applicable.
 5. **Guidance and costs:** show clause-linked actions, certification-body/laboratory/business-cost separation, expected gain, cumulative projection, and downloadable report.
@@ -60,7 +60,7 @@ Each assessment belongs to one scheme and, for product schemes, one product. The
 ## Result contract
 
 - Selected product and scheme, issuing body, standard/version, source and verification banner.
-- Overall readiness and separate evidence completeness.
+- Overall readiness from deterministic assessment inputs and separate evidence completeness from accepted supporting evidence.
 - Scheme-specific category and requirement statuses.
 - Confirmed strengths, confirmed/possible gaps, and unknown evidence separately.
 - Evidence references and clause/source references for every decision.

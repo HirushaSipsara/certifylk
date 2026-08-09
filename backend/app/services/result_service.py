@@ -89,6 +89,23 @@ def _build_unavailable_map(requests: list[EvidenceRequest]) -> dict[str, list[st
     return output
 
 
+def _build_self_assessment_map(
+    requests: list[EvidenceRequest],
+) -> dict[str, tuple[str, str]]:
+    output: dict[str, tuple[str, str]] = {}
+    for request in requests:
+        if request.self_assessment is None:
+            continue
+        value = (
+            request.self_assessment.value
+            if hasattr(request.self_assessment, "value")
+            else str(request.self_assessment)
+        )
+        for requirement_id in request.requirement_ids:
+            output[requirement_id] = (value, str(request.id))
+    return output
+
+
 async def generate_result(db: Session, assessment: Assessment) -> AssessmentResult:
     existing = db.scalar(
         select(AssessmentResult).where(AssessmentResult.assessment_id == assessment.id)
@@ -127,6 +144,7 @@ async def generate_result(db: Session, assessment: Assessment) -> AssessmentResu
         non_empty_process_steps=sum(bool(step.text.strip()) for step in steps),
         observations=observation_data,
         unavailable_by_requirement=_build_unavailable_map(evidence_requests),
+        self_assessment_by_requirement=_build_self_assessment_map(evidence_requests),
     )
     category_scores = calculate_category_scores(evaluations)
     raw_score = calculate_readiness_score(category_scores)
@@ -284,6 +302,7 @@ async def generate_scheme_result(db: Session, assessment: Assessment) -> Assessm
         non_empty_process_steps=sum(bool(step.text.strip()) for step in steps),
         observations=observation_data,
         unavailable_by_requirement=_build_unavailable_map(evidence_requests),
+        self_assessment_by_requirement=_build_self_assessment_map(evidence_requests),
     )
     category_scores = calculate_category_scores(evaluations, _category_weights(scheme))
     raw_score = calculate_readiness_score(category_scores)

@@ -9,6 +9,8 @@ from app.models import (
     AssessmentQuestion,
     EvidenceRequest,
     ProcessStep,
+    Requirement,
+    SchemeRequirement,
 )
 from app.models.enums import AssessmentPage, AssessmentStatus
 from app.repositories import AssessmentRepository
@@ -96,21 +98,56 @@ def assessment_state(db: Session, assessment: Assessment) -> dict[str, object]:
             }
             for assigned in questions
         ],
-        "evidence_requests": [
-            {
-                "id": request.id,
-                "evidence_type": request.evidence_type,
-                "kind": request.kind,
-                "title": request.title,
-                "required": request.required,
-                "status": request.status,
-                "display_order": request.display_order,
-            }
-            for request in evidence_requests
-        ],
+        "evidence_requests": serialize_evidence_requests(db, assessment, evidence_requests),
         "created_at": assessment.created_at,
         "updated_at": assessment.updated_at,
     }
+
+
+def serialize_evidence_requests(
+    db: Session,
+    assessment: Assessment,
+    requests: list[EvidenceRequest],
+) -> list[dict[str, object]]:
+    requirement_ids = {
+        requirement_id for request in requests for requirement_id in request.requirement_ids
+    }
+    if assessment.scheme_id:
+        requirements = list(
+            db.scalars(select(SchemeRequirement).where(SchemeRequirement.id.in_(requirement_ids)))
+        )
+    else:
+        requirements = list(
+            db.scalars(select(Requirement).where(Requirement.id.in_(requirement_ids)))
+        )
+    description_by_id = {item.id: item.description for item in requirements}
+    return [
+        {
+            "id": request.id,
+            "evidence_type": request.evidence_type,
+            "kind": request.kind,
+            "title": request.title,
+            "required": request.required,
+            "status": request.status,
+            "requirement_id": request.requirement_ids[0] if request.requirement_ids else None,
+            "current_state_question": _current_state_question(request, description_by_id),
+            "self_assessment": request.self_assessment,
+            "display_order": request.display_order,
+        }
+        for request in requests
+    ]
+
+
+def _current_state_question(request: EvidenceRequest, description_by_id: dict[str, str]) -> str:
+    descriptions = [
+        description_by_id[requirement_id]
+        for requirement_id in request.requirement_ids
+        if requirement_id in description_by_id
+    ]
+    detail = " ".join(descriptions).strip()
+    if detail:
+        return f"Is this currently in place in your operation? {detail}"
+    return f"Is this current practice in place: {request.title}?"
 
 
 def clear_assessment_workflow(db: Session, assessment_id: uuid.UUID) -> None:

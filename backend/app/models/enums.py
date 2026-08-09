@@ -42,6 +42,13 @@ class EvidenceRequestStatus(StrEnum):
     ANALYZED = "analyzed"
 
 
+class SelfAssessmentValue(StrEnum):
+    YES = "yes"
+    PARTIAL = "partial"
+    NO = "no"
+    NOT_SURE = "not_sure"
+
+
 class ObservationPolarity(StrEnum):
     SUPPORTS = "supports"
     CONCERN = "concern"

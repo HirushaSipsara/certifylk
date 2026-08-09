@@ -88,6 +88,12 @@ As an owner, I want to upload supported evidence or say I do not have it.
 
 **Given** a requested slot, **when** I upload JPEG/PNG/WebP/PDF within limits or mark unavailable, **then** generated safe storage is used and invalid, oversized, mismatched, or cross-assessment files are rejected.
 
+### E3a Requirement current-state self-assessment
+
+As an owner, I want to report my current practice even when I cannot provide a file.
+
+**Given** a selected-scheme evidence expectation, **when** I choose Yes, Partial, No, or Not sure, **then** the controlled answer is saved against that requirement, may affect deterministic readiness, and remains visibly labelled as self-reported rather than evidence-supported.
+
 ### E4 Accessible observations
 
 As a user, I want observations distinguished as supports, concern, or unclear with confidence.
@@ -154,7 +160,7 @@ As a new manufacturer, I want a plain-language guide to product versus managemen
 
 As a user, I want truthful progress and an actionable retry after complete failure.
 
-**Given** an AI request, **when** it runs, **then** the UI may show analyzing and taking longer; it never claims an unobservable retry, and retry is offered only after request failure.
+**Given** an AI request, **when** it runs, **then** the UI may show analyzing and taking longer; it never claims an unobservable retry, and retry is offered only after request failure. If optional evidence review reaches its bounded deadline, the saved file and self-assessment remain usable, a controlled unavailable message is shown, and the assessment can continue without a fabricated observation.
 
 ### I2 Source and content governance
 

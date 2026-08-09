@@ -14,7 +14,11 @@ import { EvidenceUploadCard } from "@/components/EvidenceUploadCard";
 import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
 import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 import { api, ApiError } from "@/lib/api";
-import type { EvidenceAnalysisResponse, EvidenceRequest } from "@/types";
+import type {
+  EvidenceAnalysisResponse,
+  EvidenceRequest,
+  SelfAssessmentValue,
+} from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
@@ -119,14 +123,39 @@ export default function EvidencePage() {
     }
   }
 
+  async function handleSelfAssessment(
+    requestId: string,
+    value: SelfAssessmentValue,
+  ) {
+    setBusyItem(requestId);
+    setError(null);
+    try {
+      await api.saveEvidenceSelfAssessment(assessmentId, requestId, value);
+      setRequests((previous) =>
+        previous.map((request) =>
+          request.id === requestId
+            ? { ...request, self_assessment: value }
+            : request,
+        ),
+      );
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to save the current-state response.",
+      );
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    // Verify all requested items have been uploaded or marked unavailable
-    const pending = requests.filter((r) => r.status === "requested");
+    const pending = requests.filter((request) => !request.self_assessment);
     if (pending.length > 0) {
-      setError("Please upload a file or click 'I do not have this' for every requested item before continuing.");
+      setError("Please answer the current-state question for every requirement before continuing.");
       return;
     }
 
@@ -134,9 +163,14 @@ export default function EvidencePage() {
     try {
       const response = await api.analyzeEvidence(assessmentId);
       setAnalysis(response);
+      const reviewedRequestIds = new Set(
+        response.observations.map((observation) => observation.evidence_request_id),
+      );
       setRequests((previous) =>
         previous.map((request) =>
-          request.status === "uploaded" ? { ...request, status: "analyzed" as const } : request,
+          request.status === "uploaded" && reviewedRequestIds.has(request.id)
+            ? { ...request, status: "analyzed" as const }
+            : request,
         ),
       );
       setSubmitting(false);
@@ -157,7 +191,7 @@ export default function EvidencePage() {
   return (
     <div className="min-h-screen bg-surface">
       {submitting && (
-        <LoadingOverlay message="Analyzing photo and document evidence observations against scheme rules…" />
+        <LoadingOverlay message="Saving your self-assessment and briefly reviewing optional uploads…" />
       )}
       <FlowHeader
         maxWidth="4xl"
@@ -171,7 +205,7 @@ export default function EvidencePage() {
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Evidence &amp; Documentation</h1>
           <p className="text-sm text-slate-600">
-            Upload photos of your workspace, labels, water test reports, or mark items currently unavailable.
+            Report your current practice for each requirement. Photos and documents are optional supporting evidence.
           </p>
           {scheme && <SelectedSchemeBanner scheme={scheme} label="Assessing Against" />}
         </div>
@@ -182,24 +216,30 @@ export default function EvidencePage() {
           <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-leaf-dark">
-                AI evidence review complete
+                Evidence stage saved
               </p>
-              <h2 className="mt-2 text-2xl font-bold text-ink">Review the observations</h2>
+              <h2 className="mt-2 text-2xl font-bold text-ink">
+                {analysis.review_status === "complete"
+                  ? "Review the AI observations"
+                  : "Continue with your self-assessment"}
+              </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Supporting observations with sufficient confidence can confirm a requirement.
-                Concerns remain gaps, and unclear observations remain unknown. The deterministic
-                scoring engine—not AI—calculates the report.
+                Readiness can reflect your controlled current-state answers. Evidence completeness
+                increases only when an uploaded item produces an accepted supporting observation.
+                The deterministic scoring engine—not AI—calculates the report.
               </p>
-              <div className="mt-3">
+              {analysis.provider ? <div className="mt-3">
                 <AIAnalysisStatus
                   provider={analysis.provider}
                   fallback_used={analysis.fallback_used}
                 />
-              </div>
+              </div> : null}
             </div>
 
-            {analysis.fallback_used ? (
-              <ErrorAlert message="Gemini did not complete every evidence batch, so fallback analysis was used. Review unclear observations and retry the AI analysis before continuing if needed." />
+            {analysis.message ? (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700" role="status">
+                {analysis.message}
+              </div>
             ) : null}
 
             <EvidenceObservationList observations={analysis.observations} />
@@ -213,26 +253,30 @@ export default function EvidencePage() {
                 Change uploaded evidence
               </button>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={submitting}
-                  onClick={() => {
-                    setSubmitting(true);
-                    setError(null);
-                    void api
-                      .analyzeEvidence(assessmentId)
-                      .then(setAnalysis)
-                      .catch((err: unknown) =>
-                        setError(
-                          err instanceof ApiError ? err.message : "Failed to retry evidence analysis.",
-                        ),
-                      )
-                      .finally(() => setSubmitting(false));
-                  }}
-                >
-                  Retry AI analysis
-                </button>
+                {analysis.failed_evidence_request_ids.length > 0 ? (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={submitting}
+                    onClick={() => {
+                      setSubmitting(true);
+                      setError(null);
+                      void api
+                        .analyzeEvidence(assessmentId)
+                        .then(setAnalysis)
+                        .catch((err: unknown) =>
+                          setError(
+                            err instanceof ApiError
+                              ? err.message
+                              : "Failed to retry evidence analysis.",
+                          ),
+                        )
+                        .finally(() => setSubmitting(false));
+                    }}
+                  >
+                    Retry optional AI review
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="btn-primary"
@@ -253,6 +297,9 @@ export default function EvidencePage() {
                 busy={busyItem === req.id}
                 onUpload={(file) => handleUpload(req.id, file)}
                 onUnavailable={() => handleUnavailable(req.id)}
+                onSelfAssessment={(value) =>
+                  handleSelfAssessment(req.id, value)
+                }
                 onRemove={() => handleRemove(req.id)}
               />
             ))}
@@ -270,7 +317,7 @@ export default function EvidencePage() {
               disabled={submitting}
               className="bg-leaf text-white font-bold px-8 py-4 rounded-2xl hover:bg-ink transition-colors disabled:opacity-50 text-sm shadow-card"
             >
-              Analyze Evidence &amp; Continue →
+              Save &amp; Continue →
             </button>
           </div>
         </form>
