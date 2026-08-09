@@ -11,6 +11,7 @@ import { api, ApiError } from "@/lib/api";
 import type { Category, Product } from "@/types";
 
 const STEPS = ["Choose product", "Business profile", "Certificates"];
+const PROCESS_MANAGEMENT_CATEGORY_SLUG = "process_management";
 
 export default function SelectProductPage() {
   const router = useRouter();
@@ -28,7 +29,9 @@ export default function SelectProductPage() {
       .listCategories()
       .then((cats) => {
         if (!cancelled) {
-          setCategories(cats);
+          setCategories(
+            cats.filter((category) => category.slug !== PROCESS_MANAGEMENT_CATEGORY_SLUG),
+          );
           setLoading(false);
         }
       })
