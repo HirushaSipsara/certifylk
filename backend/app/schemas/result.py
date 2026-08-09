@@ -50,6 +50,7 @@ class CostSummaryResponse(BaseModel):
 
 class ResultResponse(BaseModel):
     assessment_id: uuid.UUID
+    scheme_id: str | None = None
     overall_score_raw: Decimal
     overall_score: int
     evidence_completeness: int

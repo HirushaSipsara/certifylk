@@ -10,15 +10,16 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { LoadingState } from "@/components/LoadingState";
 import { EvidenceUploadCard } from "@/components/EvidenceUploadCard";
 import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 import { api, ApiError } from "@/lib/api";
-import type { EvidenceRequest, SchemeChip } from "@/types";
+import type { EvidenceRequest } from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [scheme, setScheme] = useState<SchemeChip | null>(null);
+  const { scheme } = useAssessmentScheme(assessmentId);
   const [requests, setRequests] = useState<EvidenceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -31,15 +32,6 @@ export default function EvidencePage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-
-        // Fetch linked scheme
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
 
         // Fetch evidence plan
         try {

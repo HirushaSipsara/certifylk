@@ -9,16 +9,17 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { LoadingState } from "@/components/LoadingState";
 import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { QuestionCard } from "@/components/QuestionCard";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 import { api, ApiError } from "@/lib/api";
 import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
-import type { Question, SchemeChip } from "@/types";
+import type { Question } from "@/types";
 
 export default function ClarificationPage() {
   const params = useParams<{ assessmentId: string }>();
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [scheme, setScheme] = useState<SchemeChip | null>(null);
+  const { scheme } = useAssessmentScheme(assessmentId);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, { value: string; other_text?: string }>>({});
   const [loading, setLoading] = useState(true);
@@ -31,15 +32,6 @@ export default function ClarificationPage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-
-        // Fetch linked scheme
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
 
         // Load clarification questions
         try {

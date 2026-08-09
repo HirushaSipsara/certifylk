@@ -75,9 +75,7 @@ def reset_evidence_request(
     ):
         raise TransitionError("Only uploaded or unavailable evidence items can be reset.")
     existing_files = list(
-        db.scalars(
-            select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id)
-        )
+        db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
     )
     for evidence_file in existing_files:
         try:
@@ -107,9 +105,7 @@ def store_upload(
         EvidenceRequestStatus.UNAVAILABLE,
     ):
         existing_files = list(
-            db.scalars(
-                select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id)
-            )
+            db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
         )
         for evidence_file in existing_files:
             try:
@@ -151,7 +147,10 @@ def store_upload(
 
 
 def mark_evidence_unavailable(
-    db: Session, assessment: Assessment, request: EvidenceRequest, storage: StorageProvider | None = None
+    db: Session,
+    assessment: Assessment,
+    request: EvidenceRequest,
+    storage: StorageProvider | None = None,
 ) -> EvidenceRequest:
     validate_page_transition(
         assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Mark evidence unavailable"
@@ -159,9 +158,7 @@ def mark_evidence_unavailable(
     # If previously uploaded, remove the stored file before marking unavailable
     if request.status == EvidenceRequestStatus.UPLOADED:
         existing_files = list(
-            db.scalars(
-                select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id)
-            )
+            db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
         )
         for evidence_file in existing_files:
             if storage:

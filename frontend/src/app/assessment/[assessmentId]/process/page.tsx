@@ -56,15 +56,6 @@ export default function ProcessPage() {
           setValue("steps", prefill.slice(0, 5) as [string, string, string, string, string]);
         }
 
-        // Fetch linked scheme
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
-
         // Fetch adaptive questions
         try {
           const plan = await api.adaptivePlan(assessmentId);

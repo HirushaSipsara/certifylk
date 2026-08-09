@@ -166,6 +166,15 @@ Returns `409` for closed/wrong-stage slots, `413` oversized, `415` unsupported o
 
 No body. `200`: `{"evidence_request_id":"...","status":"unavailable"}`. Returns `409` if already uploaded/analyzed or transition is invalid.
 
+### `DELETE /assessments/{assessment_id}/evidence/{evidence_request_id}`
+
+Resets an uploaded or unavailable evidence slot to `requested` before evidence
+analysis. Any stored file for the slot is deleted through the storage provider,
+so the user can safely upload a replacement or choose “I do not have this”
+again. `200`: `{"evidence_request_id":"...","status":"requested"}`. Returns
+`404` for an unknown slot and `409` when the assessment has advanced past the
+evidence stage.
+
 ### `POST /assessments/{assessment_id}/evidence-analysis`
 
 No body. All slots must be uploaded or unavailable. `200`:
@@ -213,7 +222,7 @@ No body. Requires `ready_to_score`. Performs deterministic evaluation/scoring/ro
 
 Calling this endpoint for an already completed assessment is idempotent and returns the stored summary. Returns `409` if incomplete.
 
-Returns `409` when the assessment is not completed and `404` when no assessment/result exists.
+Returns `409` when the assessment is not completed and `404` when no assessment/result exists. The result payload includes nullable `scheme_id`; certificate-scoped assessments expose the selected scheme, while legacy assessments may leave it null.
 
 ## Certification Knowledge Base & Applicability
 

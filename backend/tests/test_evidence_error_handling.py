@@ -63,9 +63,7 @@ def test_missing_evidence_file_returns_400(client: TestClient, db_session: Sessi
 
     # Manually tamper with the database to point storage_key to a non-existent file
     file_record = (
-        db_session.query(EvidenceFile)
-        .filter_by(evidence_request_id=uuid.UUID(req_id))
-        .first()
+        db_session.query(EvidenceFile).filter_by(evidence_request_id=uuid.UUID(req_id)).first()
     )
     assert file_record is not None
     file_record.storage_key = "non_existent_folder/missing_file.png"
