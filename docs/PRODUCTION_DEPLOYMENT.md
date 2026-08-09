@@ -34,7 +34,7 @@ The landing page and API health endpoints were verified for the recorded histori
 ## Files
 
 - `frontend/Dockerfile` and `backend/Dockerfile`: non-root runtime images with container health checks.
-- `infra/production/docker-compose.yml`: private application/data networks and persistent named volumes.
+- `infra/production/docker-compose.yml`: private application/data networks, a backend-only outbound AI network, and persistent named volumes.
 - `infra/production/nginx/`: HTTP-to-HTTPS redirect, ACME webroot, TLS termination, request limits, and reverse proxy.
 - `infra/production/scripts/`: deployment, migration, health, backup, and rollback operations.
 - `.github/workflows/ci.yml`: mandatory quality, test, audit, E2E, and image-build gates.
@@ -54,6 +54,11 @@ sudo -H -u certifylk editor infra/production/.env.production
 ```
 
 Replace every example value. Use a long URL-safe PostgreSQL password and place the same value in `POSTGRES_PASSWORD` and the password component of `DATABASE_URL`. For live AI, set `AI_PROVIDER=gemini`, add `GEMINI_API_KEY`, keep the key only in this backend-side file, and use the stable `gemini-3.6-flash` model. `AI_PROVIDER=mock` remains a supported deterministic production demonstration mode.
+
+The backend is attached to the dedicated `ai_egress` Compose network so it can
+make outbound HTTPS requests to Gemini. The application and data networks stay
+internal, PostgreSQL remains unreachable from the internet, and no additional
+host port is opened.
 
 If GHCR packages are private, create `infra/production/.env.registry` on EC2 only:
 

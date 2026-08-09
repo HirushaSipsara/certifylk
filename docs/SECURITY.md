@@ -4,7 +4,7 @@ The certificate-specific redesign increases the sensitivity and trust expectatio
 
 ## Security boundaries
 
-The browser communicates only with Nginx over HTTPS. Nginx is the only container with host ports. Next.js, FastAPI, and PostgreSQL use internal Docker networks; PostgreSQL has no host port. Gemini and database credentials remain backend-only. Uploaded content remains untrusted data and cannot alter scheme candidates, source records, question/evidence/requirement identifiers, scoring, costs, legal tiers, or certification rules.
+The browser communicates only with Nginx over HTTPS. Nginx is the only container with host ports. Next.js, FastAPI, and PostgreSQL communicate over internal Docker networks; PostgreSQL has no host port. FastAPI alone also joins a dedicated outbound-only Compose network for HTTPS calls to Gemini. Gemini and database credentials remain backend-only. Uploaded content remains untrusted data and cannot alter scheme candidates, source records, question/evidence/requirement identifiers, scoring, costs, legal tiers, or certification rules.
 
 Catalogue provenance is also a security boundary: only reviewed imports/migrations may create active standards, clauses, applicability rules, or prices. AI output and frontend input never write authoritative catalogue facts.
 
@@ -25,6 +25,7 @@ The application still has the locked guest UUID model and no authentication. Pos
 - Nginx permits TLS 1.2/1.3, sends HSTS and basic browser security headers, limits connections/requests, and caps request bodies just above the application’s 12 MB PDF limit.
 - Do not enable HSTS preload without a separate domain-wide review.
 - Only Nginx receives internet traffic. Do not add host port mappings for frontend, backend, or PostgreSQL.
+- The `ai_egress` network permits outbound traffic from FastAPI but publishes no container port. Do not attach PostgreSQL or the frontend to it.
 - Certbot renewals use the mounted ACME webroot. Test renewal after every certificate or Nginx change.
 
 ## Container and host controls

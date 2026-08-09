@@ -64,6 +64,7 @@ services:
     networks:
       - app
       - data
+      - ai_egress
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,3 +216,4 @@ networks:
     internal: true
   data:
     internal: true
+  ai_egress:

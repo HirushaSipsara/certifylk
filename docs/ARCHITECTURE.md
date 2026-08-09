@@ -138,12 +138,16 @@ flowchart TB
   Nginx -->|/api/v1| Fast[Private FastAPI service]
   Fast --> PG[(Persistent PostgreSQL volume)]
   Fast --> Uploads[(Persistent upload volume)]
-  Fast -->|optional backend-only| Gemini
+  Fast -->|backend-only outbound HTTPS via ai_egress| Gemini
   Actions[GitHub Actions] -->|OIDC| SSM[AWS Systems Manager]
   SSM -->|exact tested SHA| EC2[EC2 Compose host]
 ```
 
 Nginx is the only host-port entry. Deployment backs up, migrates/seeds explicitly, starts immutable SHA-tagged images, performs public health gates, and rolls application images back without deleting volumes or automatically downgrading the database.
+
+The Compose `app` and `data` networks are internal. FastAPI additionally joins
+the non-published `ai_egress` bridge so live Gemini mode has outbound HTTPS;
+this network does not expose FastAPI to inbound internet traffic.
 
 ## Security boundaries
 
