@@ -70,6 +70,41 @@ def _scheme_payload(scheme: Any) -> dict[str, Any]:
     }
 
 
+def _already_held_scheme_ids(
+    business_profile: BusinessProfile,
+    schemes: list[Any],
+) -> set[str]:
+    """Resolve catalogue paths already satisfied by explicit profile facts.
+
+    Food-business registration is a prerequisite pathway rather than a readiness
+    assessment the user should be told to obtain repeatedly.  Keep this decision
+    deterministic so neither AI provider can contradict the user's saved answer.
+    """
+    licence_status = business_profile.has_food_licence.strip().lower()
+    certification_tokens = {
+        "_".join(
+            "".join(
+                character.lower() if character.isalnum() else " " for character in value
+            ).split()
+        )
+        for value in business_profile.existing_certifications
+    }
+    has_registration = licence_status == "yes" or bool(
+        certification_tokens
+        & {
+            "caa_food_business_registration",
+            "caa_food_reg",
+            "caa_registration",
+            "food_business_registration",
+            "food_licence",
+            "food_license",
+        }
+    )
+    if not has_registration:
+        return set()
+    return {scheme.id for scheme in schemes if scheme.id == "CAA_FOOD_REG"}
+
+
 def _validate_applicability_output(
     output: ApplicabilityDecisionOutput,
     allowed_scheme_ids: set[str],
@@ -141,8 +176,17 @@ async def run_applicability_agent(
             422,
         )
 
-    allowed_ids = {s.id for s in schemes}
-    scheme_payloads = [_scheme_payload(s) for s in schemes]
+    already_held_scheme_ids = _already_held_scheme_ids(business_profile, schemes)
+    actionable_schemes = [scheme for scheme in schemes if scheme.id not in already_held_scheme_ids]
+    if not actionable_schemes:
+        raise AppError(
+            "no_new_schemes_available",
+            "The saved profile already holds every available pathway for this product and track.",
+            422,
+        )
+
+    allowed_ids = {scheme.id for scheme in actionable_schemes}
+    scheme_payloads = [_scheme_payload(scheme) for scheme in actionable_schemes]
 
     business_profile_dict: dict[str, Any] = {
         "name": business_profile.name,
@@ -153,6 +197,7 @@ async def run_applicability_agent(
         "existing_certifications": business_profile.existing_certifications,
         "has_food_licence": business_profile.has_food_licence,
         "monthly_volume_range": business_profile.monthly_volume_range,
+        "additional_info": business_profile.additional_info,
     }
 
     product_dict: dict[str, Any] = {}
@@ -185,6 +230,7 @@ async def run_applicability_agent(
         "decisions": [d.model_dump() for d in decision.decisions],
         "overall_reasoning": decision.overall_reasoning,
         "recommended_path_scheme_id": decision.recommended_path_scheme_id,
+        "already_held_scheme_ids": sorted(already_held_scheme_ids),
         "provider": result.provider,
         "fallback_used": result.fallback_used,
         "run_at": datetime.now(timezone.utc).isoformat(),
@@ -195,7 +241,11 @@ async def run_applicability_agent(
     if decision.recommended_path_scheme_id:
         assessment.scheme_id = decision.recommended_path_scheme_id
         selected_scheme = next(
-            (scheme for scheme in schemes if scheme.id == decision.recommended_path_scheme_id),
+            (
+                scheme
+                for scheme in actionable_schemes
+                if scheme.id == decision.recommended_path_scheme_id
+            ),
             None,
         )
         if selected_scheme is not None:

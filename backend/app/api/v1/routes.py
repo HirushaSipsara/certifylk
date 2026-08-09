@@ -586,6 +586,22 @@ async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str
     any_unverified = (
         has_unverified_requirements(db, assessment.scheme_id) if assessment.scheme_id else False
     )
+    applicability_data = assessment.profile_data.get("applicability_decision", {})
+    already_held_schemes = []
+    for scheme_id in applicability_data.get("already_held_scheme_ids", []):
+        scheme = get_scheme(db, scheme_id)
+        if scheme is not None:
+            already_held_schemes.append(
+                {
+                    "scheme_id": scheme.id,
+                    "scheme_name": scheme.name,
+                    "body_name": scheme.body.name if scheme.body else "",
+                    "status_message": (
+                        "Your business profile says this registration or licence is already held, "
+                        "so it is not recommended as a new action."
+                    ),
+                }
+            )
 
     db.commit()
     return {
@@ -593,12 +609,9 @@ async def applicable_schemes_route(assessment_id: uuid.UUID, db: Db) -> dict[str
         "overall_reasoning": decision.overall_reasoning,
         "recommended_path_scheme_id": decision.recommended_path_scheme_id,
         "decisions": decision_responses,
-        "provider": assessment.profile_data.get("applicability_decision", {}).get(
-            "provider", "mock"
-        ),
-        "fallback_used": assessment.profile_data.get("applicability_decision", {}).get(
-            "fallback_used", False
-        ),
+        "already_held_schemes": already_held_schemes,
+        "provider": applicability_data.get("provider", "mock"),
+        "fallback_used": applicability_data.get("fallback_used", False),
         "has_unverified_content": any_unverified,
     }
 

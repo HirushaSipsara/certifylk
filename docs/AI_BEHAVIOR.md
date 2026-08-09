@@ -19,13 +19,13 @@ Mock and Gemini implement the same typed contract. Mock is deterministic and is 
 
 ## Applicability behavior
 
-The backend loads active schemes for the resolved track and supplies each scheme’s ID, name, tier, applicability rule, summary, and body plus the structured business profile/product. AI returns:
+The backend loads active schemes for the resolved track and supplies each actionable scheme’s ID, name, tier, applicability rule, summary, and body plus the structured business profile/product. A Food Business Registration pathway is deterministically classified as already held when the saved profile says the business currently holds that registration/licence; it is excluded from the AI action candidates and returned separately for acknowledgement. AI returns:
 
 - `decisions`: whitelisted `scheme_id`, tier, confidence, reasoning, and source reference;
 - `recommended_path_scheme_id`: null or one supplied ID;
 - `overall_reasoning`.
 
-The backend rejects unknown IDs and persists the validated decision in assessment profile data. Track 1 candidates are product-quality schemes; Track 2 candidates are process-management schemes. The current implementation supplies a bounded context in one provider operation. It is not yet proof of Gemini function/tool calls. A later read-only tool registry must retain exactly the same whitelist and safety boundary.
+The backend rejects unknown IDs and persists the validated decision plus already-held scheme IDs in assessment profile data. Track 1 candidates are actionable product-quality schemes; Track 2 candidates are process-management schemes. The optional business-profile narrative is included in the bounded AI context. The current implementation supplies that context in one provider operation. It is not yet proof of Gemini function/tool calls. A later read-only tool registry must retain exactly the same whitelist and safety boundary.
 
 Mandatory or market-required wording must come from reviewed catalogue facts. AI may explain ambiguity but may not upgrade an optional/recommended scheme to a legal mandate without a supplied rule.
 

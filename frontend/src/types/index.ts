@@ -217,6 +217,12 @@ export interface ApplicabilityResult {
   overall_reasoning: string;
   recommended_path_scheme_id: string | null;
   decisions: SchemeDecision[];
+  already_held_schemes?: Array<{
+    scheme_id: string;
+    scheme_name: string;
+    body_name: string;
+    status_message: string;
+  }>;
   provider: string;
   fallback_used: boolean;
   has_unverified_content: boolean;

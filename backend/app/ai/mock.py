@@ -185,6 +185,8 @@ class MockAIProvider:
                             source_reference="applicability_rule.mandatory_note — SLS Mark broadens market access.",
                         )
                     )
+                    if recommended_id is None:
+                        recommended_id = sid
 
             # ── Track 2 — Process Management schemes ───────────────────────────
             elif sid == "SLS_GMP":
@@ -309,12 +311,18 @@ class MockAIProvider:
                 overall += "ISO 22000:2018 is strongly recommended to meet your export market requirements."
             else:
                 overall += "ISO 22000 is available as an optional international standard if you plan to export."
-        else:
+        elif "CAA_FOOD_REG" in supplied_ids:
             overall = (
                 "Based on the submitted business profile and product, two certification "
                 "actions are identified. CAA registration is legally required and should be "
                 "completed first. The SLS Mark is the recommended next step to unlock "
                 "supermarket and institutional market access."
+            )
+        else:
+            overall = (
+                "The submitted profile says the Food Business Registration or Food Licence "
+                "is already held, so it is not a new action. The SLS Mark is the recommended "
+                "next readiness path for the selected product and target market."
             )
 
         return ApplicabilityDecisionOutput(

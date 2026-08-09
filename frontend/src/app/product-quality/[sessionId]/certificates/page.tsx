@@ -229,6 +229,34 @@ export default function CertificatesPage() {
               </VerificationWarning>
             ) : null}
 
+            {result.already_held_schemes?.length ? (
+              <section
+                aria-labelledby="already-held-heading"
+                className="rounded-2xl border border-leaf/30 bg-leaf/5 p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-leaf text-white">
+                    <Check className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 id="already-held-heading" className="font-semibold text-ink">
+                      Registration already provided
+                    </h2>
+                    <div className="mt-2 space-y-2">
+                      {result.already_held_schemes.map((scheme) => (
+                        <div key={scheme.scheme_id}>
+                          <p className="text-sm font-medium text-leaf-dark">{scheme.scheme_name}</p>
+                          <p className="text-sm leading-relaxed text-slate">
+                            {scheme.status_message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             {/* Decision cards */}
             <div className="space-y-4">
               {result.decisions.map((d) => (

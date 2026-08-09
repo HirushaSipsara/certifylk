@@ -39,9 +39,12 @@ async def test_applicability_agent_flow(db: Session) -> None:
 
     # 3. Run the applicability reasoning agent
     decision = await run_applicability_agent(db, assessment)
-    assert len(decision.decisions) >= 2
-    assert decision.recommended_path_scheme_id in ("SLS_MARK_CORDIAL", "CAA_FOOD_REG")
-    assert "Lanka Cordial Works" not in decision.overall_reasoning or True
+    assert decision.recommended_path_scheme_id == "SLS_MARK_CORDIAL"
+    assert {item.scheme_id for item in decision.decisions} == {"SLS_MARK_CORDIAL"}
+    applicability_data = assessment.profile_data["applicability_decision"]
+    assert applicability_data["already_held_scheme_ids"] == ["CAA_FOOD_REG"]
+    assert "already held" in decision.overall_reasoning
+    assert "completed first" not in decision.overall_reasoning
     assert assessment.scheme_id == decision.recommended_path_scheme_id
 
 
@@ -86,6 +89,48 @@ def test_api_applicable_schemes_route(client: TestClient, db: Session) -> None:
     assert res_json["assessment_id"] == ass_id
     assert len(res_json["decisions"]) >= 1
     assert "overall_reasoning" in res_json
+
+
+def test_api_does_not_recommend_food_registration_already_held(
+    client: TestClient, db: Session
+) -> None:
+    assessment_response = client.post("/api/v1/assessments")
+    assessment_id = assessment_response.json()["id"]
+    profile_response = client.post(
+        "/api/v1/business-profiles",
+        json={
+            "name": "Serendib Fresh Foods (Pvt) Ltd",
+            "business_type": "limited_company",
+            "years_operating": 3,
+            "scale": "small",
+            "market": ["supermarket", "local_retail"],
+            "existing_certifications": ["CAA Food Business Registration"],
+            "has_food_licence": "yes",
+            "monthly_volume_range": "500_2000",
+            "additional_info": "Preparing to supply major supermarket chains.",
+            "assessment_id": assessment_id,
+            "product_slug": "fresh_fruit_cordial",
+        },
+    )
+    assert profile_response.status_code == 201
+
+    response = client.post(f"/api/v1/assessments/{assessment_id}/applicable-schemes")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["recommended_path_scheme_id"] == "SLS_MARK_CORDIAL"
+    assert {item["scheme_id"] for item in payload["decisions"]} == {"SLS_MARK_CORDIAL"}
+    assert payload["already_held_schemes"] == [
+        {
+            "scheme_id": "CAA_FOOD_REG",
+            "scheme_name": "CAA Food Business Registration",
+            "body_name": "Consumer Affairs Authority",
+            "status_message": (
+                "Your business profile says this registration or licence is already held, "
+                "so it is not recommended as a new action."
+            ),
+        }
+    ]
 
 
 # ── Track 2 — Process Management applicability ──────────────────────────────

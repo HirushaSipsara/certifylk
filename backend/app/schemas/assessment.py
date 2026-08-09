@@ -288,11 +288,19 @@ class SchemeDecisionResponse(BaseModel):
     summary: str
 
 
+class AlreadyHeldSchemeResponse(BaseModel):
+    scheme_id: str
+    scheme_name: str
+    body_name: str
+    status_message: str
+
+
 class ApplicabilityResponse(BaseModel):
     assessment_id: uuid.UUID
     overall_reasoning: str
     recommended_path_scheme_id: str | None
     decisions: list[SchemeDecisionResponse]
+    already_held_schemes: list[AlreadyHeldSchemeResponse]
     provider: str
     fallback_used: bool
     has_unverified_content: bool

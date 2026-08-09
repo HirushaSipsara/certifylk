@@ -361,7 +361,7 @@ Response:
 
 ### `POST /assessments/{assessment_id}/applicable-schemes`
 
-Runs the Applicability Reasoning operation on the linked business profile. Track is inferred: an assessment with a product uses `product_quality`; without a product it uses `process_management`. Candidates are loaded from PostgreSQL, all output IDs are whitelisted, and the recommended ID is stored on the assessment. Returns ranked decisions with AI reasoning and supplied source references. `200`:
+Runs the Applicability Reasoning operation on the linked business profile. Track is inferred: an assessment with a product uses `product_quality`; without a product it uses `process_management`. Candidates are loaded from PostgreSQL, already-held Food Business Registration is deterministically removed from the action candidates, all AI output IDs are whitelisted, and the recommended ID is stored on the assessment. Returns ranked actionable decisions, separately acknowledged already-held pathways, AI reasoning, and supplied source references. `200`:
 
 ```json
 {
@@ -370,15 +370,23 @@ Runs the Applicability Reasoning operation on the linked business profile. Track
   "recommended_path_scheme_id": "SLS_MARK_CORDIAL",
   "decisions": [
     {
+      "scheme_id": "SLS_MARK_CORDIAL",
+      "tier": "market_required",
+      "confidence": 0.92,
+      "reasoning": "The target market includes supermarket channels...",
+      "source_reference": "applicability_rule.mandatory_note",
+      "scheme_name": "SLS Mark — Fresh Fruit Cordial",
+      "body_name": "Sri Lanka Standards Institution",
+      "typical_timeline_days": 365,
+      "summary": "SLS Mark readiness for Fresh Fruit Cordial."
+    }
+  ],
+  "already_held_schemes": [
+    {
       "scheme_id": "CAA_FOOD_REG",
-      "tier": "mandatory",
-      "confidence": 0.99,
-      "reasoning": "Registration under the Food Act No. 26 of 1980 is legally required...",
-      "source_reference": "applicability_rule.mandatory_note — Food Act No. 26 of 1980",
       "scheme_name": "CAA Food Business Registration",
       "body_name": "Consumer Affairs Authority",
-      "typical_timeline_days": 60,
-      "summary": "Mandatory registration under the Consumer Affairs Authority Act..."
+      "status_message": "Your business profile says this registration or licence is already held, so it is not recommended as a new action."
     }
   ],
   "provider": "mock",
@@ -387,7 +395,7 @@ Runs the Applicability Reasoning operation on the linked business profile. Track
 }
 ```
 
-The current operation receives DB-sourced scheme facts in a bounded provider call. The response does not claim that Gemini function/tool calling occurred. `has_unverified_content` reflects the selected recommended scheme’s current requirement rows.
+The current operation receives DB-sourced scheme facts and the saved optional profile narrative in a bounded provider call. `already_held_schemes` is deterministic read-only metadata, not model output. The response does not claim that Gemini function/tool calling occurred. `has_unverified_content` reflects the selected recommended scheme’s current requirement rows.
 
 ### `GET /assessments/{assessment_id}/scheme-requirements`
 
