@@ -125,6 +125,7 @@ class AssessmentSummaryResponse(BaseModel):
     status: AssessmentStatus
     current_page: str
     is_sample: bool
+    scheme_id: str | None = None
     profile: dict[str, object]
     process_steps: list[dict[str, object]]
     assigned_questions: list[AssignedQuestionResponse]

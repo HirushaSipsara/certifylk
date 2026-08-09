@@ -81,6 +81,7 @@ def assessment_state(db: Session, assessment: Assessment) -> dict[str, object]:
         "status": assessment.status,
         "current_page": assessment.current_page.value,
         "is_sample": assessment.is_sample,
+        "scheme_id": assessment.scheme_id,
         "profile": assessment.profile_data,
         "process_steps": [{"position": step.position, "text": step.text} for step in steps],
         "assigned_questions": [

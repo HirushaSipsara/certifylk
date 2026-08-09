@@ -108,6 +108,11 @@ export const api = {
     apiFetch(`/assessments/${id}/evidence/${requestId}/unavailable`, {
       method: "PUT",
     }),
+  removeEvidence: (id: string, requestId: string) =>
+    apiFetch<{ evidence_request_id: string; status: string }>(
+      `/assessments/${id}/evidence/${requestId}`,
+      { method: "DELETE" },
+    ),
   analyzeEvidence: (id: string) =>
     apiFetch<EvidenceAnalysisResponse>(`/assessments/${id}/evidence-analysis`, {
       method: "POST",

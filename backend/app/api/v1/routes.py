@@ -57,6 +57,7 @@ from app.services.evidence_service import (
     get_evidence_request,
     mark_evidence_unavailable,
     plan_final_clarifications,
+    reset_evidence_request,
     store_upload,
 )
 from app.services.process_service import (
@@ -264,7 +265,21 @@ def evidence_unavailable_route(
 ) -> dict[str, object]:
     assessment = get_assessment(db, assessment_id)
     evidence_request = get_evidence_request(db, assessment_id, evidence_request_id)
-    mark_evidence_unavailable(db, assessment, evidence_request)
+    mark_evidence_unavailable(db, assessment, evidence_request, storage=get_storage_provider())
+    return {"evidence_request_id": evidence_request.id, "status": evidence_request.status}
+
+
+@router.delete(
+    "/assessments/{assessment_id}/evidence/{evidence_request_id}",
+    response_model=UnavailableResponse,
+    summary="Reset an uploaded or unavailable evidence item so it can be re-uploaded",
+)
+def evidence_reset_route(
+    assessment_id: uuid.UUID, evidence_request_id: uuid.UUID, db: Db
+) -> dict[str, object]:
+    assessment = get_assessment(db, assessment_id)
+    evidence_request = get_evidence_request(db, assessment_id, evidence_request_id)
+    reset_evidence_request(db, assessment, evidence_request, get_storage_provider())
     return {"evidence_request_id": evidence_request.id, "status": evidence_request.status}
 
 

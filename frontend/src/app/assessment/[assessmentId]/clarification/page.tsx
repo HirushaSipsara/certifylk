@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { QuestionCard } from "@/components/QuestionCard";
 import { api, ApiError } from "@/lib/api";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
 import type { Question, SchemeChip } from "@/types";
 
 export default function ClarificationPage() {
@@ -129,10 +130,10 @@ export default function ClarificationPage() {
             Stage 4 of 5 · Clarifications
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Final Clarifications</h1>
-          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
             Answer these specific questions to resolve remaining requirement uncertainties for your selected certification scheme.
           </p>
+          {scheme && <SelectedSchemeBanner scheme={scheme} label="Assessing Against" />}
         </div>
 
         {error && <ErrorAlert message={error} />}

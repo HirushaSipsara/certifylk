@@ -18,12 +18,14 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
-import type { Assessment, SchemeChip } from "@/types";
+import type { Assessment } from "@/types";
 import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { TierBadge } from "@/components/TierBadge";
 import { VerificationWarning } from "@/components/VerificationWarning";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 
 const STEPS: { id: string; label: string; description: string; icon: LucideIcon }[] = [
   { id: "profile", label: "Business Profile", description: "Tell us about your operation", icon: Factory },
@@ -44,7 +46,7 @@ export default function AssessmentHubPage() {
   const assessmentId = params.assessmentId;
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
-  const [scheme, setScheme] = useState<SchemeChip | null>(null);
+  const { scheme } = useAssessmentScheme(assessmentId);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,13 +56,6 @@ export default function AssessmentHubPage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (!cancelled) setAssessment(a);
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : "Failed to load assessment.");
@@ -130,6 +125,11 @@ export default function AssessmentHubPage() {
           <p className="mt-2 max-w-2xl text-slate-600">
             Work through each step at your own pace. Your answers are saved as you go.
           </p>
+          {scheme && (
+            <div className="mt-4">
+              <SelectedSchemeBanner scheme={scheme} label="Preparing for Certificate" />
+            </div>
+          )}
         </div>
 
         {scheme && (

@@ -88,7 +88,13 @@ async def run_with_validation(
     provider_override: AIProvider | None = None,
 ) -> AIExecutionResult[OutputT]:
     config = settings or get_settings()
-    primary = provider_override or get_ai_provider(config)
+    try:
+        primary = provider_override or get_ai_provider(config)
+    except Exception as exc:
+        if config.allow_ai_fallback:
+            primary = MockAIProvider()
+        else:
+            raise AppError("ai_configuration_error", str(exc), 500) from exc
     attempts = 2 if primary.name == "gemini" else 1
     last_error: Exception | None = None
     for _ in range(attempts):
