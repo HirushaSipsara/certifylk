@@ -1,7 +1,7 @@
-import asyncio
 import base64
 import hashlib
 import io
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -55,9 +55,9 @@ class PersistedEvidenceAnalysis:
     execution: AIExecutionResult[EvidenceAnalysisOutput]
 
 
-MAX_AI_EVIDENCE_FILES_PER_BATCH = 5
 MAX_AI_EVIDENCE_RAW_BYTES_PER_BATCH = 12 * 1024 * 1024
-MAX_CONCURRENT_EVIDENCE_BATCHES = 3
+MAX_AI_EVIDENCE_FILES_PER_BATCH = 2
+logger = logging.getLogger("certifylk.evidence")
 
 
 def _partition_evidence_inputs(
@@ -326,10 +326,10 @@ async def analyze_uploaded_evidence(
     batches = _partition_evidence_inputs(evidence_inputs, raw_sizes)
     if not batches:
         batches = [[]]
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_EVIDENCE_BATCHES)
 
     async def analyze_batch(
         batch: list[EvidenceInput],
+        batch_number: int,
     ) -> AIExecutionResult[EvidenceAnalysisOutput]:
         batch_requirements = {
             item.request_id: set(item.requirement_ids) & allowed_requirements for item in batch
@@ -343,17 +343,47 @@ async def analyze_uploaded_evidence(
         async def call(selected_provider: AIProvider) -> EvidenceAnalysisOutput:
             return await selected_provider.analyze_evidence(batch, batch_allowed)
 
-        async with semaphore:
-            return await run_with_validation(
-                db,
-                assessment.id,
-                "analyze_evidence",
-                call,
-                lambda result: validate_evidence_output(result, batch_requirements),
-                provider_override=provider,
-            )
+        batch_files = [file_by_request[item.request_id] for item in batch]
+        diagnostic_context: dict[str, object] = {
+            "batch_number": batch_number,
+            "batch_count": len(batches),
+            "batch_size": len(batch),
+            "evidence_request_ids": [str(item.request_id) for item in batch],
+            "evidence_file_ids": [str(item.id) for item in batch_files],
+            "mime_types": [item.content_type for item in batch_files],
+            "byte_sizes": [item.size_bytes for item in batch_files],
+        }
+        logger.info(
+            "evidence_batch_start assessment_id=%s context=%s",
+            assessment.id,
+            diagnostic_context,
+        )
+        result = await run_with_validation(
+            db,
+            assessment.id,
+            "analyze_evidence",
+            call,
+            lambda candidate: validate_evidence_output(candidate, batch_requirements),
+            provider_override=provider,
+            diagnostic_context=diagnostic_context,
+        )
+        logger.info(
+            "evidence_batch_complete assessment_id=%s batch_number=%s provider=%s "
+            "fallback_used=%s validation_status=%s observation_count=%s",
+            assessment.id,
+            batch_number,
+            result.provider,
+            result.fallback_used,
+            result.validation_status,
+            len(result.output.observations),
+        )
+        return result
 
-    executions = await asyncio.gather(*(analyze_batch(batch) for batch in batches))
+    # Keep live multimodal calls sequential. This avoids self-inflicted provider quota
+    # spikes while each independently validated batch preserves its own outcome.
+    executions: list[AIExecutionResult[EvidenceAnalysisOutput]] = []
+    for batch_number, batch in enumerate(batches, start=1):
+        executions.append(await analyze_batch(batch, batch_number))
     output = EvidenceAnalysisOutput(
         observations=[
             observation
@@ -365,8 +395,20 @@ async def analyze_uploaded_evidence(
         output=output,
         provider=("mock" if any(item.provider == "mock" for item in executions) else "gemini"),
         fallback_used=any(item.fallback_used for item in executions),
+        validation_status="validated",
     )
-    observations = merge_evidence_observations(db, assessment, output, file_by_request)
+    execution_by_pair = {
+        (observation.evidence_request_id, observation.requirement_id): batch_execution
+        for batch_execution in executions
+        for observation in batch_execution.output.observations
+    }
+    observations = merge_evidence_observations(
+        db,
+        assessment,
+        output,
+        file_by_request,
+        execution_by_pair,
+    )
     for request in requests:
         if request.status == EvidenceRequestStatus.UPLOADED:
             request.status = EvidenceRequestStatus.ANALYZED
@@ -380,6 +422,7 @@ def merge_evidence_observations(
     assessment: Assessment,
     output: EvidenceAnalysisOutput,
     file_by_request: dict[uuid.UUID, EvidenceFile],
+    execution_by_pair: dict[tuple[uuid.UUID, str], AIExecutionResult[EvidenceAnalysisOutput]],
 ) -> list[EvidenceObservation]:
     db.execute(
         delete(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
@@ -388,6 +431,7 @@ def merge_evidence_observations(
     now = datetime.now(timezone.utc)
     for item in output.observations:
         evidence_file = file_by_request.get(item.evidence_request_id)
+        item_execution = execution_by_pair[(item.evidence_request_id, item.requirement_id)]
         observation = EvidenceObservation(
             assessment_id=assessment.id,
             evidence_request_id=item.evidence_request_id,
@@ -398,7 +442,9 @@ def merge_evidence_observations(
             polarity=ObservationPolarity(item.polarity),
             text=item.text,
             confidence=item.confidence,
-            provider="validated_ai",
+            provider=item_execution.provider,
+            fallback_used=item_execution.fallback_used,
+            validation_status=item_execution.validation_status,
             created_at=now,
         )
         db.add(observation)

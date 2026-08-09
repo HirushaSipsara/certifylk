@@ -4,7 +4,7 @@ Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `htt
 
 Process-analysis, evidence-analysis, and applicability responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
 
-Evidence analysis may split uploaded files into bounded internal batches. The response combines the validated observations from those exact batch runs. `fallback_used=true` when any batch required fallback; `provider=mock` when any returned observation batch used Mock, otherwise it is `gemini`. Each certificate-specific uploaded request/requirement pair must be represented once; legacy multi-requirement requests must be represented at least once.
+Evidence analysis splits uploaded files into sequential internal batches of at most two files. The response combines the validated observations from those exact batch runs. Top-level `fallback_used=true` when any batch required fallback; top-level `provider=mock` when any returned observation batch used Mock, otherwise it is `gemini`. Each observation also carries its exact batch `provider`, `fallback_used`, and `validation_status`. Each certificate-specific uploaded request/requirement pair must be represented once; legacy multi-requirement requests must be represented at least once.
 
 The API is transitional. The legacy four-page endpoints remain operational against the global readiness catalogue. The knowledge-base/applicability endpoints select a certification scheme and expose its requirement overview, but certificate-specific evidence/evaluation/result contracts are not yet complete. Planned endpoints or fields are documented only in `FULL_IMPLEMENTATION_PLAN.md`, not as current API behavior.
 
@@ -186,11 +186,11 @@ No body. All slots must be uploaded or unavailable. `200`:
   "status":"evidence_complete",
   "provider":"mock",
   "fallback_used":true,
-  "observations":[{"id":"28f89fd5-7c4b-4dc3-a926-341ccb039506","evidence_request_id":"...","requirement_id":"HYG_HANDWASH","polarity":"supports","text":"A dedicated handwashing area is visible.","confidence":0.86}]
+  "observations":[{"id":"28f89fd5-7c4b-4dc3-a926-341ccb039506","evidence_request_id":"...","requirement_id":"HYG_HANDWASH","polarity":"supports","text":"A dedicated handwashing area is visible.","confidence":0.86,"provider":"gemini","fallback_used":false,"validation_status":"validated"}]
 }
 ```
 
-Each observation retains its validated polarity (`supports`, `concern`, or `unclear`) and confidence value. The UI presents `>=0.80` as Clear, `>=0.50` as Plausible, and lower values as Unclear without changing the stored number.
+Each observation retains its validated polarity (`supports`, `concern`, or `unclear`), confidence value, and exact execution provenance. The UI presents `>=0.80` as Clear, `>=0.50` as Plausible, and lower values as Unclear without changing the stored number. Older clients may ignore the added read-only provenance fields.
 
 Returns `409` while requests remain unresolved; `502` for AI failure without fallback.
 

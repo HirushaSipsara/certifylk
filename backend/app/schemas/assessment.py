@@ -171,6 +171,9 @@ class ObservationResponse(BaseModel):
     polarity: str
     text: str
     confidence: float
+    provider: Literal["gemini", "mock"]
+    fallback_used: bool
+    validation_status: Literal["validated"]
 
 
 class EvidenceAnalysisResponse(StatusResponse, AIExecutionMetadataResponse):

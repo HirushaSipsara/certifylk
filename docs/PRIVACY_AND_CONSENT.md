@@ -36,9 +36,9 @@ CertifyLK collects business process details, manufacturing profiles, and operati
 
 ## 4. AI Provider Data Transmission & Boundaries
 
-- **Transmission Scope:** CertifyLK sends only the structured data necessary for the bounded AI operation (e.g. process step text, candidate scheme facts, extracted observations) through the configured backend AI provider (`GeminiAIProvider` / `MockAIProvider`).
+- **Transmission Scope:** CertifyLK sends only data necessary for the bounded AI operation through the configured backend AI provider (`GeminiAIProvider` / `MockAIProvider`). For evidence analysis in Gemini mode, this includes the selected uploaded image/PDF bytes, MIME type, evidence-request ID, and database-sourced requirement context. Users must therefore upload only synthetic, redacted, or explicitly consented evidence.
 - **Credential Isolation:** AI provider credentials (`GEMINI_API_KEY`) reside exclusively in backend environment configuration and are never exposed to the frontend browser or client responses.
-- **Architectural Safeguard:** Raw evidence files and uploaded binary content are validated, sanitized, and stored locally on persistent host volumes; untrusted text in uploaded documents is treated as data and never executed as instructions.
+- **Architectural Safeguard:** Raw evidence files and uploaded binary content are validated and stored locally on persistent host volumes. A bounded copy is transmitted to Gemini only during requested evidence analysis; it is treated as untrusted data and never as instructions. Raw evidence and document contents are never written to application logs or `ai_runs`.
 
 ---
 

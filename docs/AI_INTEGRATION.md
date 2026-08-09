@@ -10,6 +10,8 @@ AI remains inside the FastAPI monolith behind `AIProvider`; there is no AI micro
 4. `result_service` uses a scheme-specific deterministic branch when `assessment.scheme_id` is set, loading `scheme_requirements`, scheme category weights, and `scheme_cost_items`; legacy assessments without `scheme_id` continue through the global regression catalogue.
 5. `ai_service.run_with_validation` records exact-run success/provider/fallback metadata.
 
+For evidence analysis, `evidence_service` reopens each uploaded file from the configured storage provider and sends its actual bytes and MIME type to Gemini as multimodal inline data. Requests are sequential and contain at most two files. Every batch validates exact request/requirement pairs independently; successful Gemini batches are retained when another batch falls back. Observation rows persist `provider`, `fallback_used`, and `validation_status` for the exact batch that produced them.
+
 The important current limitation is now earlier in the workflow: question and evidence planning still need full cutover to the assessment’s frozen scheme version before describing the browser journey as certificate-specific end to end.
 
 ## Target bounded workflow

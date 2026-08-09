@@ -80,7 +80,9 @@ The current chilli-paste browser test stays until the new canonical sample repla
 - Database/catalogue unavailable or unseeded.
 - No schemes for a product/track; invalid track filter; missing product/profile/scheme/version.
 - Model returns unknown scheme/question/evidence/requirement/source IDs, malformed JSON, or fabricated fields.
-- Gemini timeout/invalid response with fallback enabled and disabled.
+- Gemini timeout/429/invalid response with fallback enabled and disabled, including bounded retry delay and safe diagnostics.
+- Gemini transport contract proves actual image/PDF bytes and MIME types are present, requirement context is supplied, irrelevant evidence is not transformed into support, and successful batches retain Gemini provenance when a separate batch falls back.
+- Evidence-analysis retry replaces existing observations rather than accumulating duplicates; accepted support changes readiness only through the existing deterministic requirement engine.
 - Prompt-injection text in PDF/image metadata.
 - Unsupported, oversized, signature-mismatched, traversal-like or cross-assessment uploads.
 - Unverified content accidentally rendered without warning.

@@ -28,6 +28,9 @@ test("evidence observations show polarity icons, text labels, and confidence ban
       polarity: "supports",
       text: "A handwashing area is visible.",
       confidence: 0.8,
+      provider: "gemini",
+      fallback_used: false,
+      validation_status: "validated",
     },
     {
       id: "concern",
@@ -36,6 +39,9 @@ test("evidence observations show polarity icons, text labels, and confidence ban
       polarity: "concern",
       text: "Cleaning chemicals appear beside ingredients.",
       confidence: 0.79,
+      provider: "mock",
+      fallback_used: true,
+      validation_status: "validated",
     },
     {
       id: "unclear",
@@ -61,6 +67,9 @@ test("evidence observations show polarity icons, text labels, and confidence ban
   expect(screen.getByText("✓")).toHaveAttribute("aria-hidden", "true");
   expect(screen.getByText("!")).toHaveAttribute("aria-hidden", "true");
   expect(screen.getAllByText("?")[0]).toHaveAttribute("aria-hidden", "true");
+  expect(screen.getByText("Analyzed by Gemini")).toBeInTheDocument();
+  expect(screen.getByText("Completed using fallback analysis")).toBeInTheDocument();
+  expect(screen.getAllByText("Structured output validated")).toHaveLength(2);
 });
 
 test("unknown evidence polarity receives a neutral defensive presentation", () => {

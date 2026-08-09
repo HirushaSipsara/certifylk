@@ -142,6 +142,9 @@ def test_concern_observation_api_persistence_evaluation_and_score_baseline(
     assert len(body["observations"]) == 1
     assert body["observations"][0]["polarity"] == "concern"
     assert body["observations"][0]["polarity"] != "supports"
+    assert body["observations"][0]["provider"] == "mock"
+    assert body["observations"][0]["fallback_used"] is False
+    assert body["observations"][0]["validation_status"] == "validated"
 
     runs = list(
         db.scalars(

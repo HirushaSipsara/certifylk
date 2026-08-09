@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import re
 import time
 import uuid
@@ -10,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.ai import AIProvider, GeminiAIProvider, MockAIProvider
+from app.ai.gemini import GeminiProviderError
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.models import AIRun
@@ -17,6 +20,7 @@ from app.schemas.ai import EvidenceAnalysisOutput, ProcessExtractionOutput, Ques
 
 OutputT = TypeVar("OutputT", bound=BaseModel)
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+logger = logging.getLogger("certifylk.ai")
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,7 @@ class AIExecutionResult(Generic[OutputT]):
     output: OutputT
     provider: str
     fallback_used: bool
+    validation_status: str = "validated"
 
 
 def sanitize_model_output(value: str, max_length: int = 1000) -> str:
@@ -86,6 +91,7 @@ async def run_with_validation(
     validate: Callable[[OutputT], None] | None = None,
     settings: Settings | None = None,
     provider_override: AIProvider | None = None,
+    diagnostic_context: dict[str, object] | None = None,
 ) -> AIExecutionResult[OutputT]:
     config = settings or get_settings()
     try:
@@ -97,10 +103,13 @@ async def run_with_validation(
             raise AppError("ai_configuration_error", str(exc), 500) from exc
     attempts = 2 if primary.name == "gemini" else 1
     last_error: Exception | None = None
-    for _ in range(attempts):
+    safe_context = sanitize_model_output(str(diagnostic_context or {}), 1500)
+    for attempt in range(1, attempts + 1):
         started = time.perf_counter()
+        phase = "provider_request"
         try:
             output = await call(primary)
+            phase = "validation"
             if validate:
                 validate(output)
             run = log_ai_run(
@@ -117,9 +126,11 @@ async def run_with_validation(
                 output=output,
                 provider=run.provider,
                 fallback_used=run.fallback_used,
+                validation_status="validated",
             )
         except Exception as exc:  # provider/network/schema boundary
             last_error = exc
+            safe_error = sanitize_model_output(str(exc), 500)
             log_ai_run(
                 db,
                 assessment_id=assessment_id,
@@ -128,30 +139,83 @@ async def run_with_validation(
                 latency_ms=int((time.perf_counter() - started) * 1000),
                 success=False,
                 fallback_used=False,
-                error_message=str(exc),
+                error_message=f"{phase}: {safe_error}",
             )
+            logger.warning(
+                "ai_attempt_failed assessment_id=%s operation=%s provider=%s "
+                "attempt=%s phase=%s exception=%s message=%s context=%s",
+                assessment_id,
+                operation,
+                primary.name,
+                attempt,
+                phase,
+                type(exc).__name__,
+                safe_error,
+                safe_context,
+            )
+            if attempt < attempts and isinstance(exc, GeminiProviderError):
+                if not exc.transient:
+                    break
+                delay = exc.retry_after_seconds
+                if delay is None:
+                    delay = 2.0 if exc.status_code == 429 else 0.5
+                if delay:
+                    await asyncio.sleep(delay)
 
     if primary.name == "gemini" and config.allow_ai_fallback:
         fallback = MockAIProvider()
         started = time.perf_counter()
-        output = await call(fallback)
-        if validate:
-            validate(output)
-        run = log_ai_run(
-            db,
-            assessment_id=assessment_id,
-            operation=operation,
-            provider=fallback,
-            latency_ms=int((time.perf_counter() - started) * 1000),
-            success=True,
-            fallback_used=True,
-            error_message=None,
-        )
-        return AIExecutionResult(
-            output=output,
-            provider=run.provider,
-            fallback_used=run.fallback_used,
-        )
+        try:
+            output = await call(fallback)
+            if validate:
+                validate(output)
+            run = log_ai_run(
+                db,
+                assessment_id=assessment_id,
+                operation=operation,
+                provider=fallback,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                success=True,
+                fallback_used=True,
+                error_message=None,
+            )
+            logger.info(
+                "ai_fallback_completed assessment_id=%s operation=%s provider=%s "
+                "validation_status=validated context=%s",
+                assessment_id,
+                operation,
+                fallback.name,
+                safe_context,
+            )
+            return AIExecutionResult(
+                output=output,
+                provider=run.provider,
+                fallback_used=run.fallback_used,
+                validation_status="validated",
+            )
+        except Exception as exc:
+            safe_error = sanitize_model_output(str(exc), 500)
+            log_ai_run(
+                db,
+                assessment_id=assessment_id,
+                operation=operation,
+                provider=fallback,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                success=False,
+                fallback_used=True,
+                error_message=f"fallback_validation: {safe_error}",
+            )
+            logger.error(
+                "ai_fallback_failed assessment_id=%s operation=%s provider=%s "
+                "exception=%s message=%s context=%s",
+                assessment_id,
+                operation,
+                fallback.name,
+                type(exc).__name__,
+                safe_error,
+                safe_context,
+            )
+            last_error = exc
 
     raise AppError(
         "ai_provider_error",

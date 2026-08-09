@@ -41,6 +41,7 @@ The application still has the locked guest UUID model and no authentication. Pos
 - PostgreSQL data, uploads, backups, and TLS material persist on the EC2/EBS host. EBS encryption protects data at rest; HTTPS protects browser traffic in transit.
 - Application-level backup archives contain sensitive business and evidence data. Keep them mode `600`, encrypt any off-host copy, restrict access, and test restoration.
 - Uploaded raw filenames are not used as storage paths. Nginx access logs omit query strings, while FastAPI logs path, status, latency, and request ID without document content.
+- Evidence diagnostics contain only assessment/batch IDs, file/request IDs, MIME types, byte sizes, provider HTTP status, validation phase, fallback state, and a bounded sanitized exception class/message. They never contain prompts, uploaded bytes, document text, model responses, keys, or full provider response bodies.
 - Define and execute a deletion/retention policy for guest assessments, uploads, logs, and backups before accepting real public submissions. Automatic assessment deletion is not part of the locked product scope.
 
 ## CI/CD protections

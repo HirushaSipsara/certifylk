@@ -56,6 +56,9 @@ export interface EvidenceObservation {
   polarity: string;
   text: string;
   confidence: number;
+  provider?: "gemini" | "mock";
+  fallback_used?: boolean;
+  validation_status?: "validated";
 }
 
 export interface EvidenceAnalysisResponse extends AIExecutionMetadata {

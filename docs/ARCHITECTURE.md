@@ -110,7 +110,7 @@ The current legacy `/profile`, `/process`, `/evidence`, `/clarification`, and `/
 
 ## AI adapter and orchestration
 
-`AIProvider` exposes typed operations for adaptive questions, process extraction, evidence analysis, clarifications, roadmap explanations, and applicability planning. `run_with_validation` selects Mock/Gemini, times the call, validates/sanitizes output, records `ai_runs`, and returns metadata from the exact successful run. Gemini can retry once and use Mock only when allowed.
+`AIProvider` exposes typed operations for adaptive questions, process extraction, evidence analysis, clarifications, roadmap explanations, and applicability planning. `run_with_validation` selects Mock/Gemini, times the call, validates/sanitizes output, records `ai_runs`, and returns metadata from the exact successful run. Gemini can retry once with bounded transient-error backoff and use Mock only when allowed. Evidence analysis reopens stored files, supplies actual image/PDF bytes and MIME types in sequential two-file batches, and persists provenance per observation so a later failed batch cannot relabel an earlier successful Gemini batch.
 
 The target coordinator is a fixed application workflow: applicability → evidence → clarification → deterministic result → narrative. It is not an open-ended autonomous agent. Read-only DB lookup tools may later ground Gemini, but documentation must not claim function calls until implemented.
 
@@ -156,5 +156,5 @@ this network does not expose FastAPI to inbound internet traffic.
 - Only backend environment variables contain Gemini/database credentials.
 - Catalogue IDs, question IDs, evidence types, requirement IDs, source references, and costs are server-controlled.
 - Unverified catalogue rows remain visibly marked.
-- Logs contain request/run metadata but not prompts, raw evidence, keys, or internal exception details.
+- Logs contain bounded request/run and safe evidence-batch diagnostics, including provider status and validation phase, but not prompts, raw evidence, document text, keys, model responses, or full provider response bodies.
 - Migrations must remain backward-compatible with the immediately previous release; persistent data restoration requires explicit operator approval.

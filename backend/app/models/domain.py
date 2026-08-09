@@ -234,6 +234,8 @@ class EvidenceObservation(Base):
     text: Mapped[str] = mapped_column(String(1000), nullable=False)
     confidence: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
     provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    fallback_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    validation_status: Mapped[str] = mapped_column(String(30), default="validated", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

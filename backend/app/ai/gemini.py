@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, TypeVar
 
 import httpx
@@ -29,6 +30,50 @@ OutputT = TypeVar("OutputT", bound=BaseModel)
 
 class GeminiProviderError(RuntimeError):
     """Safe provider-boundary error that excludes prompts and uploaded content."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        reason: str | None = None,
+        retry_after_seconds: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.reason = reason
+        self.retry_after_seconds = retry_after_seconds
+
+    @property
+    def transient(self) -> bool:
+        return self.status_code is None or self.status_code == 429 or self.status_code >= 500
+
+
+SAFE_PROVIDER_ERROR = re.compile(r"[^\x20-\x7e]+")
+
+
+def _safe_provider_error_detail(value: object, max_length: int = 300) -> str:
+    """Keep provider diagnostics useful without logging response bodies or evidence."""
+    text = SAFE_PROVIDER_ERROR.sub(" ", str(value)).strip()
+    return re.sub(r"AIza[A-Za-z0-9_-]+", "[redacted]", text)[:max_length]
+
+
+def _retry_after_seconds(response: httpx.Response, error: dict[str, Any]) -> float | None:
+    header = response.headers.get("retry-after")
+    if header:
+        try:
+            return min(max(float(header), 0.0), 30.0)
+        except ValueError:
+            pass
+    details = error.get("details")
+    if isinstance(details, list):
+        for detail in details:
+            if not isinstance(detail, dict) or "retryDelay" not in detail:
+                continue
+            match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)s", str(detail["retryDelay"]))
+            if match:
+                return min(float(match.group(1)), 30.0)
+    return None
 
 
 class GeminiAIProvider:
@@ -87,8 +132,26 @@ class GeminiAIProvider:
             request_id = response.headers.get("x-request-id") or response.headers.get(
                 "x-goog-request-id"
             )
-            suffix = f" (request {request_id})" if request_id else ""
-            raise GeminiProviderError(f"Gemini returned HTTP {response.status_code}{suffix}")
+            error: dict[str, Any] = {}
+            try:
+                payload = response.json()
+                if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+                    error = payload["error"]
+            except ValueError:
+                pass
+            reason = _safe_provider_error_detail(error.get("status", ""), 80) or None
+            detail = _safe_provider_error_detail(error.get("message", ""))
+            suffix = f" status={reason}" if reason else ""
+            if detail:
+                suffix += f" detail={detail}"
+            if request_id:
+                suffix += f" request={_safe_provider_error_detail(request_id, 100)}"
+            raise GeminiProviderError(
+                f"Gemini returned HTTP {response.status_code}{suffix}",
+                status_code=response.status_code,
+                reason=reason,
+                retry_after_seconds=_retry_after_seconds(response, error),
+            )
 
         try:
             data = response.json()

@@ -61,6 +61,26 @@ class SupportingSchemeEvidenceProvider(MockAIProvider):
         return EvidenceAnalysisOutput(observations=observations)
 
 
+class PartiallyFailingGeminiEvidenceProvider(SupportingSchemeEvidenceProvider):
+    """Test-only Gemini-shaped provider with one consistently failed batch."""
+
+    name = "gemini"
+    model = "test-gemini-multimodal"
+
+    def __init__(self, failed_request_ids: set[str]) -> None:
+        super().__init__()
+        self.failed_request_ids = failed_request_ids
+
+    async def analyze_evidence(
+        self,
+        evidence: list[EvidenceInput],
+        allowed_requirement_ids: set[str],
+    ) -> EvidenceAnalysisOutput:
+        if any(str(item.request_id) in self.failed_request_ids for item in evidence):
+            raise RuntimeError("Synthetic provider batch failure")
+        return await super().analyze_evidence(evidence, allowed_requirement_ids)
+
+
 @pytest.mark.asyncio
 async def test_track1_full_scheme_assessment_integration(db_session: Session):
     """Full Track 1 end-to-end scheme assessment integration test for Fresh Fruit Cordial.
@@ -153,7 +173,7 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
         storage,
         provider=provider,
     )
-    assert len(provider.batches) == 2
+    assert len(provider.batches) == 3
     assert analysis.execution.provider == "mock"
     assert analysis.execution.fallback_used is False
     observations = list(
@@ -165,6 +185,9 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     assert all(item.requirement_id in scheme_req_ids for item in observations)
     assert all(item.scheme_requirement_id == item.requirement_id for item in observations)
     assert all(item.polarity.value == "supports" for item in observations)
+    assert all(item.provider == "mock" for item in observations)
+    assert all(item.fallback_used is False for item in observations)
+    assert all(item.validation_status == "validated" for item in observations)
 
     # 5. Build clarification plan and explicitly verify clarification state handling
     clarification_plan = await plan_final_clarifications(db_session, assessment)
@@ -204,3 +227,97 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     for item in serialized["roadmap"]:
         assert "cost_type" in item
         assert "quote_required" in item
+
+
+@pytest.mark.asyncio
+async def test_evidence_batches_preserve_gemini_successes_and_replace_only_failed_batch(
+    db_session: Session,
+):
+    seed_initial_knowledge_base(db_session)
+    scheme = db_session.get(CertificationScheme, "SLS_MARK_CORDIAL")
+    product = db_session.query(Product).first()
+    assert scheme is not None
+
+    assessment = create_assessment(db_session)
+    assessment.scheme_id = scheme.id
+    assessment.profile_data = {
+        "name": "Synthetic partial batch test",
+        "scale": "Small",
+        "market": ["Domestic Supermarkets"],
+        "product_id": str(product.id) if product else "PROD_CORDIAL",
+    }
+    db_session.flush()
+    save_process_steps(
+        db_session,
+        assessment,
+        ["Receive", "Wash", "Cook", "Fill", "Store"],
+    )
+    assessment.status = AssessmentStatus.PROCESS_COMPLETE
+    await extract_structured_process(db_session, assessment)
+    requests = build_evidence_plan(db_session, assessment)
+    uploaded_requests = requests[:5]
+    storage = MemoryStorageProvider()
+    for request in uploaded_requests:
+        is_photo = request.kind.value == "photo"
+        store_upload(
+            db_session,
+            assessment,
+            request,
+            filename="synthetic.png" if is_photo else "synthetic.pdf",
+            content_type="image/png" if is_photo else "application/pdf",
+            data=(
+                b"\x89PNG\r\n\x1a\nsynthetic"
+                if is_photo
+                else b"%PDF-1.4\n% synthetic test evidence\n%%EOF"
+            ),
+            storage=storage,
+        )
+    for request in requests[5:]:
+        mark_evidence_unavailable(db_session, assessment, request)
+
+    failed_batch_request_ids = {str(uploaded_requests[2].id), str(uploaded_requests[3].id)}
+    provider = PartiallyFailingGeminiEvidenceProvider(failed_batch_request_ids)
+    first = await analyze_uploaded_evidence(
+        db_session,
+        assessment,
+        storage,
+        provider=provider,
+    )
+    assert first.execution.provider == "mock"
+    assert first.execution.fallback_used is True
+
+    persisted = list(
+        db_session.scalars(
+            select(EvidenceObservation)
+            .where(EvidenceObservation.assessment_id == assessment.id)
+            .order_by(EvidenceObservation.evidence_request_id)
+        )
+    )
+    assert len(persisted) == 5
+    by_request = {str(item.evidence_request_id): item for item in persisted}
+    for request in uploaded_requests:
+        observation = by_request[str(request.id)]
+        if str(request.id) in failed_batch_request_ids:
+            assert observation.provider == "mock"
+            assert observation.fallback_used is True
+            assert observation.polarity.value == "unclear"
+        else:
+            assert observation.provider == "gemini"
+            assert observation.fallback_used is False
+            assert observation.polarity.value == "supports"
+        assert observation.validation_status == "validated"
+
+    # A real retry replaces the assessment's observations instead of accumulating rows.
+    retried = await analyze_uploaded_evidence(
+        db_session,
+        assessment,
+        storage,
+        provider=provider,
+    )
+    assert retried.execution.fallback_used is True
+    retry_rows = list(
+        db_session.scalars(
+            select(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
+        )
+    )
+    assert len(retry_rows) == 5

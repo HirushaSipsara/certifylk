@@ -303,6 +303,9 @@ async def evidence_analysis_route(assessment_id: uuid.UUID, db: Db) -> dict[str,
                 polarity=item.polarity.value,
                 text=item.text,
                 confidence=float(item.confidence),
+                provider=item.provider,
+                fallback_used=item.fallback_used,
+                validation_status=item.validation_status,
             )
             for item in analysis.observations
         ],

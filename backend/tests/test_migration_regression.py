@@ -103,6 +103,12 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
         and foreign_key["referred_table"] == "requirements"
         for foreign_key in inspect(engine).get_foreign_keys("evidence_observations")
     )
+    command.upgrade(config, "20260809_0008")
+    observation_columns = {
+        column["name"]: column for column in inspect(engine).get_columns("evidence_observations")
+    }
+    assert observation_columns["fallback_used"]["nullable"] is False
+    assert observation_columns["validation_status"]["nullable"] is False
 
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     with session_factory() as session:
@@ -138,7 +144,12 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
         },
         "requirement_evaluations": {"scheme_id", "scheme_requirement_id"},
         "scheme_cost_items": {"is_quote_required"},
-        "evidence_observations": {"scheme_id", "scheme_requirement_id"},
+        "evidence_observations": {
+            "scheme_id",
+            "scheme_requirement_id",
+            "fallback_used",
+            "validation_status",
+        },
     }
     for table, required in critical_columns.items():
         actual = {column["name"] for column in inspect(engine).get_columns(table)}

@@ -1,4 +1,5 @@
 import type { EvidenceObservation } from "@/types";
+import { AIAnalysisStatus } from "@/components/AIAnalysisStatus";
 
 const presentations = {
   supports: {
@@ -69,6 +70,17 @@ export function EvidenceObservationList({ observations }: { observations: Eviden
             <p className="mt-2 text-xs text-slate-600">
               Requirement reference: {observation.requirement_id}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <AIAnalysisStatus
+                provider={observation.provider}
+                fallback_used={observation.fallback_used}
+              />
+              {observation.validation_status === "validated" ? (
+                <span className="text-xs font-medium text-slate-600">
+                  Structured output validated
+                </span>
+              ) : null}
+            </div>
           </li>
         );
       })}
