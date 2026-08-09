@@ -51,7 +51,7 @@ Every addition requires an Alembic migration and an update to this document.
 
 - `applicability_rule` contains deterministic supplied facts such as supported markets/scales and explanatory source notes.
 - `category_weights` maps scheme category labels to published internal score weights.
-- `evaluation_rule` is a controlled rule description interpreted only by deterministic code.
+- `evaluation_rule` is a controlled rule description interpreted only by deterministic code. SLS Cordial rows reuse the approved question keys/value bands and ordered-process derivation already present in the deterministic catalogue; requirements without an equivalent controlled rule remain evidence-only.
 - market, certifications, options, tags, related IDs, evidence references, and result snapshots are bounded lists/objects validated at service boundaries.
 - `assessments.profile_data.applicability_decision` currently stores decisions, overall reasoning, recommended scheme, exact provider/fallback, and run time.
 

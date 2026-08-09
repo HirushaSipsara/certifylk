@@ -13,7 +13,7 @@ test("one-click Fresh Fruit Cordial sample reaches the readiness roadmap", async
   await expect(page).toHaveURL(/\/assessment\/[^/]+\/result$/);
   await expect(page.getByRole("heading", { name: "Readiness Report & Action Roadmap" })).toBeVisible();
   await expect(page.getByText("Readiness Indicator")).toBeVisible();
-  await expect(page.getByText("Readiness score")).toBeVisible();
+  await expect(page.getByText("Readiness score", { exact: true })).toBeVisible();
   await expect(page.getByText("Confirmed strengths")).toBeVisible();
   await expect(page.getByText("Possible gaps")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Estimated Cost Summary (LKR)" })).toBeVisible();

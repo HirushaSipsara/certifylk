@@ -55,6 +55,7 @@ def calculate_evidence_completeness(evaluations: list[EvaluatedRequirement]) -> 
         return 0
     evidenced = sum(
         item.status in {RequirementStatus.CONFIRMED, RequirementStatus.PARTIAL}
+        and any(reference.startswith("evidence:") for reference in item.evidence_references)
         for item in applicable
     )
     return display_round(Decimal(evidenced) / Decimal(len(applicable)) * Decimal("100"))

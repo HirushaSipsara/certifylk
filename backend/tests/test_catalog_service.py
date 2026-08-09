@@ -46,6 +46,10 @@ def test_scheme_requirements_and_costs(db: Session) -> None:
     reqs = get_scheme_requirements(db, "SLS_MARK_CORDIAL")
     assert len(reqs) == 21
     assert any(r.id == "SLS_HYG_HANDWASH" for r in reqs)
+    rules = {requirement.id: requirement.evaluation_rule for requirement in reqs}
+    assert rules["SLS_HYG_HANDWASH"]["question"] == "HYG_HAND_01"
+    assert rules["SLS_PROC_STAGES"] == {"derived": "process_steps"}
+    assert rules["SLS_DOC_COMPLAINT"] == {}
 
     costs = get_scheme_cost_items(db, "SLS_MARK_CORDIAL")
     assert len(costs) == 8

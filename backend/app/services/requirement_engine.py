@@ -96,9 +96,9 @@ def evaluate_requirement(
         if observation["requirement_id"] == requirement.id
         and Decimal(str(observation["confidence"])) >= Decimal("0.50")
     ]
+    references.extend(f"evidence:{item['id']}" for item in relevant_observations)
     if status == RequirementStatus.UNKNOWN and relevant_observations:
         strongest = max(relevant_observations, key=lambda item: item["confidence"])
-        references.append(f"evidence:{strongest['id']}")
         if strongest["polarity"] == "supports":
             status = RequirementStatus.CONFIRMED
             rationale = "Submitted evidence contains a clear supporting observation."

@@ -1,16 +1,21 @@
+import uuid
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai import MockAIProvider
 from app.models import (
+    AssessmentAnswer,
     AssessmentQuestion,
     CertificationScheme,
     EvidenceObservation,
     Product,
+    RequirementEvaluation,
     SchemeRequirement,
 )
-from app.models.enums import AssessmentStatus
+from app.models.enums import AssessmentStatus, RequirementStatus
 from app.schemas.ai import EvidenceAnalysisOutput, EvidenceInput, EvidenceObservationOutput
 from app.services.assessment_service import create_assessment
 from app.services.evidence_service import (
@@ -27,6 +32,29 @@ from app.services.process_service import (
 from app.services.result_service import generate_scheme_result, serialize_result
 from app.services.seed_service import seed_initial_knowledge_base
 from app.storage import MemoryStorageProvider
+
+POSITIVE_PROCESS_ANSWERS = {
+    "DOC_BATCH_01": "always",
+    "HYG_CLEAN_01": "recorded_each_batch",
+    "HYG_HAND_01": "always",
+    "PACK_LABEL_01": "complete",
+    "PROC_TEMP_01": "thermometer",
+}
+
+
+def _add_answers(db: Session, assessment_id: uuid.UUID, answers: dict[str, str]) -> None:
+    now = datetime.now(timezone.utc)
+    for key, value in answers.items():
+        db.add(
+            AssessmentAnswer(
+                assessment_id=assessment_id,
+                page="adaptive",
+                key=key,
+                value=value,
+                created_at=now,
+            )
+        )
+    db.flush()
 
 
 class SupportingSchemeEvidenceProvider(MockAIProvider):
@@ -227,6 +255,96 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     for item in serialized["roadmap"]:
         assert "cost_type" in item
         assert "quote_required" in item
+
+
+@pytest.mark.asyncio
+async def test_no_uploads_still_score_positive_process_answers(db_session: Session) -> None:
+    seed_initial_knowledge_base(db_session)
+    assessment = create_assessment(db_session)
+    assessment.scheme_id = "SLS_MARK_CORDIAL"
+    assessment.profile_data = {
+        "business_type": "private_limited",
+        "production_scale": "small",
+        "has_food_licence": "yes",
+        "market": ["supermarket"],
+    }
+    save_process_steps(
+        db_session,
+        assessment,
+        [
+            "Receive and inspect fruit",
+            "Wash and extract juice",
+            "Mix and heat to a measured endpoint",
+            "Hot fill and seal bottles",
+            "Label and store finished bottles",
+        ],
+    )
+    _add_answers(db_session, assessment.id, POSITIVE_PROCESS_ANSWERS)
+    assessment.status = AssessmentStatus.READY_TO_SCORE
+
+    result = await generate_scheme_result(db_session, assessment)
+    evaluations = list(
+        db_session.scalars(
+            select(RequirementEvaluation).where(
+                RequirementEvaluation.assessment_id == assessment.id
+            )
+        )
+    )
+    counts = {
+        status: sum(item.status == status for item in evaluations) for status in RequirementStatus
+    }
+
+    assert result.evidence_completeness == 0
+    assert result.overall_score > 0
+    assert counts[RequirementStatus.CONFIRMED] == 6
+    assert counts[RequirementStatus.PARTIAL] == 0
+    assert counts[RequirementStatus.GAP] == 0
+    assert counts[RequirementStatus.UNKNOWN] == 15
+    assert len(result.strengths) == counts[RequirementStatus.CONFIRMED]
+    assert len(result.gaps) == counts[RequirementStatus.PARTIAL] + counts[RequirementStatus.GAP]
+    assert len(result.unknowns) == counts[RequirementStatus.UNKNOWN]
+
+    uncovered_ids = {
+        item.requirement_id
+        for item in evaluations
+        if item.status
+        in {RequirementStatus.PARTIAL, RequirementStatus.GAP, RequirementStatus.UNKNOWN}
+    }
+    roadmap_requirement_ids = {
+        requirement_id
+        for item in result.roadmap_snapshot
+        for requirement_id in item["affected_requirement_ids"]
+    }
+    assert roadmap_requirement_ids
+    assert roadmap_requirement_ids.issubset(uncovered_ids)
+
+
+@pytest.mark.asyncio
+async def test_no_answers_or_evidence_remains_zero_and_explicitly_unknown(
+    db_session: Session,
+) -> None:
+    seed_initial_knowledge_base(db_session)
+    assessment = create_assessment(db_session)
+    assessment.scheme_id = "SLS_MARK_CORDIAL"
+    assessment.profile_data = {}
+    assessment.status = AssessmentStatus.READY_TO_SCORE
+
+    result = await generate_scheme_result(db_session, assessment)
+    evaluations = list(
+        db_session.scalars(
+            select(RequirementEvaluation).where(
+                RequirementEvaluation.assessment_id == assessment.id
+            )
+        )
+    )
+
+    assert result.evidence_completeness == 0
+    assert result.overall_score == 0
+    assert sum(item.status == RequirementStatus.GAP for item in evaluations) == 1
+    assert sum(item.status == RequirementStatus.UNKNOWN for item in evaluations) == 20
+    assert len(result.strengths) == 0
+    assert len(result.gaps) == 1
+    assert len(result.unknowns) == 20
 
 
 @pytest.mark.asyncio

@@ -32,6 +32,36 @@ CAT_FOOD_PRODUCTS = uuid.UUID("11111111-1111-1111-1111-111111111111")
 PROD_CORDIAL = uuid.UUID("22222222-2222-2222-2222-222222222222")
 REVIEWED = date(2026, 8, 7)
 
+SLS_CORDIAL_RULE_SOURCES = {
+    "SLS_HYG_HANDWASH": "HYG_HANDWASH",
+    "SLS_HYG_CLEANING": "HYG_CLEANING",
+    "SLS_HYG_CHEMICAL": "HYG_CHEMICAL",
+    "SLS_HYG_PEST": "HYG_PEST",
+    "SLS_PROC_STAGES": "PROC_STAGES",
+    "SLS_PROC_TEMP": "PROC_TEMP",
+    "SLS_PROC_FILL": "PACK_FILLING",
+    "SLS_PROC_SEP": "PROC_SEPARATION",
+    "SLS_DOC_BATCH": "DOC_BATCH",
+    "SLS_DOC_CLEANING": "DOC_CLEANING",
+    "SLS_SUP_SOURCE": "SUP_SOURCE",
+    "SLS_SUP_REGISTER": "SUP_REGISTER",
+    "SLS_SUP_INCOMING": "SUP_INCOMING",
+    "SLS_PACK_LABEL": "PACK_LABEL",
+    "SLS_PACK_FOODGRADE": "PACK_FOOD_GRADE",
+    "SLS_STORE_INGREDIENT": "STORE_INGREDIENT",
+    "SLS_STORE_FINISHED": "STORE_FINISHED",
+    "SLS_TRACE_BATCH": "TRACE_BATCH",
+    "SLS_TRACE_DIST": "TRACE_DISTRIBUTION",
+}
+
+
+def _sls_cordial_evaluation_rule(requirement_id: str) -> dict[str, Any]:
+    legacy_id = SLS_CORDIAL_RULE_SOURCES.get(requirement_id)
+    if legacy_id is None:
+        return {}
+    source = next(item for item in REQUIREMENTS if item["id"] == legacy_id)
+    return dict(cast(dict[str, Any], source["evaluation_rule"]))
+
 
 def seed_catalogue(db: Session) -> dict[str, int]:
     for item in REQUIREMENTS:
@@ -566,7 +596,7 @@ def seed_catalogue(db: Session) -> dict[str, int]:
                 content_verified=False,
                 standard_version="draft-2026-08",
                 effective_date=REVIEWED,
-                evaluation_rule={},
+                evaluation_rule=_sls_cordial_evaluation_rule(rid),
                 display_order=dorder,
                 active=True,
             )

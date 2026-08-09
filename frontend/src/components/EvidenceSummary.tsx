@@ -23,7 +23,7 @@ export function EvidenceSummary({ strengths, gaps, unknowns }: { strengths: Requ
     <div className="grid gap-4 lg:grid-cols-3">
       <Group title="Confirmed strengths" items={strengths} tone="border-emerald-200 bg-emerald-50" />
       <Group title="Possible gaps" items={gaps} tone="border-amber-200 bg-amber-50" />
-      <Group title="Unknown evidence" items={unknowns} tone="border-slate-200 bg-slate-50" />
+      <Group title="Unknown / not yet verified" items={unknowns} tone="border-slate-200 bg-slate-50" />
     </div>
   );
 }

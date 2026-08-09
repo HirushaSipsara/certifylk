@@ -45,6 +45,8 @@ Statuses and multipliers remain:
 
 A gap requires affirmative evidence of a missing/inadequate practice. Unknown means evidence is insufficient. They score the same but must be displayed and explained separately.
 
+For scheme-specific assessments, controlled `evaluation_rule` mappings may derive a status from an approved profile field, adaptive/clarification answer, ordered process-step completeness, or a validated evidence observation. Answer-derived status therefore contributes to readiness without being represented as uploaded evidence.
+
 For category `c`, with applicable requirement denominator `D_c`, earned points `E_c`, and configured category weight `W_c`:
 
 `category points = (E_c / D_c) × W_c`
@@ -55,7 +57,7 @@ Evidence completeness is separate:
 
 `100 × applicable requirements with confirmed or partial evidence / all applicable requirements`
 
-It is not readiness, AI confidence, or probability of certification.
+Only an accepted evidence observation reference counts in that numerator. Profile answers and process answers may affect readiness but do not increase evidence completeness. It is not readiness, AI confidence, or probability of certification.
 
 ## Evidence references
 

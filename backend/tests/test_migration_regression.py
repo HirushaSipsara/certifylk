@@ -141,6 +141,15 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
             ).scalar_one()
             == "photo"
         )
+        assert (
+            connection.execute(
+                text(
+                    "SELECT evaluation_rule ->> 'question' FROM scheme_requirements "
+                    "WHERE id = 'SLS_HYG_HANDWASH'"
+                )
+            ).scalar_one()
+            == "HYG_HAND_01"
+        )
 
     critical_columns = {
         "assessments": {"scheme_id", "scheme_version", "catalogue_revision"},

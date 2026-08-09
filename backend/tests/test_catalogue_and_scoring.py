@@ -15,6 +15,8 @@ def evaluation(
     category: str,
     weight: int,
     status: RequirementStatus,
+    *,
+    evidence_references: list[str] | None = None,
 ) -> EvaluatedRequirement:
     multiplier = {
         RequirementStatus.CONFIRMED: Decimal("1"),
@@ -31,7 +33,7 @@ def evaluation(
         safety_critical=False,
         status=status,
         multiplier=multiplier,
-        evidence_references=[],
+        evidence_references=evidence_references or [],
         rationale="test",
     )
 
@@ -53,12 +55,29 @@ def test_unknown_and_gap_are_distinct_but_score_zero() -> None:
 
 
 def test_not_applicable_is_safely_normalized() -> None:
-    confirmed = evaluation("yes", "hygiene_sanitation", 5, RequirementStatus.CONFIRMED)
+    confirmed = evaluation(
+        "yes",
+        "hygiene_sanitation",
+        5,
+        RequirementStatus.CONFIRMED,
+        evidence_references=["evidence:test-observation"],
+    )
     excluded = evaluation("na", "hygiene_sanitation", 15, RequirementStatus.NOT_APPLICABLE)
     scores = calculate_category_scores([confirmed, excluded])
     assert scores[0]["score"] == 100
     assert calculate_readiness_score(scores) == Decimal("100.0000")
     assert calculate_evidence_completeness([confirmed, excluded]) == 100
+
+
+def test_answer_only_confirmation_does_not_inflate_evidence_completeness() -> None:
+    answer_only = evaluation(
+        "answer-only",
+        "hygiene_sanitation",
+        5,
+        RequirementStatus.CONFIRMED,
+        evidence_references=["answer.HYG_HAND_01"],
+    )
+    assert calculate_evidence_completeness([answer_only]) == 0
 
 
 def test_costs_exist_only_in_curated_catalogue() -> None:

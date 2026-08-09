@@ -41,3 +41,19 @@ test("API errors are displayed accessibly", () => {
   render(<ErrorAlert message="Submitted data is invalid." />);
   expect(screen.getByRole("alert")).toHaveTextContent("Submitted data is invalid.");
 });
+
+test("zero evidence remains distinct from readiness information and unknowns stay visible", () => {
+  render(
+    <>
+      <ReadinessScoreCard score={28} completeness={0} />
+      <EvidenceSummary
+        strengths={[]}
+        gaps={[]}
+        unknowns={[{ requirement_id: "U", title: "Supplier declaration", status: "unknown", rationale: "Not yet verified", evidence_references: [] }]}
+      />
+    </>,
+  );
+  expect(screen.getByText(/No supporting documents were uploaded/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Unknown \/ not yet verified/ })).toBeInTheDocument();
+  expect(screen.getByText("Supplier declaration")).toBeInTheDocument();
+});

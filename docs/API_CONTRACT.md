@@ -224,6 +224,8 @@ No body. Requires `ready_to_score`. Performs deterministic evaluation/scoring/ro
 
 Calling this endpoint for an already completed assessment is idempotent and returns the stored summary. Returns `409` if incomplete.
 
+Readiness and evidence completeness are independent. Approved profile/process answers can contribute to deterministic requirement readiness when a scheme requirement has a matching controlled `evaluation_rule`; only accepted evidence-observation references contribute to `evidence_completeness`. The result groups `confirmed` requirements under `strengths`, `gap`/`partial` under `gaps`, and insufficiently verified requirements under `unknowns`.
+
 Returns `409` when the assessment is not completed and `404` when no assessment/result exists. The result payload includes nullable `scheme_id`; certificate-scoped assessments expose the selected scheme, while legacy assessments may leave it null.
 
 ## Certification Knowledge Base & Applicability

@@ -25,6 +25,7 @@ A green legacy suite is necessary but does not prove certificate-specific comple
 - Catalogue version/source/reviewer/effective-date rules are enforced.
 - Evidence expectations and observations cannot reference another scheme/version.
 - Scheme evaluation uses only that scheme’s requirements and preserves gap/unknown/not-applicable semantics. Backend service coverage exists; broaden through API/browser as the frontend cutover completes.
+- SLS Cordial no-upload regressions prove positive approved process answers affect readiness while evidence completeness remains zero, and an empty-input case remains zero with explicit gap/unknown counts.
 - Scheme roadmap uses only scheme-linked costs and deterministic priority/gain math. Draft costs remain unverified until source review.
 - Completed snapshots remain unchanged after a later catalogue import.
 
