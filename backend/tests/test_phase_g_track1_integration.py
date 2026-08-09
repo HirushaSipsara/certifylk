@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai import MockAIProvider
 from app.models import (
     AssessmentQuestion,
     CertificationScheme,
@@ -10,6 +11,7 @@ from app.models import (
     SchemeRequirement,
 )
 from app.models.enums import AssessmentStatus
+from app.schemas.ai import EvidenceAnalysisOutput, EvidenceInput, EvidenceObservationOutput
 from app.services.assessment_service import create_assessment
 from app.services.evidence_service import (
     analyze_uploaded_evidence,
@@ -25,6 +27,38 @@ from app.services.process_service import (
 from app.services.result_service import generate_scheme_result, serialize_result
 from app.services.seed_service import seed_initial_knowledge_base
 from app.storage import MemoryStorageProvider
+
+
+class SupportingSchemeEvidenceProvider(MockAIProvider):
+    """Test-only provider proving grounded observations reach scheme scoring."""
+
+    def __init__(self) -> None:
+        self.batches: list[list[EvidenceInput]] = []
+
+    async def analyze_evidence(
+        self,
+        evidence: list[EvidenceInput],
+        allowed_requirement_ids: set[str],
+    ) -> EvidenceAnalysisOutput:
+        self.batches.append(evidence)
+        observations: list[EvidenceObservationOutput] = []
+        for item in evidence:
+            assert item.requirement_context
+            assert all(
+                context.title and context.description for context in item.requirement_context
+            )
+            for requirement_id in item.requirement_ids:
+                if requirement_id in allowed_requirement_ids:
+                    observations.append(
+                        EvidenceObservationOutput(
+                            evidence_request_id=item.request_id,
+                            requirement_id=requirement_id,
+                            polarity="supports",
+                            text="The test evidence directly supports the supplied requirement context.",
+                            confidence=0.91,
+                        )
+                    )
+        return EvidenceAnalysisOutput(observations=observations)
 
 
 @pytest.mark.asyncio
@@ -88,27 +122,40 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
                 f"Evidence request requirement {r_id} does not belong to scheme {scheme.id}"
             )
 
-    # 4. Submit one scheme-bound evidence file, mark the rest unavailable, and analyze.
+    # 4. Submit six scheme-bound files so the service must use multiple bounded batches.
     storage = MemoryStorageProvider()
-    uploaded_request = next(request for request in requests if request.kind.value == "photo")
-    store_upload(
-        db_session,
-        assessment,
-        uploaded_request,
-        filename="handwashing-area.png",
-        content_type="image/png",
-        data=(
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc` \x05"
-            b"\x00\x00\x04\x00\x01\x07\x05\xd3\xd2\x00\x00\x00\x00IEND\xaeB`\x82"
-        ),
-        storage=storage,
-    )
+    uploaded_requests = requests[:6]
+    for request in uploaded_requests:
+        is_photo = request.kind.value == "photo"
+        store_upload(
+            db_session,
+            assessment,
+            request,
+            filename="evidence.png" if is_photo else "evidence.pdf",
+            content_type="image/png" if is_photo else "application/pdf",
+            data=(
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+                b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc` \x05"
+                b"\x00\x00\x04\x00\x01\x07\x05\xd3\xd2\x00\x00\x00\x00IEND\xaeB`\x82"
+                if is_photo
+                else b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF"
+            ),
+            storage=storage,
+        )
     for request in requests:
-        if request.id == uploaded_request.id:
+        if request in uploaded_requests:
             continue
         mark_evidence_unavailable(db_session, assessment, request)
-    await analyze_uploaded_evidence(db_session, assessment, storage)
+    provider = SupportingSchemeEvidenceProvider()
+    analysis = await analyze_uploaded_evidence(
+        db_session,
+        assessment,
+        storage,
+        provider=provider,
+    )
+    assert len(provider.batches) == 2
+    assert analysis.execution.provider == "mock"
+    assert analysis.execution.fallback_used is False
     observations = list(
         db_session.scalars(
             select(EvidenceObservation).where(EvidenceObservation.assessment_id == assessment.id)
@@ -117,6 +164,7 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     assert observations
     assert all(item.requirement_id in scheme_req_ids for item in observations)
     assert all(item.scheme_requirement_id == item.requirement_id for item in observations)
+    assert all(item.polarity.value == "supports" for item in observations)
 
     # 5. Build clarification plan and explicitly verify clarification state handling
     clarification_plan = await plan_final_clarifications(db_session, assessment)
@@ -141,8 +189,9 @@ async def test_track1_full_scheme_assessment_integration(db_session: Session):
     result = await generate_scheme_result(db_session, assessment)
 
     assert result is not None
-    assert result.overall_score >= 0
+    assert result.overall_score > 0
     assert result.overall_score <= 100
+    assert result.evidence_completeness > 0
     assert result.scheme_version == "draft-2026-08"
     assert result.catalogue_revision == "2026-08-07-draft"
 

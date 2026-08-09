@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
 import { ErrorAlert } from "@/components/ErrorAlert";
+import { AIAnalysisStatus } from "@/components/AIAnalysisStatus";
+import { EvidenceObservationList } from "@/components/EvidenceObservationList";
 import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { LoadingState } from "@/components/LoadingState";
@@ -12,7 +14,7 @@ import { EvidenceUploadCard } from "@/components/EvidenceUploadCard";
 import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
 import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 import { api, ApiError } from "@/lib/api";
-import type { EvidenceRequest } from "@/types";
+import type { EvidenceAnalysisResponse, EvidenceRequest } from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
@@ -25,6 +27,7 @@ export default function EvidencePage() {
   const [submitting, setSubmitting] = useState(false);
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<EvidenceAnalysisResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,8 +132,14 @@ export default function EvidencePage() {
 
     setSubmitting(true);
     try {
-      await api.analyzeEvidence(assessmentId);
-      router.push(`/assessment/${assessmentId}/clarification`);
+      const response = await api.analyzeEvidence(assessmentId);
+      setAnalysis(response);
+      setRequests((previous) =>
+        previous.map((request) =>
+          request.status === "uploaded" ? { ...request, status: "analyzed" as const } : request,
+        ),
+      );
+      setSubmitting(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to analyze evidence.");
       setSubmitting(false);
@@ -169,6 +178,72 @@ export default function EvidencePage() {
 
         {error && <ErrorAlert message={error} />}
 
+        {analysis ? (
+          <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-leaf-dark">
+                AI evidence review complete
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-ink">Review the observations</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Supporting observations with sufficient confidence can confirm a requirement.
+                Concerns remain gaps, and unclear observations remain unknown. The deterministic
+                scoring engine—not AI—calculates the report.
+              </p>
+              <div className="mt-3">
+                <AIAnalysisStatus
+                  provider={analysis.provider}
+                  fallback_used={analysis.fallback_used}
+                />
+              </div>
+            </div>
+
+            {analysis.fallback_used ? (
+              <ErrorAlert message="Gemini did not complete every evidence batch, so fallback analysis was used. Review unclear observations and retry the AI analysis before continuing if needed." />
+            ) : null}
+
+            <EvidenceObservationList observations={analysis.observations} />
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-between">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setAnalysis(null)}
+              >
+                Change uploaded evidence
+              </button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={submitting}
+                  onClick={() => {
+                    setSubmitting(true);
+                    setError(null);
+                    void api
+                      .analyzeEvidence(assessmentId)
+                      .then(setAnalysis)
+                      .catch((err: unknown) =>
+                        setError(
+                          err instanceof ApiError ? err.message : "Failed to retry evidence analysis.",
+                        ),
+                      )
+                      .finally(() => setSubmitting(false));
+                  }}
+                >
+                  Retry AI analysis
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => router.push(`/assessment/${assessmentId}/clarification`)}
+                >
+                  Continue to clarifications →
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="space-y-4">
             {requests.map((req) => (
@@ -199,6 +274,7 @@ export default function EvidencePage() {
             </button>
           </div>
         </form>
+        )}
       </main>
     </div>
   );

@@ -198,3 +198,15 @@ def validate_evidence_output(
         if pair in seen_pairs:
             raise ValueError("Duplicate evidence observations are not allowed")
         seen_pairs.add(pair)
+    required_pairs = {
+        (request_id, requirement_id)
+        for request_id, requirement_ids in request_requirements.items()
+        for requirement_id in requirement_ids
+        if len(requirement_ids) == 1
+    }
+    missing_pairs = required_pairs - seen_pairs
+    if missing_pairs:
+        raise ValueError("AI omitted one or more requested evidence observations")
+    observed_requests = {request_id for request_id, _ in seen_pairs}
+    if set(request_requirements) - observed_requests:
+        raise ValueError("AI omitted one or more uploaded evidence requests")

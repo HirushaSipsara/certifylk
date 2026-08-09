@@ -32,10 +32,13 @@ Mandatory or market-required wording must come from reviewed catalogue facts. AI
 ## Evidence and clarification behavior
 
 - Uploaded files/text are wrapped as untrusted evidence data.
+- Evidence files are analyzed in bounded multimodal batches rather than one unbounded request. Each batch receives the selected scheme requirement title, description, source metadata, verification state, and deterministic evaluation rule retrieved from PostgreSQL.
 - Observations reference an uploaded request and a requirement allowed for that exact request.
+- Every certificate-specific uploaded request/requirement pair must receive exactly one validated observation; legacy requests that map one file to multiple requirements must receive at least one. Omitted requests and duplicate pairs fail validation and use the configured retry/fallback path.
 - Polarity is `supports`, `concern`, or `unclear`; confidence remains the model-returned validated 0–1 value.
 - AI does not perform an official pass/fail inspection and must not state a limit from memory.
 - The target scheme-specific operation must receive the retrieved requirement/source/threshold data before comparison.
+- The evidence page shows the completed provider/fallback status, polarity, confidence band, and observation text before the user continues. Retrying is a real new backend analysis request; it is not simulated by a timer.
 - Clarification selects only supplied question IDs linked to unresolved selected-scheme requirements.
 
 ## Roadmap behavior

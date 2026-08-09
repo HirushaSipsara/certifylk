@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import io
@@ -17,6 +18,7 @@ from app.models import (
     EvidenceObservation,
     EvidenceRequest,
     QuestionBank,
+    Requirement,
 )
 from app.models.enums import (
     AssessmentStatus,
@@ -24,7 +26,12 @@ from app.models.enums import (
     ObservationPolarity,
     QuestionPage,
 )
-from app.schemas.ai import EvidenceAnalysisOutput, EvidenceInput, QuestionPlanOutput
+from app.schemas.ai import (
+    EvidenceAnalysisOutput,
+    EvidenceInput,
+    EvidenceRequirementContext,
+    QuestionPlanOutput,
+)
 from app.services.ai_service import (
     AIExecutionResult,
     run_with_validation,
@@ -48,6 +55,59 @@ class PersistedEvidenceAnalysis:
     execution: AIExecutionResult[EvidenceAnalysisOutput]
 
 
+MAX_AI_EVIDENCE_FILES_PER_BATCH = 5
+MAX_AI_EVIDENCE_RAW_BYTES_PER_BATCH = 12 * 1024 * 1024
+MAX_CONCURRENT_EVIDENCE_BATCHES = 3
+
+
+def _partition_evidence_inputs(
+    inputs: list[EvidenceInput],
+    raw_sizes: dict[uuid.UUID, int],
+) -> list[list[EvidenceInput]]:
+    """Bound multimodal requests by file count and approximate raw payload size."""
+    batches: list[list[EvidenceInput]] = []
+    current: list[EvidenceInput] = []
+    current_size = 0
+    for item in inputs:
+        item_size = raw_sizes.get(item.request_id, 0)
+        if current and (
+            len(current) >= MAX_AI_EVIDENCE_FILES_PER_BATCH
+            or current_size + item_size > MAX_AI_EVIDENCE_RAW_BYTES_PER_BATCH
+        ):
+            batches.append(current)
+            current = []
+            current_size = 0
+        current.append(item)
+        current_size += item_size
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _requirement_context_by_id(
+    db: Session,
+    assessment: Assessment,
+) -> dict[str, EvidenceRequirementContext]:
+    if assessment.scheme_id:
+        from app.services.catalog_service import get_scheme_requirements
+
+        requirements = get_scheme_requirements(db, assessment.scheme_id)
+    else:
+        requirements = list(db.scalars(select(Requirement).where(Requirement.active.is_(True))))
+    return {
+        requirement.id: EvidenceRequirementContext(
+            requirement_id=requirement.id,
+            title=requirement.title,
+            description=requirement.description,
+            source_document=str(getattr(requirement, "source_document", "")),
+            clause_reference=str(getattr(requirement, "clause_reference", "")),
+            content_verified=getattr(requirement, "content_verified", None),
+            evaluation_rule=dict(requirement.evaluation_rule or {}),
+        )
+        for requirement in requirements
+    }
+
+
 def get_evidence_request(
     db: Session, assessment_id: uuid.UUID, evidence_request_id: uuid.UUID
 ) -> EvidenceRequest:
@@ -68,10 +128,15 @@ def reset_evidence_request(
     storage: StorageProvider,
 ) -> EvidenceRequest:
     """Remove stored file (if any), delete DB record, and reset request to REQUESTED."""
-    validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence reset")
+    validate_page_transition(
+        assessment,
+        {AssessmentStatus.EVIDENCE_PENDING, AssessmentStatus.EVIDENCE_COMPLETE},
+        "Evidence reset",
+    )
     if request.status not in (
         EvidenceRequestStatus.UPLOADED,
         EvidenceRequestStatus.UNAVAILABLE,
+        EvidenceRequestStatus.ANALYZED,
     ):
         raise TransitionError("Only uploaded or unavailable evidence items can be reset.")
     existing_files = list(
@@ -83,7 +148,14 @@ def reset_evidence_request(
         except Exception:
             pass  # Non-fatal: file may already be missing
         db.delete(evidence_file)
+    db.execute(
+        delete(EvidenceObservation).where(
+            EvidenceObservation.assessment_id == assessment.id,
+            EvidenceObservation.evidence_request_id == request.id,
+        )
+    )
     request.status = EvidenceRequestStatus.REQUESTED
+    update_assessment_progress(assessment, AssessmentStatus.EVIDENCE_PENDING)
     db.commit()
     return request
 
@@ -179,8 +251,13 @@ async def analyze_uploaded_evidence(
     db: Session,
     assessment: Assessment,
     storage: StorageProvider,
+    provider: AIProvider | None = None,
 ) -> PersistedEvidenceAnalysis:
-    validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence analysis")
+    validate_page_transition(
+        assessment,
+        {AssessmentStatus.EVIDENCE_PENDING, AssessmentStatus.EVIDENCE_COMPLETE},
+        "Evidence analysis",
+    )
     requests = list(
         db.scalars(
             select(EvidenceRequest)
@@ -194,6 +271,8 @@ async def analyze_uploaded_evidence(
         db.scalars(select(EvidenceFile).where(EvidenceFile.assessment_id == assessment.id))
     )
     file_by_request = {item.evidence_request_id: item for item in files}
+    raw_sizes = {item.evidence_request_id: item.size_bytes for item in files}
+    contexts = _requirement_context_by_id(db, assessment)
     evidence_inputs: list[EvidenceInput] = []
     for request in requests:
         evidence_file = file_by_request.get(request.id)
@@ -213,6 +292,11 @@ async def analyze_uploaded_evidence(
                 request_id=request.id,
                 evidence_type=request.evidence_type,
                 requirement_ids=request.requirement_ids,
+                requirement_context=[
+                    contexts[requirement_id]
+                    for requirement_id in request.requirement_ids
+                    if requirement_id in contexts
+                ],
                 content_type=evidence_file.content_type,
                 safe_data_summary=wrap_untrusted_evidence_data(
                     f"Stored {request.title}; original content is attached as binary evidence."
@@ -239,17 +323,49 @@ async def analyze_uploaded_evidence(
             for requirement_id in requirement_ids
         }
 
-    async def call(provider: AIProvider) -> EvidenceAnalysisOutput:
-        return await provider.analyze_evidence(evidence_inputs, allowed_requirements)
+    batches = _partition_evidence_inputs(evidence_inputs, raw_sizes)
+    if not batches:
+        batches = [[]]
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_EVIDENCE_BATCHES)
 
-    execution = await run_with_validation(
-        db,
-        assessment.id,
-        "analyze_evidence",
-        call,
-        lambda result: validate_evidence_output(result, request_requirements),
+    async def analyze_batch(
+        batch: list[EvidenceInput],
+    ) -> AIExecutionResult[EvidenceAnalysisOutput]:
+        batch_requirements = {
+            item.request_id: set(item.requirement_ids) & allowed_requirements for item in batch
+        }
+        batch_allowed = {
+            requirement_id
+            for requirement_ids in batch_requirements.values()
+            for requirement_id in requirement_ids
+        }
+
+        async def call(selected_provider: AIProvider) -> EvidenceAnalysisOutput:
+            return await selected_provider.analyze_evidence(batch, batch_allowed)
+
+        async with semaphore:
+            return await run_with_validation(
+                db,
+                assessment.id,
+                "analyze_evidence",
+                call,
+                lambda result: validate_evidence_output(result, batch_requirements),
+                provider_override=provider,
+            )
+
+    executions = await asyncio.gather(*(analyze_batch(batch) for batch in batches))
+    output = EvidenceAnalysisOutput(
+        observations=[
+            observation
+            for batch_execution in executions
+            for observation in batch_execution.output.observations
+        ]
     )
-    output = execution.output
+    execution = AIExecutionResult(
+        output=output,
+        provider=("mock" if any(item.provider == "mock" for item in executions) else "gemini"),
+        fallback_used=any(item.fallback_used for item in executions),
+    )
     observations = merge_evidence_observations(db, assessment, output, file_by_request)
     for request in requests:
         if request.status == EvidenceRequestStatus.UPLOADED:

@@ -23,6 +23,11 @@ const STATUS_BADGES: Record<string, { label: string; className: string; Icon: Re
     className: "bg-amber-100 text-amber-700",
     Icon: XCircle,
   },
+  analyzed: {
+    label: "Analyzed",
+    className: "bg-emerald-100 text-emerald-700",
+    Icon: CheckCircle2,
+  },
   requested: {
     label: "Awaiting upload",
     className: "bg-slate-100 text-slate-600",

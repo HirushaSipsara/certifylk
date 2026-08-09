@@ -1,6 +1,6 @@
 import re
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -77,10 +77,21 @@ class ProcessExtractionOutput(BaseModel):
         return [clean_model_text(value)[:500] for value in values if clean_model_text(value)]
 
 
+class EvidenceRequirementContext(BaseModel):
+    requirement_id: str
+    title: str
+    description: str
+    source_document: str
+    clause_reference: str
+    content_verified: bool | None = None
+    evaluation_rule: dict[str, Any] = Field(default_factory=dict)
+
+
 class EvidenceInput(BaseModel):
     request_id: uuid.UUID
     evidence_type: str
     requirement_ids: list[str]
+    requirement_context: list[EvidenceRequirementContext] = Field(default_factory=list)
     content_type: str
     safe_data_summary: str
     data_base64: str = Field(default="", repr=False)

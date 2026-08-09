@@ -4,6 +4,8 @@ Local base URL: `http://localhost:8000/api/v1`. Production uses same-origin `htt
 
 Process-analysis, evidence-analysis, and applicability responses include read-only execution metadata from the exact successful `ai_runs` record created during that request. `provider` is `gemini` or `mock`. `fallback_used=true` means the primary Gemini path failed and the configured Mock fallback completed the operation. Internal retry attempts are not exposed as live API state.
 
+Evidence analysis may split uploaded files into bounded internal batches. The response combines the validated observations from those exact batch runs. `fallback_used=true` when any batch required fallback; `provider=mock` when any returned observation batch used Mock, otherwise it is `gemini`. Each certificate-specific uploaded request/requirement pair must be represented once; legacy multi-requirement requests must be represented at least once.
+
 The API is transitional. The legacy four-page endpoints remain operational against the global readiness catalogue. The knowledge-base/applicability endpoints select a certification scheme and expose its requirement overview, but certificate-specific evidence/evaluation/result contracts are not yet complete. Planned endpoints or fields are documented only in `FULL_IMPLEMENTATION_PLAN.md`, not as current API behavior.
 
 ## Shared errors
