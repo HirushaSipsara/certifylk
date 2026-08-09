@@ -134,6 +134,14 @@ def test_postgres_historical_migration_sequence_and_seed(monkeypatch: pytest.Mon
     command.upgrade(config, "head")
     command.upgrade(config, "head")
 
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                text("SELECT kind FROM evidence_expectations WHERE id = 'EV_SLS_HYG_HANDWASH'")
+            ).scalar_one()
+            == "photo"
+        )
+
     critical_columns = {
         "assessments": {"scheme_id", "scheme_version", "catalogue_revision"},
         "assessment_results": {

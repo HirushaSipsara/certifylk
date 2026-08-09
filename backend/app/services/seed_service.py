@@ -1896,6 +1896,10 @@ def seed_initial_knowledge_base(db: Session) -> dict[str, int]:
 
 
 def _evidence_kind_for_requirement(requirement: SchemeRequirement) -> str:
+    # This requirement is intentionally image-reviewable: a facility photograph can
+    # show the dedicated sink, soap, and hygienic drying supplies requested by the UI.
+    if requirement.id == "SLS_HYG_HANDWASH":
+        return "photo"
     text = f"{requirement.category_label} {requirement.title}".lower()
     if any(term in text for term in ("micro", "brix", "fruit content", "laboratory", "water")):
         return "lab_report"

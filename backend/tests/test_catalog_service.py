@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import CertificationTrack
 from app.services.catalog_service import (
+    get_evidence_expectations,
     get_scheme,
     get_scheme_cost_items,
     get_scheme_requirements,
@@ -50,6 +51,10 @@ def test_scheme_requirements_and_costs(db: Session) -> None:
     assert len(costs) == 8
 
     assert has_unverified_requirements(db, "SLS_MARK_CORDIAL") is True
+
+    expectations = get_evidence_expectations(db, "SLS_MARK_CORDIAL")
+    handwashing = next(item for item in expectations if item.id == "EV_SLS_HYG_HANDWASH")
+    assert handwashing.kind == "photo"
 
 
 def test_list_schemes_for_product(db: Session) -> None:
