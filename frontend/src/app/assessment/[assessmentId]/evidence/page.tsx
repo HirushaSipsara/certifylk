@@ -9,15 +9,17 @@ import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { LoadingState } from "@/components/LoadingState";
 import { EvidenceUploadCard } from "@/components/EvidenceUploadCard";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 import { api, ApiError } from "@/lib/api";
-import type { EvidenceRequest, SchemeChip } from "@/types";
+import type { EvidenceRequest } from "@/types";
 
 export default function EvidencePage() {
   const params = useParams<{ assessmentId: string }>();
   const assessmentId = params.assessmentId;
   const router = useRouter();
 
-  const [scheme, setScheme] = useState<SchemeChip | null>(null);
+  const { scheme } = useAssessmentScheme(assessmentId);
   const [requests, setRequests] = useState<EvidenceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -30,15 +32,6 @@ export default function EvidencePage() {
       try {
         const a = await api.getAssessment(assessmentId);
         if (cancelled) return;
-
-        // Fetch linked scheme
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
 
         // Fetch evidence plan
         try {
@@ -106,6 +99,23 @@ export default function EvidencePage() {
     }
   }
 
+  async function handleRemove(requestId: string) {
+    setBusyItem(requestId);
+    setError(null);
+    try {
+      await api.removeEvidence(assessmentId, requestId);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: "requested" as const } : r
+        )
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to remove evidence item.");
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -146,15 +156,15 @@ export default function EvidencePage() {
       />
 
       <main className="max-w-3xl mx-auto px-5 py-10 space-y-8">
-        <div>
+        <div className="space-y-3">
           <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-100 px-3 py-1 rounded-full">
             Stage 3 of 5 · Evidence Upload
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Evidence &amp; Documentation</h1>
-          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-slate-600">
             Upload photos of your workspace, labels, water test reports, or mark items currently unavailable.
           </p>
+          {scheme && <SelectedSchemeBanner scheme={scheme} label="Assessing Against" />}
         </div>
 
         {error && <ErrorAlert message={error} />}
@@ -168,6 +178,7 @@ export default function EvidencePage() {
                 busy={busyItem === req.id}
                 onUpload={(file) => handleUpload(req.id, file)}
                 onUnavailable={() => handleUnavailable(req.id)}
+                onRemove={() => handleRemove(req.id)}
               />
             ))}
           </div>

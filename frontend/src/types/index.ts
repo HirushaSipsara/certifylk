@@ -68,6 +68,7 @@ export interface Assessment {
   status: AssessmentStatus;
   current_page: string;
   is_sample: boolean;
+  scheme_id?: string;
   profile: Record<string, unknown>;
   process_steps: Array<{ position: number; text: string }>;
   assigned_questions: Question[];

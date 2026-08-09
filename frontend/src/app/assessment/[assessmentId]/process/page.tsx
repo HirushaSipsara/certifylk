@@ -12,14 +12,16 @@ import { LoadingState } from "@/components/LoadingState";
 import { ProcessStepList, type ProcessFormValues } from "@/components/ProcessStepList";
 import { QuestionCard } from "@/components/QuestionCard";
 import { api, ApiError } from "@/lib/api";
-import type { Question, SchemeChip } from "@/types";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
+import type { Question } from "@/types";
 
 export default function ProcessPage() {
   const params = useParams<{ assessmentId: string }>();
   const assessmentId = params.assessmentId;
   const router = useRouter();
+  const { scheme } = useAssessmentScheme(assessmentId);
 
-  const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, { value: string; other_text?: string }>>({});
   const [loading, setLoading] = useState(true);
@@ -53,15 +55,6 @@ export default function ProcessPage() {
           while (prefill.length < 5) prefill.push("");
           setValue("steps", prefill.slice(0, 5) as [string, string, string, string, string]);
         }
-
-        // Fetch linked scheme
-        const schemes = await api.listSchemes();
-        const linked = schemes.find((s) => {
-          const profileData = a.profile as Record<string, unknown>;
-          const appDec = profileData?.applicability_decision as Record<string, unknown> | undefined;
-          return appDec?.recommended_path_scheme_id === s.id;
-        });
-        if (!cancelled && linked) setScheme(linked);
 
         // Fetch adaptive questions
         try {
@@ -149,10 +142,14 @@ export default function ProcessPage() {
             Stage 2 of 5 · Production Process
           </span>
           <h1 className="text-3xl font-bold text-ink mt-3">Manufacturing &amp; Process Steps</h1>
-          {scheme && <p className="text-xs text-emerald-700 font-medium mt-1">Scheme: {scheme.name}</p>}
           <p className="text-sm text-slate-600 mt-1">
             Describe your step-by-step production flow from raw materials receipt to final packaging and storage.
           </p>
+          {scheme && (
+            <div className="mt-3">
+              <SelectedSchemeBanner scheme={scheme} label="Assessing Against" />
+            </div>
+          )}
         </div>
 
         {error && <ErrorAlert message={error} />}

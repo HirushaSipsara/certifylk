@@ -19,6 +19,8 @@ import { VerificationWarning } from "@/components/VerificationWarning";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorAlert } from "@/components/ErrorAlert";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
+import { useAssessmentScheme } from "@/hooks/useAssessmentScheme";
 
 function groupByCategory(reqs: SchemeRequirement[]): Record<string, SchemeRequirement[]> {
   const result: Record<string, SchemeRequirement[]> = {};
@@ -33,6 +35,7 @@ function groupByCategory(reqs: SchemeRequirement[]): Record<string, SchemeRequir
 export default function RequirementsPage() {
   const params = useParams<{ assessmentId: string }>();
   const assessmentId = params.assessmentId;
+  const { scheme } = useAssessmentScheme(assessmentId);
   const [reqs, setReqs] = useState<SchemeRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +91,11 @@ export default function RequirementsPage() {
           <p className="mt-2 max-w-2xl text-slate-600">
             The requirements that make up this certification scheme, grouped by category.
           </p>
+          {scheme && (
+            <div className="mt-4">
+              <SelectedSchemeBanner scheme={scheme} label="Requirements for Certificate" />
+            </div>
+          )}
         </div>
 
         {hasUnverified && (

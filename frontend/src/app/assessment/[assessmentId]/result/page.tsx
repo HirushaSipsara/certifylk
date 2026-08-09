@@ -14,25 +14,37 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { ReadinessScoreCard } from "@/components/ReadinessScoreCard";
 import { RoadmapChecklist } from "@/components/RoadmapChecklist";
 import { FlowHeader, AssessmentIdChip } from "@/components/FlowHeader";
+import { SelectedSchemeBanner } from "@/components/SelectedSchemeBanner";
 import { VerificationWarning } from "@/components/VerificationWarning";
 import { api, rememberAssessment } from "@/lib/api";
-import type { AssessmentResult } from "@/types";
+import type { AssessmentResult, SchemeChip } from "@/types";
 
 export default function ResultPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const router = useRouter();
   const [result, setResult] = useState<AssessmentResult | null>(null);
+  const [scheme, setScheme] = useState<SchemeChip | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"sample" | "track2" | null>(null);
 
   useEffect(() => {
     api
       .getResult(assessmentId)
-      .then((res) => {
+      .then(async (res) => {
         setResult(res);
         rememberAssessment(assessmentId, {
           schemeName: res.scheme_id ?? "Readiness Assessment",
         });
+        // Resolve scheme display name
+        if (res.scheme_id) {
+          try {
+            const schemes = await api.listSchemes();
+            const found = schemes.find((s) => s.id === res.scheme_id);
+            if (found) setScheme(found);
+          } catch {
+            // Non-fatal: banner simply won't appear
+          }
+        }
       })
       .catch((caught: unknown) =>
         setError(caught instanceof Error ? caught.message : "Could not load the result.")
@@ -104,6 +116,11 @@ export default function ResultPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               An explainable preparation snapshot derived from database-sourced scheme requirements.
             </p>
+            {scheme && (
+              <div className="mt-3">
+                <SelectedSchemeBanner scheme={scheme} label="Report for Certificate" />
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2 print:hidden">
             <button type="button" onClick={handlePrint} className="btn-secondary px-4 py-2 text-sm">

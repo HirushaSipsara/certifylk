@@ -203,6 +203,9 @@ async def generate_result(db: Session, assessment: Assessment) -> AssessmentResu
         unknowns=unknowns,
         cost_summary=cost_summary,
         scoring_version=SCORING_VERSION,
+        # Preserve certificate context even when this legacy-compatible scoring
+        # path is used for a scheme-backed sample assessment.
+        scheme_id=assessment.scheme_id,
     )
     db.add(result)
     db.flush()
@@ -711,4 +714,5 @@ def serialize_result(
         "roadmap": roadmap,
         "cost_summary": result.cost_summary,
         "disclaimer": DISCLAIMER,
+        "scheme_id": result.scheme_id or assessment.scheme_id,
     }

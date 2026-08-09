@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.ai import AIProvider
-from app.core.errors import NotFoundError, TransitionError
+from app.core.errors import AppError, NotFoundError, TransitionError
 from app.models import (
     Assessment,
     AssessmentQuestion,
@@ -34,6 +34,7 @@ from app.services.ai_service import (
 )
 from app.services.assessment_service import update_assessment_progress, validate_page_transition
 from app.services.storage_service import (
+    delete_file,
     generate_safe_storage_key,
     sanitize_original_filename,
     validate_upload,
@@ -60,6 +61,33 @@ def get_evidence_request(
     return request
 
 
+def reset_evidence_request(
+    db: Session,
+    assessment: Assessment,
+    request: EvidenceRequest,
+    storage: StorageProvider,
+) -> EvidenceRequest:
+    """Remove stored file (if any), delete DB record, and reset request to REQUESTED."""
+    validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence reset")
+    if request.status not in (
+        EvidenceRequestStatus.UPLOADED,
+        EvidenceRequestStatus.UNAVAILABLE,
+    ):
+        raise TransitionError("Only uploaded or unavailable evidence items can be reset.")
+    existing_files = list(
+        db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
+    )
+    for evidence_file in existing_files:
+        try:
+            delete_file(storage, evidence_file.storage_key)
+        except Exception:
+            pass  # Non-fatal: file may already be missing
+        db.delete(evidence_file)
+    request.status = EvidenceRequestStatus.REQUESTED
+    db.commit()
+    return request
+
+
 def store_upload(
     db: Session,
     assessment: Assessment,
@@ -71,8 +99,24 @@ def store_upload(
     storage: StorageProvider,
 ) -> EvidenceFile:
     validate_page_transition(assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Evidence upload")
+    # If item was previously resolved (uploaded/unavailable), auto-reset before accepting new upload
+    if request.status in (
+        EvidenceRequestStatus.UPLOADED,
+        EvidenceRequestStatus.UNAVAILABLE,
+    ):
+        existing_files = list(
+            db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
+        )
+        for evidence_file in existing_files:
+            try:
+                delete_file(storage, evidence_file.storage_key)
+            except Exception:
+                pass
+            db.delete(evidence_file)
+        db.flush()
+        request.status = EvidenceRequestStatus.REQUESTED
     if request.status != EvidenceRequestStatus.REQUESTED:
-        raise TransitionError("This evidence request has already been resolved.")
+        raise TransitionError("This evidence request cannot be updated at this stage.")
     extension = validate_upload(
         filename=filename,
         content_type=content_type,
@@ -103,13 +147,29 @@ def store_upload(
 
 
 def mark_evidence_unavailable(
-    db: Session, assessment: Assessment, request: EvidenceRequest
+    db: Session,
+    assessment: Assessment,
+    request: EvidenceRequest,
+    storage: StorageProvider | None = None,
 ) -> EvidenceRequest:
     validate_page_transition(
         assessment, {AssessmentStatus.EVIDENCE_PENDING}, "Mark evidence unavailable"
     )
-    if request.status != EvidenceRequestStatus.REQUESTED:
-        raise TransitionError("This evidence request has already been resolved.")
+    # If previously uploaded, remove the stored file before marking unavailable
+    if request.status == EvidenceRequestStatus.UPLOADED:
+        existing_files = list(
+            db.scalars(select(EvidenceFile).where(EvidenceFile.evidence_request_id == request.id))
+        )
+        for evidence_file in existing_files:
+            if storage:
+                try:
+                    delete_file(storage, evidence_file.storage_key)
+                except Exception:
+                    pass
+            db.delete(evidence_file)
+        db.flush()
+    elif request.status != EvidenceRequestStatus.REQUESTED:
+        raise TransitionError("This evidence request cannot be updated at this stage.")
     request.status = EvidenceRequestStatus.UNAVAILABLE
     db.commit()
     return request
@@ -139,8 +199,15 @@ async def analyze_uploaded_evidence(
         evidence_file = file_by_request.get(request.id)
         if evidence_file is None:
             continue
-        with storage.open_file(evidence_file.storage_key) as source:
-            data = source.read()
+        try:
+            with storage.open_file(evidence_file.storage_key) as source:
+                data = source.read()
+        except FileNotFoundError as exc:
+            raise AppError(
+                "evidence_file_missing",
+                f"Uploaded evidence file for '{request.title}' was not found in storage. Please re-upload the file.",
+                400,
+            ) from exc
         evidence_inputs.append(
             EvidenceInput(
                 request_id=request.id,
