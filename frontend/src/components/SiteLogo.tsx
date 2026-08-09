@@ -1,5 +1,5 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
 
 interface SiteLogoProps {
   href?: string;
@@ -14,9 +14,16 @@ export function SiteLogo({ href = "/", className = "", tone = "default" }: SiteL
     <>
       <span
         aria-hidden="true"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-leaf text-white shadow-soft transition-transform group-hover:scale-105"
+        className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl shadow-soft transition-transform group-hover:scale-105"
       >
-        <ShieldCheck className="h-5 w-5" strokeWidth={2.2} />
+        <Image
+          src="/logo.png"
+          alt=""
+          width={36}
+          height={36}
+          className="h-full w-full object-cover"
+          priority
+        />
       </span>
       <span className={`font-display text-lg font-bold tracking-tight ${wordmark}`}>
         Certify<span className="text-leaf">LK</span>
